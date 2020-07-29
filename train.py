@@ -14,11 +14,11 @@ from utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-parser.add_argument("--train_index_path",
+parser.add_argument("--train_manifest_path",
                     default="dataset/manifest.train",
                     type=str,
                     help="train manifest file path. (default: %(default)s)")
-parser.add_argument("--dev_index_path",
+parser.add_argument("--dev_manifest_path",
                     default="dataset/manifest.dev",
                     type=str,
                     help="train manifest file path. (default: %(default)s)")
