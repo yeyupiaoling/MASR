@@ -24,6 +24,8 @@ args = parser.parse_args()
 
 
 def create_annotation_text(data_dir, annotation_path):
+    if not os.path.exists(annotation_path):
+        os.makedirs(annotation_path)
     print('Create THCHS-30 annotation text ...')
     f_a = codecs.open(os.path.join(annotation_path, 'thchs_30.txt'), 'w', 'utf-8')
     data_path = 'data'

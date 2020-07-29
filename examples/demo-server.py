@@ -1,8 +1,4 @@
 from flask import Flask, request
-import _init_path
-from models.conv import GatedConv
-import sys
-import json
 
 print("Loading model...")
 

@@ -26,6 +26,10 @@ parser.add_argument("--vocab_path",
                     default="dataset/zh_vocab.json",
                     type=str,
                     help="vocab file path. (default: %(default)s)")
+parser.add_argument("--save_model_path",
+                    default="save_model/",
+                    type=str,
+                    help="vocab file path. (default: %(default)s)")
 parser.add_argument("--epochs",
                     default=1000,
                     type=int,
@@ -82,14 +86,13 @@ def train(model,
             epoch_loss += loss.item()
             writer.add_scalar("loss/step", loss.item(), gstep)
             gstep += 1
-            print(
-                "[{}/{}][{}/{}]\tLoss = {}".format(epoch + 1, epochs, i, int(batchs), loss.item()))
+            print("[{}/{}][{}/{}]\tLoss = {}".format(epoch + 1, epochs, i, int(batchs), loss.item()))
         epoch_loss = epoch_loss / batchs
         cer = eval(model, dev_dataloader)
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
         writer.add_scalar("cer/epoch", cer, epoch)
         print("Epoch {}: Loss= {}, CER = {}".format(epoch, epoch_loss, cer))
-        torch.save(model, "pretrained/model_{}.pth".format(epoch))
+        torch.save(model, "{}/model_{}.pth".format(args.save_model_path, epoch))
 
 
 def get_lr(optimizer):

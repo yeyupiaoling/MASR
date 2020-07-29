@@ -50,9 +50,7 @@ class GatedConv(MASRModel):
         x = self.cnn(x)
         for module in self.modules():
             if type(module) == nn.modules.Conv1d:
-                lens = (
-                    lens - module.kernel_size[0] + 2 * module.padding[0]
-                ) // module.stride[0] + 1
+                lens = (lens - module.kernel_size[0] + 2 * module.padding[0]) // module.stride[0] + 1
         return x, lens
 
     def predict(self, path):

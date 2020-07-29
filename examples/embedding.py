@@ -1,9 +1,9 @@
-import _init_path
-from models.conv import GatedConv
-import numpy as np
-import torch
 import heapq
+
+import torch
 from torch.nn.utils import remove_weight_norm
+
+from models.conv import GatedConv
 
 torch.set_grad_enabled(False)
 

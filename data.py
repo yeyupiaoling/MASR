@@ -2,7 +2,6 @@ import torch
 import librosa
 import wave
 import numpy as np
-import scipy
 import json
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset

@@ -22,9 +22,7 @@ def load_audio(wav_path, normalize=True):  # -> numpy array
 
 
 def spectrogram(wav, normalize=True):
-    D = librosa.stft(
-        wav, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window
-    )
+    D = librosa.stft(wav, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window)
 
     spec, phase = librosa.magphase(D)
     spec = np.log1p(spec)
