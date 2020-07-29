@@ -22,7 +22,6 @@ def create_manifest(annotation_path, manifest_path_prefix):
     data_list = []
     s = 0
     for annotation_text in os.listdir(annotation_path):
-        print('The %s manifest takes a long time to create. Please wait ...' % annotation_text)
         annotation_text = os.path.join(annotation_path, annotation_text)
         with codecs.open(annotation_text, 'r', 'utf-8') as f:
             lines = f.readlines()
@@ -52,6 +51,7 @@ def create_manifest(annotation_path, manifest_path_prefix):
             f_train.write(line + '\n')
     f_train.close()
     f_dev.close()
+    print('done.')
 
 
 def is_ustr(in_str):

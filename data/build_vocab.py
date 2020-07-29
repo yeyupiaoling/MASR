@@ -17,7 +17,7 @@ args = parser.parse_args()
 def count_manifest(counter, manifest_path):
     with open(manifest_path, 'r', encoding='utf-8') as f:
         for line in f.readlines():
-            for char in line.strip(',')[1].replace('\n', ''):
+            for char in line.split(',')[1].replace('\n', ''):
                 counter.update(char)
 
 
@@ -34,6 +34,7 @@ def main():
             if count < args.count_threshold: break
             labels.append(char)
         fout.write(str(labels))
+    print("done.")
 
 
 if __name__ == '__main__':
