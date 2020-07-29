@@ -26,8 +26,7 @@ def main():
     print_arguments(args)
 
     counter = Counter()
-    for manifest_path in args.manifest_paths:
-        count_manifest(counter, manifest_path)
+    count_manifest(counter, args.manifest_path)
 
     count_sorted = sorted(counter.items(), key=lambda x: x[1], reverse=True)
     with codecs.open(args.vocab_path, 'w', 'utf-8') as fout:
