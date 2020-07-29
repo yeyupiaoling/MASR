@@ -1,0 +1,9 @@
+torch==1.0.1
+python-Levenshtein
+numpy
+tqdm
+tensorboardX
+tensorboard
+pyaudio
+pytest-runner
+librosa
