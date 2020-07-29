@@ -16,10 +16,10 @@ args = parser.parse_args()
 
 
 def count_manifest(counter, manifest_path):
-    manifest_jsons = read_manifest(manifest_path)
-    for line_json in manifest_jsons:
-        for char in line_json['text']:
-            counter.update(char)
+    with open(manifest_path, 'r', encoding='utf-8') as f:
+        for line in f.readlines():
+            for char in line.strip(',')[1].replace('\n', ''):
+                counter.update(char)
 
 
 def main():
