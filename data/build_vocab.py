@@ -2,7 +2,6 @@ import argparse
 import functools
 import codecs
 from collections import Counter
-from utility import read_manifest
 from utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
