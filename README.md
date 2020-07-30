@@ -1,6 +1,6 @@
 # MASR 中文语音识别
 
-**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目。
+**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[https://github.com/nobody132/masr](https://github.com/nobody132/masr)进行开发的，。
 
 ## 模型原理
 
@@ -78,3 +78,15 @@ python build_vocab.py
 ```
 
 ## 训练模型
+
+执行`train.py`代码开始训练。
+```shell script
+python train.py
+```
+
+ - `train_manifest_path`
+ - `dev_manifest_path`
+ - `vocab_path`
+ - `save_model_path`
+ - `epochs`
+ - `batch_size`

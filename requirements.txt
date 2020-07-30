@@ -1,6 +1,7 @@
 torch==1.0.1
 python-Levenshtein
 numpy
+scipy
 tqdm
 tensorboardX
 tensorboard

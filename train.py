@@ -128,7 +128,7 @@ def eval(model, dataloader):
 
 def main():
     print_arguments(args)
-    with open("data_aishell/labels.json") as f:
+    with open(args.vocab_path) as f:
         vocabulary = json.load(f)
         vocabulary = "".join(vocabulary)
     model = GatedConv(vocabulary)

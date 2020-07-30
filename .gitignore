@@ -1,5 +1,6 @@
 .idea/
 __pycache__/
+save_model/
 models/__pycache__/
 dataset/
 data/__pycache__/
