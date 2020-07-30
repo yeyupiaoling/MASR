@@ -1,3 +1,5 @@
+import time
+
 import torch
 import functools
 import argparse
@@ -104,5 +106,7 @@ if __name__ == '__main__':
     while True:
         _ = input("按下回车键开机录音，录音%s秒中：" % args.record_time)
         record(save_path, time=args.record_time)
+        start = time.time()
         result_text = predict(save_path)
-        print("识别结果：" + result_text)
+        end = time.time()
+        print("识别时间：%dms，识别结果：%s" % (round((end - start) * 1000), result_text))

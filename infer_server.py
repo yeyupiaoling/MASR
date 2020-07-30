@@ -1,5 +1,6 @@
 import argparse
 import functools
+import time
 import torch
 import torch.nn.functional as F
 from ctcdecode import CTCBeamDecoder
@@ -83,7 +84,10 @@ def recognition():
         file_path = "dataset/test" + "." + f.filename.split('.')[-1]
         f.save(file_path)
         try:
+            start = time.time()
             text = predict(file_path)
+            end = time.time()
+            print("识别时间：%dms，识别结果：%s" % (round((end - start) * 1000), text))
             result = str({"code": 0, "msg": "success", "result": text}).replace("'", '"')
             return result
         except:

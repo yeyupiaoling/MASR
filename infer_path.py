@@ -1,3 +1,5 @@
+import time
+
 import torch
 import functools
 import argparse
@@ -32,7 +34,6 @@ num_processes = 4
 blank_index = 0
 
 model = GatedConv.load(args.model_path)
-model.to("cuda")
 model.eval()
 
 decoder = CTCBeamDecoder(model.vocabulary,
@@ -66,5 +67,7 @@ def predict(wav_path):
 
 if __name__ == '__main__':
     print_arguments(args)
+    start = time.time()
     result_text = predict(args.wav_path)
-    print("识别结果：" + result_text)
+    end = time.time()
+    print("识别时间：%dms，识别结果：%s" % (round((end - start) * 1000), result_text))
