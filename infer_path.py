@@ -32,6 +32,7 @@ num_processes = 4
 blank_index = 0
 
 model = GatedConv.load(args.model_path)
+model.to("cuda")
 model.eval()
 
 decoder = CTCBeamDecoder(model.vocabulary,
