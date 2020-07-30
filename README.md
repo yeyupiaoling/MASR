@@ -1,6 +1,6 @@
 # MASR 中文语音识别
 
-**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[https://github.com/nobody132/masr](https://github.com/nobody132/masr) 进行开发的，。
+**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[https://github.com/nobody132/masr](https://github.com/nobody132/masr) 进行开发的。
 
 ## 模型原理
 
@@ -125,3 +125,6 @@ vocab_path: dataset/zh_vocab.json
  - `infer_path.py`的参数`wav_path`为语音识别的的音频路径。
  - `infer_record.py`的参数`record_time`为录音时间。
  - `infer_server.py`的参数`host`为服务的访问地址，当为localhost时，本地访问页面，可以在浏览器chrome上在线录音，其他的地址可以使用选择音频文件上传获取预测结果。
+
+## 参考资料
+1. https://github.com/nobody132/masr
