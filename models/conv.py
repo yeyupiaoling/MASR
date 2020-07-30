@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 from .base import MASRModel
-import feature
+from utils import feature
 
 
 class ConvBlock(nn.Module):
