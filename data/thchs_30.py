@@ -31,11 +31,11 @@ def create_annotation_text(data_dir, annotation_path):
     data_path = 'data'
     for file in os.listdir(os.path.join(data_dir, data_path)):
         if '.trn' in file:
-            file = os.path.join(data_dir[3:], data_path, file)
+            file = os.path.join(data_dir, data_path, file)
             with codecs.open(file, 'r', 'utf-8') as f:
                 line = f.readline()
                 line = ''.join(line.split())
-            f_a.write(file[:-4] + '\t' + line + '\n')
+            f_a.write(file[3:-4] + '\t' + line + '\n')
     f_a.close()
 
 
