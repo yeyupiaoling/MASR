@@ -40,7 +40,17 @@ download_extract('https://dl.bintray.com/boostorg/release/1.67.0/source/boost_1_
 ```shell script
 pip install .
 ```
-
+3. 安装warp-CTC。
+```shell script
+git clone https://github.com/SeanNaren/warp-ctc.git
+cd warp-ctc
+mkdir build
+cd build
+cmake ..
+make
+cd ../pytorch_binding
+python setup.py install
+```
 ## 准备语言模型和数据集
 
 ### 语言模型

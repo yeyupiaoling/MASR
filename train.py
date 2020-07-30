@@ -88,7 +88,7 @@ def train(model,
             gstep += 1
             print("[{}/{}][{}/{}]\tLoss = {}".format(epoch + 1, epochs, i, int(batchs), loss.item()))
         epoch_loss = epoch_loss / batchs
-        cer = eval(model, dev_dataloader)
+        cer = evaluate(model, dev_dataloader)
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
         writer.add_scalar("cer/epoch", cer, epoch)
         print("Epoch {}: Loss= {}, CER = {}".format(epoch, epoch_loss, cer))
@@ -100,7 +100,7 @@ def get_lr(optimizer):
         return param_group["lr"]
 
 
-def eval(model, dataloader):
+def evaluate(model, dataloader):
     model.eval()
     decoder = GreedyDecoder(dataloader.dataset.labels_str)
     cer = 0
@@ -128,8 +128,8 @@ def eval(model, dataloader):
 
 def main():
     print_arguments(args)
-    with open(args.vocab_path) as f:
-        vocabulary = json.load(f)
+    with open(args.vocab_path, 'r', encoding='utf-8') as f:
+        vocabulary = eval(f.read())
         vocabulary = "".join(vocabulary)
     model = GatedConv(vocabulary)
     model.to("cuda")
