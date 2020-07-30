@@ -102,7 +102,7 @@ if __name__ == '__main__':
     CHANNELS = 1
     SAMPWIDTH = 2
     # 临时保存路径
-    save_path = 'dataset/test.wav'
+    save_path = 'dataset/record.wav'
     while True:
         _ = input("按下回车键开机录音，录音%s秒中：" % args.record_time)
         record(save_path, time=args.record_time)

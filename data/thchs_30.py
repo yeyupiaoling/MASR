@@ -5,8 +5,7 @@ import functools
 from utility import download, unpack
 from utility import add_arguments, print_arguments
 
-# URL_ROOT = 'http://www.openslr.org/resources/18'
-URL_ROOT = 'http://192.168.6.177'
+URL_ROOT = 'http://www.openslr.org/resources/18'
 DATA_URL = URL_ROOT + '/data_thchs30.tgz'
 MD5_DATA = '2d2252bde5c8429929e1841d4cb95e90'
 

@@ -2,6 +2,7 @@
 __pycache__/
 save_model/
 models/__pycache__/
-dataset/
+dataset/*
+!dataset/test.wav
 data/__pycache__/
 lm/

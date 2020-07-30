@@ -81,7 +81,7 @@ def recognition():
     f = request.files['audio']
     if f:
         # 临时保存路径
-        file_path = "dataset/test" + "." + f.filename.split('.')[-1]
+        file_path = "dataset/upload" + "." + f.filename.split('.')[-1]
         f.save(file_path)
         try:
             start = time.time()
