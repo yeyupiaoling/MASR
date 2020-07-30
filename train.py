@@ -7,7 +7,6 @@ from warpctc_pytorch import CTCLoss
 from utils import data
 import tensorboardX as tensorboard
 import torch.nn.functional as F
-import json
 import functools
 import argparse
 from data.utility import add_arguments, print_arguments
@@ -30,6 +29,10 @@ parser.add_argument("--save_model_path",
                     default="save_model/",
                     type=str,
                     help="vocab file path. (default: %(default)s)")
+parser.add_argument("--device_ids",
+                    default="0,1",
+                    type=str,
+                    help="use GPU number. (default: %(default)s)")
 parser.add_argument("--epochs",
                     default=1000,
                     type=int,
@@ -54,9 +57,9 @@ def train(model,
     train_dataset = data.MASRDataset(train_manifest_path, vocab_path)
     batchs = (len(train_dataset) + batch_size - 1) // batch_size
     dev_dataset = data.MASRDataset(dev_manifest_path, vocab_path)
-    train_dataloader = data.MASRDataLoader(train_dataset, batch_size=batch_size, num_workers=8)
-    train_dataloader_shuffle = data.MASRDataLoader(train_dataset, batch_size=batch_size, num_workers=8, shuffle=True)
-    dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=batch_size, num_workers=8)
+    train_dataloader = data.MASRDataLoader(train_dataset, batch_size=batch_size * len(device_ids), num_workers=8)
+    train_dataloader_shuffle = data.MASRDataLoader(train_dataset, batch_size=batch_size * len(device_ids), num_workers=8, shuffle=True)
+    dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=batch_size * len(device_ids), num_workers=8)
     parameters = model.parameters()
     optimizer = torch.optim.SGD(parameters,
                                 lr=learning_rate,
@@ -107,7 +110,8 @@ def evaluate(model, dataloader):
     print("decoding")
     with torch.no_grad():
         for i, (x, y, x_lens, y_lens) in tqdm(enumerate(dataloader)):
-            x = x.to("cuda")
+            x, y, x_lens, y_lens = x.cuda(device=device_ids[0]), y.cuda(device=device_ids[0]), \
+                                   x_lens.cuda(device=device_ids[0]), y_lens.cuda(device=device_ids[0])
             outs, out_lens = model(x, x_lens)
             outs = F.softmax(outs, 1)
             outs = outs.transpose(1, 2)
@@ -132,7 +136,8 @@ def main():
         vocabulary = eval(f.read())
         vocabulary = "".join(vocabulary)
     model = GatedConv(vocabulary)
-    model.to("cuda")
+    model = torch.nn.DataParallel(model, device_ids=device_ids)  # 声明所有可用设备
+    model = model.cuda(device=device_ids[0])  # 模型放在主设备
     train(model=model,
           train_manifest_path=args.train_manifest_path,
           dev_manifest_path=args.dev_manifest_path,
@@ -142,4 +147,5 @@ def main():
 
 
 if __name__ == "__main__":
+    device_ids = [int(i) for i in str(args.device_ids).split(',')]
     main()
