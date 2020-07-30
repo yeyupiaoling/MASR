@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from models.conv import GatedConv
 from tqdm import tqdm
-from decoder import GreedyDecoder
+from utils.decoder import GreedyDecoder
 from warpctc_pytorch import CTCLoss
 from utils import data
 import tensorboardX as tensorboard
