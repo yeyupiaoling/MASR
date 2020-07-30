@@ -8,7 +8,7 @@ from flask_cors import CORS
 
 import feature
 from models.conv import GatedConv
-from utility import add_arguments, print_arguments
+from data.utility import add_arguments, print_arguments
 
 app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
 # 允许跨越访问

@@ -5,7 +5,7 @@ import argparse
 import torch.nn.functional as F
 from models.conv import GatedConv
 from ctcdecode import CTCBeamDecoder
-from utility import add_arguments, print_arguments
+from data.utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
