@@ -2,7 +2,6 @@ import argparse
 import codecs
 import functools
 import os
-
 from utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -20,7 +19,6 @@ args = parser.parse_args()
 
 def create_manifest(annotation_path, manifest_path_prefix):
     data_list = []
-    s = 0
     for annotation_text in os.listdir(annotation_path):
         annotation_text = os.path.join(annotation_path, annotation_text)
         with codecs.open(annotation_text, 'r', 'utf-8') as f:

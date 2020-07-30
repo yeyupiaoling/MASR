@@ -31,7 +31,7 @@ def create_annotation_text(data_dir, annotation_path):
                 file = os.path.join(subfolder, file)
                 with codecs.open(file[:-4] + '.txt', 'r', 'utf-8') as f:
                     line = f.readline()
-                f_a.write(file + '\t' + line + '\n')
+                f_a.write(file[3:] + '\t' + line + '\n')
     f_a.close()
 
 
