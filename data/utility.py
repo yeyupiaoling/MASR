@@ -1,10 +1,7 @@
-import codecs
+import distutils.util
 import hashlib
-import json
 import os
 import tarfile
-
-import distutils.util
 
 
 def print_arguments(args):

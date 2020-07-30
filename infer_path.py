@@ -1,9 +1,9 @@
 import torch
-import feature
 import functools
 import argparse
 import torch.nn.functional as F
 from models.conv import GatedConv
+from utils import feature
 from ctcdecode import CTCBeamDecoder
 from data.utility import add_arguments, print_arguments
 

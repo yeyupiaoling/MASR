@@ -6,7 +6,7 @@ from ctcdecode import CTCBeamDecoder
 from flask import request, Flask, render_template
 from flask_cors import CORS
 
-import feature
+from utils import feature
 from models.conv import GatedConv
 from data.utility import add_arguments, print_arguments
 

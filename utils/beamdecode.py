@@ -1,5 +1,5 @@
 import torch
-import feature
+from utils import feature
 from models.conv import GatedConv
 import torch.nn.functional as F
 from ctcdecode import CTCBeamDecoder

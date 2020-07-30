@@ -1,10 +1,10 @@
 import torch
-import feature
 import functools
 import argparse
 import pyaudio
 import wave
 import torch.nn.functional as F
+from utils import feature
 from models.conv import GatedConv
 from ctcdecode import CTCBeamDecoder
 from data.utility import add_arguments, print_arguments

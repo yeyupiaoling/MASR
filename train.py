@@ -1,16 +1,16 @@
 import torch
 import torch.nn as nn
-import data
 from models.conv import GatedConv
 from tqdm import tqdm
 from decoder import GreedyDecoder
 from warpctc_pytorch import CTCLoss
+from utils import data
 import tensorboardX as tensorboard
 import torch.nn.functional as F
 import json
 import functools
 import argparse
-from utility import add_arguments, print_arguments
+from data.utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
