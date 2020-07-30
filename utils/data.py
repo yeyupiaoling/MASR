@@ -1,8 +1,7 @@
-import torch
-import librosa
 import wave
+import librosa
 import numpy as np
-import json
+import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
@@ -39,13 +38,13 @@ def spectrogram(wav, normalize=True):
 
 
 class MASRDataset(Dataset):
-    def __init__(self, index_path, labels_path):
-        with open(index_path) as f:
+    def __init__(self, data_list, labels_path):
+        with open(data_list) as f:
             idx = f.readlines()
         idx = [x.strip().split(",", 1) for x in idx]
         self.idx = idx
         with open(labels_path) as f:
-            labels = json.load(f)
+            labels = eval(f.read())
         self.labels = dict([(labels[i], i) for i in range(len(labels))])
         self.labels_str = labels
 
