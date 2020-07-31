@@ -1,4 +1,5 @@
-torch==1.0.1
+torch==1.6.0+cu101
+torchvision==0.7.0+cu101
 python-Levenshtein
 numpy
 scipy
