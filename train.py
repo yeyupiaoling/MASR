@@ -70,9 +70,7 @@ def train(model,
     ctcloss = CTCLoss(size_average=True)
     if args.restore_model:
         package = torch.load(args.restore_model)
-        print(package)
-        state_dict = package["state_dict"]
-        model.load_state_dict(state_dict)
+        model.load_state_dict(package)
     writer = tensorboard.SummaryWriter()
     gstep = 0
     for epoch in range(epochs):
