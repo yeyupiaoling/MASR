@@ -4,7 +4,7 @@ import torch.nn as nn
 from models.conv import GatedConv
 from tqdm import tqdm
 from utils.decoder import GreedyDecoder
-from warpctc_pytorch import CTCLoss
+from torch.nn import CTCLoss
 from utils import data
 import tensorboardX as tensorboard
 import torch.nn.functional as F
@@ -34,6 +34,10 @@ parser.add_argument("--restore_model",
                     default=None,
                     type=str,
                     help="restore model path. (default: %(default)s)")
+parser.add_argument("--device_ids",
+                    default="0,1",
+                    type=str,
+                    help="use GPU number. (default: %(default)s)")
 parser.add_argument("--epochs",
                     default=1000,
                     type=int,
@@ -56,21 +60,22 @@ def train(model,
           max_grad_norm=0.2,
           weight_decay=0):
     train_dataset = data.MASRDataset(train_manifest_path, vocab_path)
-    batchs = (len(train_dataset) + batch_size - 1) // batch_size
+    batchs = (len(train_dataset) + batch_size - 1) // batch_size * len(device_ids)
     dev_dataset = data.MASRDataset(dev_manifest_path, vocab_path)
-    train_dataloader = data.MASRDataLoader(train_dataset, batch_size=batch_size, num_workers=8)
-    train_dataloader_shuffle = data.MASRDataLoader(train_dataset, batch_size=batch_size, num_workers=8, shuffle=True)
-    dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=batch_size, num_workers=8)
+    train_dataloader = data.MASRDataLoader(train_dataset, batch_size=batch_size * len(device_ids), num_workers=8)
+    train_dataloader_shuffle = data.MASRDataLoader(train_dataset, batch_size=batch_size * len(device_ids),
+                                                   num_workers=8, shuffle=True)
+    dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=batch_size * len(device_ids), num_workers=8)
     parameters = model.parameters()
     optimizer = torch.optim.SGD(parameters,
-                                lr=learning_rate,
+                                lr=learning_rate * len(device_ids),
                                 momentum=momentum,
                                 nesterov=True,
                                 weight_decay=weight_decay)
-    ctcloss = CTCLoss(size_average=True)
+    ctcloss = CTCLoss(zero_infinity=True).cuda(device=device_ids[0])
+    writer = tensorboard.SummaryWriter()
     if args.restore_model:
         model.load(args.restore_model)
-    writer = tensorboard.SummaryWriter()
     gstep = 0
     for epoch in range(epochs):
         epoch_loss = 0
@@ -79,7 +84,7 @@ def train(model,
         lr = get_lr(optimizer)
         writer.add_scalar("lr/epoch", lr, epoch)
         for i, (x, y, x_lens, y_lens) in enumerate(train_dataloader):
-            x = x.cuda()
+            x = x.cuda(device=device_ids[0])
             out, out_lens = model(x, x_lens)
             out = out.transpose(0, 1).transpose(0, 2)
             loss = ctcloss(out, y, out_lens, y_lens)
@@ -96,7 +101,8 @@ def train(model,
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
         writer.add_scalar("cer/epoch", cer, epoch)
         print("Epoch {}: Loss= {}, CER = {}".format(epoch, epoch_loss, cer))
-        torch.save(model, os.path.join(args.save_model_path, "model_{}.pt".format(epoch)))
+        torch.save(model, os.path.join(args.save_model_path, "model_{}.pt".format(epoch)),
+                   _use_new_zipfile_serialization=False)
 
 
 def get_lr(optimizer):
@@ -108,10 +114,10 @@ def evaluate(model, dataloader):
     model.eval()
     decoder = GreedyDecoder(dataloader.dataset.labels_str)
     cer = 0
-    print("decoding")
+    print("decoding...")
     with torch.no_grad():
         for i, (x, y, x_lens, y_lens) in tqdm(enumerate(dataloader)):
-            x = x.cuda()
+            x = x.cuda(device=device_ids[0])
             outs, out_lens = model(x, x_lens)
             outs = F.softmax(outs, 1)
             outs = outs.transpose(1, 2)
@@ -132,13 +138,12 @@ def evaluate(model, dataloader):
 
 def main():
     print_arguments(args)
-    if not os.path.exists(args.save_model_path):
-        os.makedirs(args.save_model_path)
     with open(args.vocab_path, 'r', encoding='utf-8') as f:
         vocabulary = eval(f.read())
         vocabulary = "".join(vocabulary)
     model = GatedConv(vocabulary)
-    model = model.cuda()
+    model = torch.nn.DataParallel(model, device_ids=device_ids)  # 声明所有可用设备
+    model = model.cuda(device=device_ids[0])  # 模型放在主设备
     train(model=model,
           train_manifest_path=args.train_manifest_path,
           dev_manifest_path=args.dev_manifest_path,
@@ -148,4 +153,5 @@ def main():
 
 
 if __name__ == "__main__":
+    device_ids = [int(i) for i in str(args.device_ids).split(',')]
     main()
