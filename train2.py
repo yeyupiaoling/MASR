@@ -68,11 +68,11 @@ def train(model,
     dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=batch_size * len(device_ids), num_workers=8)
     parameters = model.parameters()
     optimizer = torch.optim.SGD(parameters,
-                                lr=learning_rate * len(device_ids),
+                                lr=learning_rate,
                                 momentum=momentum,
                                 nesterov=True,
                                 weight_decay=weight_decay)
-    ctcloss = CTCLoss(zero_infinity=True).cuda(device=device_ids)
+    ctcloss = CTCLoss(zero_infinity=True).cuda(device=device_ids[0])
     writer = tensorboard.SummaryWriter()
     if args.restore_model:
         model.load(args.restore_model)
