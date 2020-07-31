@@ -41,7 +41,7 @@ download_extract('https://dl.bintray.com/boostorg/release/1.67.0/source/boost_1_
 pip install .
 ```
 
-3. 安装warp-CTC，如果安装过程中出现`c10/cuda/CUDAGuard.h: 没有那个文件或目录`错误，将`pytorch_binding/src/binding.cpp`将`#include <c10/cuda/CUDAGuard.h>`修改成`#include "ATen/cuda/CUDAGuard.h"`。
+3. 安装warp-CTC，目前warp-CTC只支持CUDA10.1。如果安装过程中出现`c10/cuda/CUDAGuard.h: 没有那个文件或目录`错误，将`pytorch_binding/src/binding.cpp`将`#include <c10/cuda/CUDAGuard.h>`修改成`#include "ATen/cuda/CUDAGuard.h"`。
 ```shell script
 git clone https://github.com/SeanNaren/warp-ctc.git
 cd warp-ctc

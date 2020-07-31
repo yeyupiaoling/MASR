@@ -30,6 +30,10 @@ parser.add_argument("--save_model_path",
                     default="save_model/",
                     type=str,
                     help="vocab file path. (default: %(default)s)")
+parser.add_argument("--restore_model",
+                    default="save_model/model_1000.pt",
+                    type=str,
+                    help="restore model path. (default: %(default)s)")
 parser.add_argument("--epochs",
                     default=1000,
                     type=int,
@@ -64,7 +68,8 @@ def train(model,
                                 nesterov=True,
                                 weight_decay=weight_decay)
     ctcloss = CTCLoss(size_average=True)
-    # lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.985)
+    if args.restore_model:
+        model.load(args.restore_model)
     writer = tensorboard.SummaryWriter()
     gstep = 0
     for epoch in range(epochs):
@@ -92,8 +97,7 @@ def train(model,
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
         writer.add_scalar("cer/epoch", cer, epoch)
         print("Epoch {}: Loss= {}, CER = {}".format(epoch, epoch_loss, cer))
-        torch.save(model, os.path.join(args.save_model_path, "model_{}.pt".format(epoch)),
-                   _use_new_zipfile_serialization=False)
+        torch.save(model, os.path.join(args.save_model_path, "model_{}.pt".format(epoch)))
 
 
 def get_lr(optimizer):
