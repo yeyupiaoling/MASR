@@ -48,7 +48,7 @@ cd warp-ctc
 mkdir build
 cd build
 cmake ..
-make
+make -j4
 cd ../pytorch_binding
 python setup.py install
 ```
