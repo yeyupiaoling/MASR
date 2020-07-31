@@ -60,7 +60,7 @@ def train(model,
           max_grad_norm=0.2,
           weight_decay=0):
     train_dataset = data.MASRDataset(train_manifest_path, vocab_path)
-    batchs = (len(train_dataset) + batch_size - 1) // batch_size * len(device_ids)
+    batchs = (len(train_dataset) + batch_size - 1) // (batch_size * len(device_ids))
     dev_dataset = data.MASRDataset(dev_manifest_path, vocab_path)
     train_dataloader = data.MASRDataLoader(train_dataset, batch_size=batch_size * len(device_ids), num_workers=8)
     train_dataloader_shuffle = data.MASRDataLoader(train_dataset, batch_size=batch_size * len(device_ids),
@@ -72,7 +72,7 @@ def train(model,
                                 momentum=momentum,
                                 nesterov=True,
                                 weight_decay=weight_decay)
-    ctcloss = CTCLoss(zero_infinity=True).cuda(device=device_ids[0])
+    ctcloss = CTCLoss(zero_infinity=True).cuda(device=device_ids)
     writer = tensorboard.SummaryWriter()
     if args.restore_model:
         model.load(args.restore_model)
