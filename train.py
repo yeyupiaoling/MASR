@@ -31,7 +31,7 @@ parser.add_argument("--save_model_path",
                     type=str,
                     help="vocab file path. (default: %(default)s)")
 parser.add_argument("--restore_model",
-                    default="save_model/model_1000.pt",
+                    default=None,
                     type=str,
                     help="restore model path. (default: %(default)s)")
 parser.add_argument("--epochs",
