@@ -97,7 +97,7 @@ def train(model,
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
         writer.add_scalar("cer/epoch", cer, epoch)
         print("Epoch {}: Loss= {}, CER = {}".format(epoch, epoch_loss, cer))
-        torch.save(model, os.path.join(args.save_model_path, "model_{}.pt".format(epoch)))
+        torch.save(model, os.path.join(args.save_model_path, "model_{}.pth".format(epoch)))
 
 
 def get_lr(optimizer):
@@ -109,7 +109,7 @@ def evaluate(model, dataloader):
     model.eval()
     decoder = GreedyDecoder(dataloader.dataset.labels_str)
     cer = 0
-    print("decoding")
+    print("decoding...")
     with torch.no_grad():
         for i, (x, y, x_lens, y_lens) in tqdm(enumerate(dataloader)):
             x = x.cuda()
