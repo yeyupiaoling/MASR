@@ -16,7 +16,7 @@ parser.add_argument("--model_path",
                     type=str,
                     help="trained model path. (default: %(default)s)")
 parser.add_argument("--lm_path",
-                    default="lm/zh_giga.no_cna_cmn.prune01244.klm",
+                    default="lm/zhidao_giga.klm",
                     type=str,
                     help="language model path. (default: %(default)s)")
 parser.add_argument("--record_time",

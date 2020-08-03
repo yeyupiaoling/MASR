@@ -67,10 +67,12 @@ def train(model,
                                 momentum=momentum,
                                 nesterov=True,
                                 weight_decay=weight_decay)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.8, last_epoch=epochs // 2)
     ctcloss = CTCLoss(size_average=True)
     writer = tensorboard.SummaryWriter()
     gstep = 0
     for epoch in range(epochs):
+        # scheduler.step()
         epoch_loss = 0
         if epoch > 0:
             train_dataloader = train_dataloader_shuffle
