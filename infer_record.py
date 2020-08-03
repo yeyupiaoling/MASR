@@ -34,6 +34,7 @@ num_processes = 4
 blank_index = 0
 
 model = torch.load(args.model_path)
+model = model.cuda()
 model.eval()
 
 decoder = CTCBeamDecoder(model.vocabulary,
@@ -56,6 +57,7 @@ def predict(wav_path):
     spec = feature.spectrogram(wav)
     spec.unsqueeze_(0)
     with torch.no_grad():
+        spec = spec.cuda()
         y = model.cnn(spec)
         y = F.softmax(y, 1)
     y_len = torch.tensor([y.size(-1)])
