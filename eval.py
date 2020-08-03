@@ -66,9 +66,10 @@ def evaluate(model, dataloader):
     with torch.no_grad():
         for i, (x, y, x_lens, y_lens) in tqdm(enumerate(dataloader)):
             x = x.cuda()
-            outs, out_lens = model(x, x_lens)
+            outs = model.cnn(x)
             outs = F.softmax(outs, 1)
-            outs = outs.transpose(1, 2)
+            out_lens = torch.tensor([outs.size(-1)])
+            outs = outs.permute(0, 2, 1)
             ys = []
             offset = 0
             for y_len in y_lens:
