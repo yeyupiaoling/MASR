@@ -55,6 +55,10 @@ decoder = CTCBeamDecoder(model.vocabulary,
                          blank_index)
 
 
+def translate(vocab, out, out_len):
+    return "".join([vocab[x] for x in out[0:out_len]])
+
+
 def evaluate(model, dataloader):
     decoder1 = GreedyDecoder(dataloader.dataset.labels_str)
     cer = 0
@@ -70,7 +74,8 @@ def evaluate(model, dataloader):
             for y_len in y_lens:
                 ys.append(y[offset: offset + y_len])
                 offset += y_len
-            out_strings, out_offsets = decoder.decode(outs, out_lens)
+            out, score, offset, out_len = decoder.decode(outs, out_lens)
+            out_strings = translate(model.vocabulary, out[0][0], out_len[0][0])
             y_strings = decoder1.convert_to_strings(ys)
             for pred, truth in zip(out_strings, y_strings):
                 trans, ref = pred[0], truth[0]
