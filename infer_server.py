@@ -32,6 +32,7 @@ parser.add_argument("--port",
                     type=int,
                     help="server port. (default: %(default)s)")
 args = parser.parse_args()
+print_arguments(args)
 
 alpha = 0.8
 beta = 0.3
@@ -101,5 +102,4 @@ def home():
 
 
 if __name__ == '__main__':
-    print_arguments(args)
     app.run(host=args.host, port=args.port)

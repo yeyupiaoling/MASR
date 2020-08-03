@@ -24,6 +24,7 @@ parser.add_argument("--record_time",
                     type=int,
                     help="record time for second. (default: %(default)s)")
 args = parser.parse_args()
+print_arguments(args)
 
 alpha = 0.8
 beta = 0.3
@@ -95,7 +96,6 @@ def record(wav_path, time=5):
 
 
 if __name__ == '__main__':
-    print_arguments(args)
     # 录音格式
     RATE = 16000
     CHUNK = 1024

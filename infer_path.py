@@ -22,6 +22,7 @@ parser.add_argument("--wav_path",
                     type=str,
                     help="infer audio file path. (default: %(default)s)")
 args = parser.parse_args()
+print_arguments(args)
 
 alpha = 0.8
 beta = 0.3
@@ -66,7 +67,6 @@ def predict(wav_path):
 
 
 if __name__ == '__main__':
-    print_arguments(args)
     start = time.time()
     result_text = predict(args.wav_path)
     end = time.time()

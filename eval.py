@@ -32,6 +32,7 @@ parser.add_argument("--batch_size",
                     type=int,
                     help="number for batch size. (default: %(default)s)")
 args = parser.parse_args()
+print_arguments(args)
 
 alpha = 0.8
 beta = 0.3
@@ -89,7 +90,6 @@ def evaluate(dataloader, dev_manifest_path):
 
 
 def main():
-    print_arguments(args)
     dev_dataset = data.MASRDataset(args.dev_manifest_path, args.vocab_path)
     dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=args.batch_size, num_workers=8)
     cer = evaluate(dev_dataloader, args.dev_manifest_path)
