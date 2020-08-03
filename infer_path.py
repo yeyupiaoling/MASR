@@ -10,7 +10,7 @@ from utils import feature
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 parser.add_argument("--model_path",
-                    default="save_model/model_1.pth",
+                    default="save_model/model.pth",
                     type=str,
                     help="trained model path. (default: %(default)s)")
 parser.add_argument("--lm_path",
