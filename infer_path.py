@@ -1,12 +1,11 @@
+import argparse
+import functools
 import time
 import torch
-import functools
-import argparse
 import torch.nn.functional as F
-from models.conv import GatedConv
-from utils import feature
 from ctcdecode import CTCBeamDecoder
 from data.utility import add_arguments, print_arguments
+from utils import feature
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
@@ -32,7 +31,7 @@ beam_width = 32
 num_processes = 4
 blank_index = 0
 
-model = GatedConv.load(args.model_path)
+model = torch.load(args.model_path)
 model.eval()
 
 decoder = CTCBeamDecoder(model.vocabulary,

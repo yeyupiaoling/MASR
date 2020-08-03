@@ -6,9 +6,7 @@ import torch.nn.functional as F
 from ctcdecode import CTCBeamDecoder
 from flask import request, Flask, render_template
 from flask_cors import CORS
-
 from utils import feature
-from models.conv import GatedConv
 from data.utility import add_arguments, print_arguments
 
 app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
@@ -43,7 +41,7 @@ beam_width = 32
 num_processes = 4
 blank_index = 0
 
-model = GatedConv.load(args.model_path)
+model = torch.load(args.model_path)
 model.eval()
 
 decoder = CTCBeamDecoder(model.vocabulary,

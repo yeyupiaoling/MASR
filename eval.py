@@ -2,10 +2,9 @@ import argparse
 import functools
 import torch
 import torch.nn.functional as F
-from tqdm import tqdm
 from ctcdecode import CTCBeamDecoder
+from tqdm import tqdm
 from data.utility import add_arguments, print_arguments
-from models.conv import GatedConv
 from utils import data
 from utils.decoder import GreedyDecoder
 
@@ -27,10 +26,6 @@ parser.add_argument("--vocab_path",
                     default="dataset/zh_vocab.json",
                     type=str,
                     help="vocab file path. (default: %(default)s)")
-parser.add_argument("--restore_model",
-                    default=None,
-                    type=str,
-                    help="restore model path. (default: %(default)s)")
 parser.add_argument("--batch_size",
                     default=64,
                     type=int,
@@ -45,19 +40,9 @@ beam_width = 32
 num_processes = 4
 blank_index = 0
 
-# model = GatedConv.load(args.model_path)
-# model = model.cuda()
-# model.eval()
-
-
-with open(args.vocab_path, 'r', encoding='utf-8') as f:
-    vocabulary = eval(f.read())
-    vocabulary = "".join(vocabulary)
-model = GatedConv(vocabulary)
+model = torch.load(args.model_path)
 model = model.cuda()
-package = torch.load(args.restore_model)
-model.load_state_dict(package)
-
+model.eval()
 
 decoder = CTCBeamDecoder(model.vocabulary,
                          args.lm_path,
@@ -71,7 +56,6 @@ decoder = CTCBeamDecoder(model.vocabulary,
 
 
 def evaluate(model, dataloader):
-    model.eval()
     decoder1 = GreedyDecoder(dataloader.dataset.labels_str)
     cer = 0
     print("decoding...")
@@ -92,7 +76,6 @@ def evaluate(model, dataloader):
                 trans, ref = pred[0], truth[0]
                 cer += decoder1.cer(trans, ref) / float(len(ref))
         cer /= len(dataloader.dataset)
-    model.train()
     return cer
 
 

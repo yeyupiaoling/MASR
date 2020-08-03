@@ -1,5 +1,4 @@
 import time
-
 import torch
 import functools
 import argparse
@@ -7,7 +6,6 @@ import pyaudio
 import wave
 import torch.nn.functional as F
 from utils import feature
-from models.conv import GatedConv
 from ctcdecode import CTCBeamDecoder
 from data.utility import add_arguments, print_arguments
 
@@ -35,7 +33,7 @@ beam_width = 32
 num_processes = 4
 blank_index = 0
 
-model = GatedConv.load(args.model_path)
+model = torch.load(args.model_path)
 model.eval()
 
 decoder = CTCBeamDecoder(model.vocabulary,
