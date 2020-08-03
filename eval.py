@@ -83,9 +83,7 @@ def evaluate(dataloader, dev_manifest_path):
         for line in tqdm(lines):
             path, label = line.replace('\n', '').split(',')
             out_strings = predict(path)
-            for pred, truth in zip(out_strings, label):
-                trans, ref = pred[0], truth[0]
-                cer += decoder1.cer(trans, ref) / float(len(ref))
+            cer += decoder1.cer(out_strings, label) / float(len(label))
         cer /= len(lines)
     return cer
 

@@ -68,9 +68,6 @@ def train(model,
                                 nesterov=True,
                                 weight_decay=weight_decay)
     ctcloss = CTCLoss(size_average=True)
-    if args.restore_model:
-        package = torch.load(args.restore_model)
-        model.load_state_dict(package)
     writer = tensorboard.SummaryWriter()
     gstep = 0
     for epoch in range(epochs):
@@ -139,6 +136,8 @@ def main():
         vocabulary = eval(f.read())
         vocabulary = "".join(vocabulary)
     model = GatedConv(vocabulary)
+    if args.restore_model:
+        model = torch.load(args.restore_model)
     model = model.cuda()
     train(model=model,
           train_manifest_path=args.train_manifest_path,
