@@ -45,9 +45,19 @@ beam_width = 32
 num_processes = 4
 blank_index = 0
 
-model = GatedConv.load(args.model_path)
-model = model.cuda(1)
-model.eval()
+# model = GatedConv.load(args.model_path)
+# model = model.cuda()
+# model.eval()
+
+
+with open(args.vocab_path, 'r', encoding='utf-8') as f:
+    vocabulary = eval(f.read())
+    vocabulary = "".join(vocabulary)
+model = GatedConv(vocabulary)
+model = model.cuda()
+package = torch.load(args.restore_model)
+model.load_state_dict(package)
+
 
 decoder = CTCBeamDecoder(model.vocabulary,
                          args.lm_path,
@@ -67,7 +77,7 @@ def evaluate(model, dataloader):
     print("decoding...")
     with torch.no_grad():
         for i, (x, y, x_lens, y_lens) in tqdm(enumerate(dataloader)):
-            x = x.cuda(1)
+            x = x.cuda()
             outs, out_lens = model(x, x_lens)
             outs = F.softmax(outs, 1)
             outs = outs.transpose(1, 2)
