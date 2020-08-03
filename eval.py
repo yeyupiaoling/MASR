@@ -2,6 +2,7 @@ import argparse
 import functools
 import torch
 import torch.nn.functional as F
+from utils import feature
 from ctcdecode import CTCBeamDecoder
 from tqdm import tqdm
 from data.utility import add_arguments, print_arguments
@@ -59,29 +60,33 @@ def translate(vocab, out, out_len):
     return "".join([vocab[x] for x in out[0:out_len]])
 
 
-def evaluate(model, dataloader):
-    decoder1 = GreedyDecoder(dataloader.dataset.labels_str)
-    cer = 0
-    print("decoding...")
+def predict(wav_path):
+    wav = feature.load_audio(wav_path)
+    spec = feature.spectrogram(wav)
+    spec.unsqueeze_(0)
     with torch.no_grad():
-        for i, (x, y, x_lens, y_lens) in tqdm(enumerate(dataloader)):
-            x = x.cuda()
-            outs = model.cnn(x)
-            outs = F.softmax(outs, 1)
-            out_lens = torch.tensor([outs.size(-1)])
-            outs = outs.permute(0, 2, 1)
-            ys = []
-            offset = 0
-            for y_len in y_lens:
-                ys.append(y[offset: offset + y_len])
-                offset += y_len
-            out, score, offset, out_len = decoder.decode(outs, out_lens)
-            out_strings = translate(model.vocabulary, out[0][0], out_len[0][0])
-            y_strings = decoder1.convert_to_strings(ys)
-            for pred, truth in zip(out_strings, y_strings):
+        spec = spec.cuda()
+        y = model.cnn(spec)
+        y = F.softmax(y, 1)
+    y_len = torch.tensor([y.size(-1)])
+    y = y.permute(0, 2, 1)
+    out, score, offset, out_len = decoder.decode(y, y_len)
+    return translate(model.vocabulary, out[0][0], out_len[0][0])
+
+
+def evaluate(dataloader, dev_manifest_path):
+    cer = 0
+    decoder1 = GreedyDecoder(dataloader.dataset.labels_str)
+    with open(dev_manifest_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    with torch.no_grad():
+        for line in tqdm(lines):
+            path, label = line.replace('\n', '').split(',')
+            out_strings = predict(path)
+            for pred, truth in zip(out_strings, label):
                 trans, ref = pred[0], truth[0]
                 cer += decoder1.cer(trans, ref) / float(len(ref))
-        cer /= len(dataloader.dataset)
+        cer /= len(lines)
     return cer
 
 
@@ -89,7 +94,7 @@ def main():
     print_arguments(args)
     dev_dataset = data.MASRDataset(args.dev_manifest_path, args.vocab_path)
     dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=args.batch_size, num_workers=8)
-    cer = evaluate(model, dev_dataloader)
+    cer = evaluate(dev_dataloader, args.dev_manifest_path)
     print("CER=%f" % cer)
 
 
