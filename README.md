@@ -60,6 +60,7 @@ python setup.py install
 git clone https://github.com/yeyupiaoling/MASR.git
 cd MASR/
 mkdir lm
+cd lm
 wget https://deepspeech.bj.bcebos.com/zh_lm/zhidao_giga.klm
 ```
 
