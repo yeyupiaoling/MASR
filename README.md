@@ -126,6 +126,12 @@ vocab_path: dataset/zh_vocab.json
  - `infer_path.py`的参数`wav_path`为语音识别的的音频路径。
  - `infer_record.py`的参数`record_time`为录音时间。
  - `infer_server.py`的参数`host`为服务的访问地址，当为localhost时，本地访问页面，可以在浏览器chrome上在线录音，其他的地址可以使用选择音频文件上传获取预测结果。
+ 
+ 
+## 模型下载
+| 训练数据 | 下载链接 |
+| :---: | :---: |
+| 三个公开的数据集 | [点击下载](https://resource.doiduoyi.com/#1i4kigy) |
 
 ## 参考资料
 1. https://github.com/nobody132/masr
