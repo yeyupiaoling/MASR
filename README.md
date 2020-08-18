@@ -1,6 +1,6 @@
 # MASR 中文语音识别
 
-**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[https://github.com/nobody132/masr](https://github.com/nobody132/masr) 进行开发的。
+**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[masr](https://github.com/nobody132/masr) 进行开发的。
 
 ## 模型原理
 
@@ -55,13 +55,13 @@ python setup.py install
 ## 准备语言模型和数据集
 
 ### 语言模型
-下载语言模型并放在lm目录下，以下是下载的是70G的超大语言模型，如果不想使用这么大的，可以下载[Mandarin LM Small](https://deepspeech.bj.bcebos.com/zh_lm/zh_giga.no_cna_cmn.prune01244.klm) ，这个模型会小很多。
+下载语言模型并放在lm目录下，下面下载的小语言模型，如何有足够大性能的机器，可以下载70G的超大语言模型，点击下载[Mandarin LM Large](https://deepspeech.bj.bcebos.com/zh_lm/zhidao_giga.klm) ，这个模型会大超多。
 ```shell script
 git clone https://github.com/yeyupiaoling/MASR.git
 cd MASR/
 mkdir lm
 cd lm
-wget https://deepspeech.bj.bcebos.com/zh_lm/zhidao_giga.klm
+wget https://deepspeech.bj.bcebos.com/zh_lm/zh_giga.no_cna_cmn.prune01244.klm
 ```
 
 ### 语音数据集
@@ -126,6 +126,12 @@ vocab_path: dataset/zh_vocab.json
  - `infer_path.py`的参数`wav_path`为语音识别的的音频路径。
  - `infer_record.py`的参数`record_time`为录音时间。
  - `infer_server.py`的参数`host`为服务的访问地址，当为localhost时，本地访问页面，可以在浏览器chrome上在线录音，其他的地址可以使用选择音频文件上传获取预测结果。
+ 
+ 
+## 模型下载
+| 训练数据 | 下载链接 |
+| :---: | :---: |
+| 三个公开的数据集 | [点击下载](https://resource.doiduoyi.com/#1i4kigy) |
 
 ## 参考资料
 1. https://github.com/nobody132/masr
