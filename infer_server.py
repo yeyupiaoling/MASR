@@ -76,7 +76,7 @@ def predict(wav_path):
     return translate(model.vocabulary, out[0][0], out_len[0][0])
 
 
-# 声纹识别接口
+# 语音识别接口
 @app.route("/recognition", methods=['POST'])
 def recognition():
     f = request.files['audio']
