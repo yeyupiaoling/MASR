@@ -94,7 +94,8 @@ def train(model,
             epoch_loss += loss.item()
             writer.add_scalar("loss/step", loss.item(), gstep)
             gstep += 1
-            print("[{}/{}][{}/{}]\tLoss = {}".format(epoch + 1, epochs, i, int(batchs), loss.item()))
+            if i % 100 == 0:
+                print("[{}/{}][{}/{}]\tLoss = {}".format(epoch + 1, epochs, i, int(batchs), loss.item()))
         epoch_loss = epoch_loss / batchs
         cer = evaluate(model, dev_dataloader)
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
