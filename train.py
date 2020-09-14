@@ -1,4 +1,6 @@
+import datetime
 import os
+import time
 import torch
 import torch.nn as nn
 from models.conv import GatedConv
@@ -83,6 +85,7 @@ def train(model,
         lr = get_lr(optimizer)
         writer.add_scalar("lr/epoch", lr, epoch)
         for i, (x, y, x_lens, y_lens) in enumerate(train_dataloader):
+            start_time = time.time()
             x = x.cuda()
             out, out_lens = model(x, x_lens)
             out = out.transpose(0, 1).transpose(0, 2)
@@ -92,10 +95,14 @@ def train(model,
             nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             optimizer.step()
             epoch_loss += loss.item()
-            writer.add_scalar("loss/step", loss.item(), gstep)
-            gstep += 1
             if i % 100 == 0:
-                print("[{}/{}][{}/{}]\tLoss = {}".format(epoch + 1, epochs, i, int(batchs), loss.item()))
+                writer.add_scalar("loss/step", loss.item(), gstep)
+                gstep += 1
+                remain_step = (epochs - epoch) * batchs - i
+                remain_time = remain_step * (time.time() - start_time)
+                remain_time = str(datetime.timedelta(seconds=int(remain_time)))
+                print("[{}/{}][{}/{}]\tLoss = {:.4f}\tTime remain: {}".format(epoch + 1, epochs, i, int(batchs),
+                                                                              loss.item(), remain_time))
         epoch_loss = epoch_loss / batchs
         cer = evaluate(model, dev_dataloader)
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
