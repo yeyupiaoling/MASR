@@ -27,7 +27,7 @@ https://sites.google.com/site/openfst/home/openfst-down/openfst-1.6.7.tar.gz
 https://dl.bintray.com/boostorg/release/1.67.0/source/boost_1_67_0.tar.gz
 ```
 
-然后回到该源码的根目录，编辑`ctcdecode/build.py`，注释以下4行代码。
+然后回到该源码的根目录，编辑`ctcdecode/setup.py`，注释以下4行代码。
 ```python
 # Download/Extract openfst, boost
 download_extract('https://sites.google.com/site/openfst/home/openfst-down/openfst-1.6.7.tar.gz',
@@ -87,6 +87,19 @@ dataset/audio/wav/0175/H0175A0180.wav 把温度加大到十八
 ```shell script
 python create_manifest.py
 python build_vocab.py
+```
+
+如果你的音频数据集的采样率不一致，在执行`create_manifest.py`的时候可以取消以下这个代码的注释，把所有的音频采样率全部转换成16000Hz。
+```python
+f = wave.open(audio_path, "rb")
+str_data = f.readframes(f.getnframes())
+f.close()
+file = wave.open(audio_path, 'wb')
+file.setnchannels(1)
+file.setsampwidth(4)
+file.setframerate(16000)
+file.writeframes(str_data)
+file.close()
 ```
 
 ## 训练模型

@@ -42,6 +42,10 @@ parser.add_argument("--batch_size",
                     default=64,
                     type=int,
                     help="number for batch size. (default: %(default)s)")
+parser.add_argument("--learning_rate",
+                    default=0.6,
+                    type=int,
+                    help="number for batch size. (default: %(default)s)")
 args = parser.parse_args()
 
 
@@ -51,7 +55,7 @@ def train(model,
           vocab_path,
           epochs,
           batch_size,
-          learning_rate=0.6,
+          learning_rate,
           momentum=0.8,
           max_grad_norm=0.2,
           weight_decay=0):
@@ -146,7 +150,8 @@ def main():
           dev_manifest_path=args.dev_manifest_path,
           vocab_path=args.vocab_path,
           epochs=args.epochs,
-          batch_size=args.batch_size)
+          batch_size=args.batch_size,
+          learning_rate=args.learning_rate)
 
 
 if __name__ == "__main__":
