@@ -101,7 +101,7 @@ def train(model,
                 remain_step = (epochs - epoch) * batchs - i
                 remain_time = remain_step * (time.time() - start_time)
                 remain_time = str(datetime.timedelta(seconds=int(remain_time)))
-                print("[{}/{}][{}/{}]\tLoss = {:.4f}\tTime remain: {}".format(epoch + 1, epochs, i, int(batchs),
+                print("[{}/{}][{}/{}]\tLoss = {:.4f}\tRemain time: {}".format(epoch + 1, epochs, i, int(batchs),
                                                                               loss.item(), remain_time))
         epoch_loss = epoch_loss / batchs
         cer = evaluate(model, dev_dataloader)
