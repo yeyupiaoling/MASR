@@ -37,7 +37,7 @@ parser.add_argument("--restore_model",
                     type=str,
                     help="restore model path. (default: %(default)s)")
 parser.add_argument("--epochs",
-                    default=1000,
+                    default=200,
                     type=int,
                     help="train number. (default: %(default)s)")
 parser.add_argument("--batch_size",

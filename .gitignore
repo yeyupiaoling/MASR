@@ -6,3 +6,4 @@ dataset/*
 !dataset/test.wav
 data/__pycache__/
 lm/
+test.py
