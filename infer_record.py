@@ -5,7 +5,7 @@ import argparse
 import pyaudio
 import wave
 import torch.nn.functional as F
-from utils import feature
+from utils import data
 from ctcdecode import CTCBeamDecoder
 from data.utility import add_arguments, print_arguments
 
@@ -54,8 +54,8 @@ def translate(vocab, out, out_len):
 
 
 def predict(wav_path):
-    wav = feature.load_audio(wav_path)
-    spec = feature.spectrogram(wav)
+    wav = data.load_audio(wav_path)
+    spec = data.spectrogram(wav)
     spec.unsqueeze_(0)
     with torch.no_grad():
         spec = spec.cuda()

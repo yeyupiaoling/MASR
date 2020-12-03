@@ -2,7 +2,6 @@ import argparse
 import functools
 import torch
 import torch.nn.functional as F
-from utils import feature
 from ctcdecode import CTCBeamDecoder
 from tqdm import tqdm
 from data.utility import add_arguments, print_arguments
@@ -46,6 +45,7 @@ model = torch.load(args.model_path)
 model = model.cuda()
 model.eval()
 
+# 创建解码器
 decoder = CTCBeamDecoder(model.vocabulary,
                          args.lm_path,
                          alpha,
@@ -62,8 +62,8 @@ def translate(vocab, out, out_len):
 
 
 def predict(wav_path):
-    wav = feature.load_audio(wav_path)
-    spec = feature.spectrogram(wav)
+    wav = data.load_audio(wav_path)
+    spec = data.spectrogram(wav)
     spec.unsqueeze_(0)
     with torch.no_grad():
         spec = spec.cuda()

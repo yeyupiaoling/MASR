@@ -14,16 +14,17 @@ hop_length = int(sample_rate * window_stride)
 window = "hamming"
 
 
+# 加载二进制音频文件，转成numpy值
 def load_audio(wav_path, normalize=True):  # -> numpy array
     with wave.open(wav_path) as wav:
         wav = np.frombuffer(wav.readframes(wav.getnframes()), dtype="int16")
         wav = wav.astype("float")
     if normalize:
-        return (wav - wav.mean()) / wav.std()
-    else:
-        return wav
+        wav = (wav - wav.mean()) / wav.std()
+    return wav
 
 
+# 把音频数据执行短时傅里叶变换
 def spectrogram(wav, normalize=True):
     D = librosa.stft(wav, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window)
 
@@ -37,6 +38,7 @@ def spectrogram(wav, normalize=True):
     return spec
 
 
+# 音频数据加载器
 class MASRDataset(Dataset):
     def __init__(self, data_list, labels_path):
         with open(data_list) as f:

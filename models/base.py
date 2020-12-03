@@ -25,7 +25,7 @@ class MASRModel(nn.Module):
     def predict(self, *args):
         raise NotImplementedError()
 
-    # -> texts: list, len(list) = B
+    # 把预测结果转换成文字
     def _default_decode(self, yp, yp_lens):
         idxs = yp.argmax(1)
         texts = []

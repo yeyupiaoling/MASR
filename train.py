@@ -62,28 +62,38 @@ def train(model,
           max_grad_norm=0.2,
           weight_decay=0):
     train_dataset = data.MASRDataset(train_manifest_path, vocab_path)
-    batchs = (len(train_dataset) + batch_size - 1) // batch_size
     dev_dataset = data.MASRDataset(dev_manifest_path, vocab_path)
+    # 获取总的batch数量
+    batchs = (len(train_dataset) + batch_size - 1) // batch_size
+    # 获取一个打乱的数据和未打乱的
     train_dataloader = data.MASRDataLoader(train_dataset, batch_size=batch_size, num_workers=8)
     train_dataloader_shuffle = data.MASRDataLoader(train_dataset, batch_size=batch_size, num_workers=8, shuffle=True)
+    # 获取测试数据
     dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=batch_size, num_workers=8)
+    # 定义优化方法
     parameters = model.parameters()
     optimizer = torch.optim.SGD(parameters,
                                 lr=learning_rate,
                                 momentum=momentum,
                                 nesterov=True,
                                 weight_decay=weight_decay)
+    # 学习率衰减
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.8, last_epoch=epochs // 2)
+    # 创建CTC损失函数，该函是DeepSpeech实现的Pytorch版本
     ctcloss = CTCLoss(size_average=True)
+    # 记录日志信息
     writer = tensorboard.SummaryWriter()
     gstep = 0
     for epoch in range(epochs):
         # scheduler.step()
         epoch_loss = 0
+        # 第一次训练使用不打乱的数据
         if epoch > 0:
             train_dataloader = train_dataloader_shuffle
+        # 获取实时的学习率，记录到日志中
         lr = get_lr(optimizer)
         writer.add_scalar("lr/epoch", lr, epoch)
+        # 开始一轮训练
         for i, (x, y, x_lens, y_lens) in enumerate(train_dataloader):
             start_time = time.time()
             x = x.cuda()
@@ -107,8 +117,8 @@ def train(model,
         cer = evaluate(model, dev_dataloader)
         writer.add_scalar("loss/epoch", epoch_loss, epoch)
         writer.add_scalar("cer/epoch", cer, epoch)
-        print("Epoch {}: Loss= {}, CER = {}".format(epoch, epoch_loss, cer))
-        torch.save(model, os.path.join(args.save_model_path, "model_{}.pth".format(epoch)))
+        print("Epoch {}: Loss= {}, CER = {}".format(epoch + 1, epoch_loss, cer))
+        torch.save(model, os.path.join(args.save_model_path, "model_{}.pth".format(epoch + 1)))
 
 
 def get_lr(optimizer):
@@ -144,12 +154,16 @@ def evaluate(model, dataloader):
 
 def main():
     print_arguments(args)
+    # 创建保存模型的文件夹
     if not os.path.exists(args.save_model_path):
         os.makedirs(args.save_model_path)
+    # 加载数据字典
     with open(args.vocab_path, 'r', encoding='utf-8') as f:
         vocabulary = eval(f.read())
         vocabulary = "".join(vocabulary)
+    # 获取模型
     model = GatedConv(vocabulary)
+    # 加载预训练模型
     if args.restore_model:
         model = torch.load(args.restore_model)
     model = model.cuda()

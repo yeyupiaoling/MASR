@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from ctcdecode import CTCBeamDecoder
 from flask import request, Flask, render_template
 from flask_cors import CORS
-from utils import feature
+from utils import data
 from data.utility import add_arguments, print_arguments
 
 app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
@@ -62,8 +62,8 @@ def translate(vocab, out, out_len):
 
 
 def predict(wav_path):
-    wav = feature.load_audio(wav_path)
-    spec = feature.spectrogram(wav)
+    wav = data.load_audio(wav_path)
+    spec = data.spectrogram(wav)
     spec.unsqueeze_(0)
     with torch.no_grad():
         spec = spec.cuda()

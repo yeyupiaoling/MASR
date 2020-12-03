@@ -4,7 +4,7 @@
 
 ## 模型原理
 
-MASR使用的是门控卷积神经网络（Gated Convolutional Network），网络结构类似于Facebook在2016年提出的Wav2letter，只使用卷积神经网络（CNN）实现的语音识别。但是使用的激活函数不是`ReLU`或者是`HardTanh`，而是`GLU`（门控线性单元）。因此称作门控卷积网络。根据我的实验，使用`GLU`的收敛速度比`HardTanh`要快。
+MASR使用的是门控卷积神经网络（Gated Convolutional Network），网络结构类似于Facebook在2016年提出的Wav2letter，只使用卷积神经网络（CNN）实现的语音识别。但是使用的激活函数不是`ReLU`或者是`HardTanh`，而是`GLU`（门控线性单元）。因此称作门控卷积网络。根据实验结显示，使用`GLU`的收敛速度比`HardTanh`要快。
 
 **以下用字错误率CER来衡量模型的表现，CER = 编辑距离 / 句子长度，越低越好，大致可以理解为 1 - CER 就是识别准确率。**
 
@@ -145,6 +145,7 @@ vocab_path: dataset/zh_vocab.json
 | 训练数据 | 下载链接 |
 | :---: | :---: |
 | 三个公开的数据集 | [点击下载](https://resource.doiduoyi.com/#1i4kigy) |
+| 超大数据集（超过1300小时） | [点击下载](https://share.weiyun.com/2iYrdAAk) |
 
 ## 参考资料
 1. https://github.com/nobody132/masr
