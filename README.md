@@ -126,11 +126,14 @@ save_model_path: save_model/
 train_manifest_path: dataset/manifest.train
 vocab_path: dataset/zh_vocab.json
 ------------------------------------------------
-[1/1000][0/415]	Loss = 3498.923828125
-[1/1000][1/415]	Loss = 3244.679443359375
-[1/1000][2/415]	Loss = 2989.6904296875
-[1/1000][3/415]	Loss = 875.3290405273438
-[1/1000][4/415]	Loss = 411.30633544921875
+[2/200][26600/48334]	Loss = 32.5724	Remain time: 45 days, 18:03:00
+[2/200][26700/48334]	Loss = 21.3798	Remain time: 32 days, 22:29:04
+[2/200][26800/48334]	Loss = 26.1648	Remain time: 35 days, 2:18:24
+[2/200][26900/48334]	Loss = 19.1140	Remain time: 31 days, 11:30:28
+[2/200][27000/48334]	Loss = 19.2719	Remain time: 28 days, 17:53:47
+[2/200][27100/48334]	Loss = 23.5359	Remain time: 33 days, 18:43:57
+[2/200][27200/48334]	Loss = 22.5717	Remain time: 35 days, 18:35:44
+[2/200][27300/48334]	Loss = 19.6255	Remain time: 28 days, 17:17:51
 ```
 
 ## 预测
