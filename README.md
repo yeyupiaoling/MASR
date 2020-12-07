@@ -148,7 +148,7 @@ vocab_path: dataset/zh_vocab.json
 | 训练数据 | 下载链接 |
 | :---: | :---: |
 | 三个公开的数据集 | [点击下载](https://resource.doiduoyi.com/#1i4kigy) |
-| 超大数据集（超过1300小时） | [点击下载](https://share.weiyun.com/2iYrdAAk) |
+| 超大数据集（超过1300小时） | [点击下载](https://resource.doiduoyi.com/#989c55c) |
 
 ## 参考资料
 1. https://github.com/nobody132/masr
