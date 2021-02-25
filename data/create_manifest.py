@@ -2,6 +2,8 @@ import argparse
 import codecs
 import functools
 import os
+import wave
+
 from utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -14,6 +16,10 @@ parser.add_argument("--manifest_prefix",
                     default="../dataset/",
                     type=str,
                     help="Filepath prefix for output manifests. (default: %(default)s)")
+parser.add_argument("--is_change_frame_rate",
+                    default=False,
+                    type=bool,
+                    help="Whether to change the audio to 16000Hz uniformly, it will consume a lot of time. (default: %(default)s)")
 args = parser.parse_args()
 
 
@@ -25,17 +31,17 @@ def create_manifest(annotation_path, manifest_path_prefix):
             lines = f.readlines()
         for line in lines:
             audio_path = line.split('\t')[0]
-
             # 重新调整音频格式并保存
-            # f = wave.open(audio_path, "rb")
-            # str_data = f.readframes(f.getnframes())
-            # f.close()
-            # file = wave.open(audio_path, 'wb')
-            # file.setnchannels(1)
-            # file.setsampwidth(4)
-            # file.setframerate(16000)
-            # file.writeframes(str_data)
-            # file.close()
+            if args.is_change_frame_rate:
+                f = wave.open(audio_path, "rb")
+                str_data = f.readframes(f.getnframes())
+                f.close()
+                file = wave.open(audio_path, 'wb')
+                file.setnchannels(1)
+                file.setsampwidth(4)
+                file.setframerate(16000)
+                file.writeframes(str_data)
+                file.close()
 
             text = is_ustr(line.split('\t')[1].replace('\n', '').replace('\r', ''))
             data_list.append(audio_path + "," + text)
