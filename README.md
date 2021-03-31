@@ -1,6 +1,6 @@
 # MASR 中文语音识别
 
-**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[masr](https://github.com/nobody132/masr) 进行开发的。
+**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[masr](https://github.com/nobody132/masr) 进行开发的。本项目已暂停维护，推荐使用识别效果更好的企业级模型[DeepSpeech2](https://github.com/yeyupiaoling/PaddlePaddle-DeepSpeech) 。
 
 ## 模型原理
 
