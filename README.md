@@ -1,7 +1,6 @@
 # MASR 中文语音识别
 
-**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[masr](https://github.com/nobody132/masr) 进行开发的。本项目已暂停维护，推荐使用识别效果更好的企业级模型[DeepSpeech2](https://github.com/yeyupiaoling/PaddlePaddle-DeepSpeech) 。
-
+**MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[masr](https://github.com/nobody132/masr) 进行开发的。
 ## 模型原理
 
 MASR使用的是门控卷积神经网络（Gated Convolutional Network），网络结构类似于Facebook在2016年提出的Wav2letter，只使用卷积神经网络（CNN）实现的语音识别。但是使用的激活函数不是`ReLU`或者是`HardTanh`，而是`GLU`（门控线性单元）。因此称作门控卷积网络。根据实验结显示，使用`GLU`的收敛速度比`HardTanh`要快。
