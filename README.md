@@ -1,4 +1,7 @@
-# MASR 中文语音识别
+# MASR 中文语音识别（旧版本）
+
+
+**这是旧版本，[新版本](https://github.com/yeyupiaoling/MASR) 使用更简单，准确率更高哦！**
 
 **MASR**是一个基于**端到端的深度神经网络**的**中文普通话语音识别**项目，本项目是基于[masr](https://github.com/nobody132/masr) 进行开发的。
 ## 模型原理
@@ -144,6 +147,9 @@ vocab_path: dataset/zh_vocab.json
  
  
 ## 模型下载
+
+**注意：** 新版本的模型和旧版本的模型不通用，请在对应的分支使用各自的模型。
+
 | 训练数据 | 下载链接 |
 | :---: | :---: |
 | 三个公开的数据集 | [点击下载](https://download.csdn.net/download/qq_33200967/14028460) |
