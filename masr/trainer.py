@@ -1,18 +1,18 @@
 import io
 import json
 import os
+import platform
 import shutil
 import sys
-import platform
 import time
 from collections import Counter
 from datetime import datetime
 from datetime import timedelta
-from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
 
 import torch
 import torch.distributed as dist
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import DataLoader
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualdl import LogWriter
@@ -22,7 +22,7 @@ from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.data_utils.normalizer import FeatureNormalizer
 from masr.data_utils.reader import PPASRDataset
-from masr.data_utils.sampler import SortagradBatchSampler, SortagradDistributedBatchSampler
+from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.model_utils.deepspeech2.model import DeepSpeech2Model
 from masr.model_utils.utils import DeepSpeech2ModelExport
@@ -199,9 +199,9 @@ class PPASRTrainer(object):
         nranks = torch.cuda.device_count()
         local_rank = 0
         if nranks > 1:
-            local_rank = dist.get_rank()
             # 初始化NCCL环境
             dist.init_process_group(backend='nccl')
+            local_rank = dist.get_rank()
         if local_rank == 0:
             # 日志记录器
             writer = LogWriter(logdir='log')
@@ -218,28 +218,26 @@ class PPASRTrainer(object):
                                      min_duration=min_duration,
                                      max_duration=max_duration,
                                      augmentation_config=augmentation_config)
-        # # 设置支持多卡训练
-        # if nranks > 1:
-        #     train_batch_sampler = SortagradDistributedBatchSampler(train_dataset,
-        #                                                            batch_size=batch_size,
-        #                                                            sortagrad=True,
-        #                                                            drop_last=True,
-        #                                                            shuffle=True)
-        # else:
-        #     train_batch_sampler = SortagradBatchSampler(train_dataset,
-        #                                                 batch_size=batch_size,
-        #                                                 sortagrad=True,
-        #                                                 drop_last=True,
-        #                                                 shuffle=True)
+        # 设置支持多卡训练
+        if nranks > 1:
+            train_batch_sampler = DSElasticDistributedSampler(train_dataset,
+                                                              batch_size=batch_size,
+                                                              sortagrad=True,
+                                                              drop_last=True,
+                                                              shuffle=True)
+        else:
+            train_batch_sampler = DSRandomSampler(train_dataset,
+                                                  batch_size=batch_size,
+                                                  sortagrad=True,
+                                                  drop_last=True,
+                                                  shuffle=True)
         if nranks > 1:
             train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
         else:
             train_sampler = None
         train_loader = DataLoader(dataset=train_dataset,
-                                  batch_size=batch_size,
                                   collate_fn=collate_fn,
-                                  sampler=train_sampler,
-                                  shuffle=False,
+                                  batch_sampler=train_batch_sampler,
                                   num_workers=self.num_workers)
         # 获取测试数据
         test_dataset = PPASRDataset(self.test_manifest, self.dataset_vocab,
@@ -300,7 +298,8 @@ class PPASRTrainer(object):
         best_test_cer = 1
         train_times = []
         sum_batch = len(train_loader) * num_epoch
-        writer.add_scalar('Train/lr', scheduler.get_last_lr()[0], last_epoch)
+        if local_rank == 0:
+            writer.add_scalar('Train/lr', scheduler.get_last_lr()[0], last_epoch)
         try:
             # 开始训练
             for epoch in range(last_epoch, num_epoch):
@@ -459,10 +458,9 @@ class PPASRTrainer(object):
                                                                        num_processes=self.num_proc_bsearch)
         return result
 
-    def export(self, use_gpu=True, save_model_path='models/', resume_model='models/deepspeech2/best_model/'):
+    def export(self, save_model_path='models/', resume_model='models/deepspeech2/best_model/'):
         """
         导出预测模型
-        :param use_gpu: 是否导出GPU模型
         :param save_model_path: 模型保存的路径
         :param resume_model: 准备转换的模型路径
         :return:
@@ -484,14 +482,9 @@ class PPASRTrainer(object):
         base_model.load_state_dict(torch.load(resume_model_path))
         print('[{}] 成功恢复模型参数和优化方法参数：{}'.format(datetime.now(), resume_model_path))
 
-        if use_gpu:
-            base_model.to('cuda')
-            mean = torch.from_numpy(featureNormalizer.mean).float().cuda()
-            std = torch.from_numpy(featureNormalizer.std).float().cuda()
-        else:
-            base_model.to('cpu')
-            mean = torch.from_numpy(featureNormalizer.mean).float()
-            std = torch.from_numpy(featureNormalizer.std).float()
+        base_model.to('cuda')
+        mean = torch.from_numpy(featureNormalizer.mean).float().cuda()
+        std = torch.from_numpy(featureNormalizer.std).float().cuda()
 
         # 获取模型
         if self.use_model == 'deepspeech2':

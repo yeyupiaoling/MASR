@@ -14,7 +14,7 @@ from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('use_gpu',          bool,   True,   "是否使用GPU预测，否则需要前提是要导出CPU模型")
+add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
 add_arg('beam_size',        int,    300,    "集束搜索解码相关参数，搜索的大小，范围:[5, 500]")
 add_arg('alpha',            float,  2.2,    "集束搜索解码相关参数，LM系数")
 add_arg('beta',             float,  4.3,    "集束搜索解码相关参数，WC系数")

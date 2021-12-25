@@ -1,12 +1,13 @@
 import math
 
 import numpy as np
-from torch.utils.data import BatchSampler
+import torch
 from torch.utils.data import DistributedSampler
+from torch.utils.data import Sampler
 
 __all__ = [
-    "SortagradDistributedBatchSampler",
-    "SortagradBatchSampler",
+    "DSElasticDistributedSampler",
+    "DSRandomSampler",
 ]
 
 
@@ -39,90 +40,7 @@ def _batch_shuffle(indices, batch_size, epoch):
     return batch_indices
 
 
-class SortagradDistributedBatchSampler(DistributedSampler):
-    def __init__(self,
-                 dataset,
-                 batch_size,
-                 num_replicas=None,
-                 rank=None,
-                 shuffle=False,
-                 drop_last=False,
-                 sortagrad=False,
-                 shuffle_method="batch_shuffle"):
-        """Sortagrad Sampler for multi gpus.
-
-        Args:
-            dataset (torch.utils.data.Dataset):
-            batch_size (int): batch size for one gpu
-            num_replicas (int, optional): world size or numbers of gpus. Defaults to None.
-            rank (int, optional): rank id. Defaults to None.
-            shuffle (bool, optional): True for do shuffle, or else. Defaults to False.
-            drop_last (bool, optional): whether drop last batch which is less than batch size. Defaults to False.
-            sortagrad (bool, optional): True, do sortgrad in first epoch, then shuffle as usual; or else. Defaults to False.
-            shuffle_method (str, optional): shuffle method, "instance_shuffle" or "batch_shuffle". Defaults to "batch_shuffle".
-        """
-        super().__init__(dataset, num_replicas, rank, shuffle, drop_last)
-        self._sortagrad = sortagrad
-        self._shuffle_method = shuffle_method
-
-    def __iter__(self):
-        num_samples = len(self.dataset)
-        indices = np.arange(num_samples).tolist()
-        indices += indices[:(self.total_size - len(indices))]
-        assert len(indices) == self.total_size
-
-        # sort (by duration) or batch-wise shuffle the manifest
-        if self.shuffle:
-            if self.epoch != 0 or not self._sortagrad:
-                if self._shuffle_method == "batch_shuffle":
-                    # using `batch_size * nrank`, or will cause instability loss and nan or inf grad, 
-                    # since diff batch examlpe length in batches case instability loss in diff rank, 
-                    # e.g. rank0 maxlength 20, rank3 maxlength 1000
-                    indices = _batch_shuffle(indices, self.batch_size * self.nranks, self.epoch)
-                elif self._shuffle_method == "instance_shuffle":
-                    np.random.RandomState(self.epoch).shuffle(indices)
-                else:
-                    raise ValueError("Unknown shuffle method %s." % self._shuffle_method)
-        assert len(indices) == self.total_size, f"batch shuffle examples error: {len(indices)} : {self.total_size}"
-
-        # slice `self.batch_size` examples by rank id
-        def _get_indices_by_batch_size(indices):
-            subsampled_indices = []
-            last_batch_size = self.total_size % (self.batch_size * self.nranks)
-            assert last_batch_size % self.nranks == 0
-            last_local_batch_size = last_batch_size // self.nranks
-
-            for i in range(self.local_rank * self.batch_size, len(indices) - last_batch_size,
-                           self.batch_size * self.nranks):
-                subsampled_indices.extend(indices[i:i + self.batch_size])
-
-            indices = indices[len(indices) - last_batch_size:]
-            subsampled_indices.extend(
-                indices[self.local_rank * last_local_batch_size:(self.local_rank + 1) * last_local_batch_size])
-            return subsampled_indices
-
-        if self.nranks > 1:
-            indices = _get_indices_by_batch_size(indices)
-
-        assert len(indices) == self.num_samples
-        _sample_iter = iter(indices)
-
-        batch_indices = []
-        for idx in _sample_iter:
-            batch_indices.append(idx)
-            if len(batch_indices) == self.batch_size:
-                yield batch_indices
-                batch_indices = []
-        if not self.drop_last and len(batch_indices) > 0:
-            yield batch_indices
-
-    def __len__(self):
-        num_samples = self.num_samples
-        num_samples += int(not self.drop_last) * (self.batch_size - 1)
-        return num_samples // self.batch_size
-
-
-class SortagradBatchSampler(BatchSampler):
+class DSRandomSampler(Sampler):
     def __init__(self,
                  dataset,
                  batch_size,
@@ -133,7 +51,7 @@ class SortagradBatchSampler(BatchSampler):
         """Sortagrad Sampler for one gpu.
 
         Args:
-            dataset (torch.utils.data.Dataset.Dataset):
+            dataset (torch.io.Dataset):
             batch_size (int): batch size for one gpu
             shuffle (bool, optional): True for do shuffle, or else. Defaults to False.
             drop_last (bool, optional): whether drop last batch which is less than batch size. Defaults to False.
@@ -171,6 +89,81 @@ class SortagradBatchSampler(BatchSampler):
                 else:
                     raise ValueError("Unknown shuffle method %s." % self._shuffle_method)
         assert len(indices) == self.total_size, f"batch shuffle examples error: {len(indices)} : {self.total_size}"
+
+        assert len(indices) == self.num_samples
+        _sample_iter = iter(indices)
+
+        batch_indices = []
+        for idx in _sample_iter:
+            batch_indices.append(idx)
+            if len(batch_indices) == self.batch_size:
+                yield batch_indices
+                batch_indices = []
+        if not self.drop_last and len(batch_indices) > 0:
+            yield batch_indices
+
+        self.epoch += 1
+
+    def __len__(self):
+        num_samples = self.num_samples
+        num_samples += int(not self.drop_last) * (self.batch_size - 1)
+        return num_samples // self.batch_size
+
+
+class DSElasticDistributedSampler(DistributedSampler):
+    def __init__(self,
+                 dataset,
+                 batch_size,
+                 num_replicas=None,
+                 rank=None,
+                 shuffle=False,
+                 drop_last=False,
+                 sortagrad=False,
+                 shuffle_method="batch_shuffle"):
+        """Sortagrad Sampler for one gpu.
+
+        Args:
+            dataset (torch.io.Dataset):
+            num_replicas (int, optional): Number of processes participating in distributed training.
+            rank (int, optional): Rank of the current process within :attr:`num_replicas`.
+            batch_size (int): batch size for one gpu
+            shuffle (bool, optional): True for do shuffle, or else. Defaults to False.
+            drop_last (bool, optional): whether drop last batch which is less than batch size. Defaults to False.
+            sortagrad (bool, optional): True, do sortgrad in first epoch, then shuffle as usual; or else. Defaults to False.
+            shuffle_method (str, optional): shuffle method, "instance_shuffle" or "batch_shuffle". Defaults to "batch_shuffle".
+        """
+        super().__init__(dataset=dataset, num_replicas=num_replicas, rank=rank)
+        self.dataset = dataset
+
+        assert isinstance(batch_size, int) and batch_size > 0, "batch_size should be a positive integer"
+        self.batch_size = batch_size
+        assert isinstance(shuffle, bool), "shuffle should be a boolean value"
+        self.shuffle = shuffle
+        assert isinstance(drop_last, bool), "drop_last should be a boolean number"
+
+        self.drop_last = drop_last
+        self.epoch = 0
+        self.num_samples = int(math.ceil(float(len(self.dataset)) / self.num_replicas))
+        self.total_size = self.num_samples * self.num_replicas
+        self._sortagrad = sortagrad
+        self._shuffle_method = shuffle_method
+
+    def __iter__(self):
+        num_samples = len(self.dataset)
+        indices = np.arange(num_samples).tolist()
+        indices += indices[:(self.total_size - len(indices))]
+        assert len(indices) == self.total_size, f"batch shuffle examples error: {len(indices)} : {self.total_size}"
+
+        indices = indices[self.rank: self.total_size: self.num_replicas]
+        # sort (by duration) or batch-wise shuffle the manifest
+        if self.shuffle:
+            if self.epoch != 0 or not self._sortagrad:
+                if self._shuffle_method == "batch_shuffle":
+                    indices = _batch_shuffle(indices, self.batch_size, self.epoch)
+                elif self._shuffle_method == "instance_shuffle":
+                    np.random.RandomState(self.epoch).shuffle(indices)
+                else:
+                    raise ValueError("Unknown shuffle method %s." % self._shuffle_method)
 
         assert len(indices) == self.num_samples
         _sample_iter = iter(indices)

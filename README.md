@@ -22,9 +22,9 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR致力于简�
 | 数据集 | 使用模型 | 测试集字错率 | 下载地址 |
 | :---: | :---: | :---: | :---: |
 | aishell(179小时) | deepspeech2 | 训练中 | 训练中 |
-| free_st_chinese_mandarin_corpus(109小时) | 训练中 | 0.137442 | 训练中 |
-| thchs_30(34小时) | 训练中 | 0.06871 | 训练中 |
-| 超大数据集(1600多小时真实数据)+(1300多小时合成数据) | 训练中 | 0.056835 | 训练中 |
+| free_st_chinese_mandarin_corpus(109小时) | deepspeech2 | 训练中 | 训练中 |
+| thchs_30(34小时) | deepspeech2 | 训练中| 训练中 |
+| 超大数据集(1600多小时真实数据)+(1300多小时合成数据) | deepspeech2 | 训练中 | 训练中 |
 
 **说明：** 
 1. 这里字错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。
@@ -109,3 +109,4 @@ python infer_path.py --wav_path=./dataset/test_vad.wav --is_long_audio=True
  - https://github.com/yeyupiaoling/PPASR
  - https://github.com/jiwidi/DeepSpeech-pytorch
  - https://github.com/wenet-e2e/WenetSpeech
+ - https://github.com/SeanNaren/deepspeech.pytorch

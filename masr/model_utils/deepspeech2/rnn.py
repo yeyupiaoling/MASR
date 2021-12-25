@@ -14,7 +14,7 @@ class RNNForward(nn.Module):
         self.norm = nn.LayerNorm(h_size)
 
     def forward(self, x, x_lens, init_state):
-        x = nn.utils.rnn.pack_padded_sequence(x, x_lens, batch_first=True)
+        x = nn.utils.rnn.pack_padded_sequence(x, x_lens.cpu(), batch_first=True)
         x, final_state = self.rnn(x, init_state)  # [B, T, D]
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
         x = self.norm(x)
