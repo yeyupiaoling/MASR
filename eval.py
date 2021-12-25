@@ -1,100 +1,47 @@
 import argparse
 import functools
-import torch
-import torch.nn.functional as F
-from ctcdecode import CTCBeamDecoder
-from tqdm import tqdm
-from data.utility import add_arguments, print_arguments
-from utils import data
-from utils.decoder import GreedyDecoder
+import time
+
+from masr.trainer import PPASRTrainer
+from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-parser.add_argument("--model_path",
-                    default="save_model/model.pth",
-                    type=str,
-                    help="trained model path. (default: %(default)s)")
-parser.add_argument("--lm_path",
-                    default="lm/zh_giga.no_cna_cmn.prune01244.klm",
-                    type=str,
-                    help="language model path. (default: %(default)s)")
-parser.add_argument("--dev_manifest_path",
-                    default="dataset/manifest.dev",
-                    type=str,
-                    help="train manifest file path. (default: %(default)s)")
-parser.add_argument("--vocab_path",
-                    default="dataset/zh_vocab.json",
-                    type=str,
-                    help="vocab file path. (default: %(default)s)")
-parser.add_argument("--batch_size",
-                    default=64,
-                    type=int,
-                    help="number for batch size. (default: %(default)s)")
+add_arg('batch_size',       int,    32,                       '评估的批量大小')
+add_arg('num_workers',      int,    8,                        '读取数据的线程数量')
+add_arg('alpha',            float,  2.2,                      '集束搜索的LM系数')
+add_arg('beta',             float,  4.3,                      '集束搜索的WC系数')
+add_arg('beam_size',        int,    300,                      '集束搜索的大小，范围:[5, 500]')
+add_arg('num_proc_bsearch', int,    10,                       '集束搜索方法使用CPU数量')
+add_arg('cutoff_prob',      float,  0.99,                     '剪枝的概率')
+add_arg('cutoff_top_n',     int,    40,                       '剪枝的最大值')
+add_arg('use_model',        str,   'deepspeech2',             '所使用的模型')
+add_arg('test_manifest',    str,   'dataset/manifest.test',   '测试数据的数据列表路径')
+add_arg('dataset_vocab',    str,   'dataset/vocabulary.txt',  '数据字典的路径')
+add_arg('mean_std_path',    str,   'dataset/mean_std.npz',    '数据集的均值和标准值的npy文件路径')
+add_arg('decoder',          str,   'ctc_beam_search',         '结果解码方法', choices=['ctc_beam_search', 'ctc_greedy'])
+add_arg('resume_model',     str,   'models/deepspeech2/best_model/', '模型的路径')
+add_arg('lang_model_path',  str,   'lm/zh_giga.no_cna_cmn.prune01244.klm',        "语言模型文件路径")
 args = parser.parse_args()
 print_arguments(args)
 
-alpha = 0.8
-beta = 0.3
-cutoff_top_n = 40
-cutoff_prob = 1.0
-beam_width = 32
-num_processes = 4
-blank_index = 0
 
-model = torch.load(args.model_path)
-model = model.cuda()
-model.eval()
+trainer = PPASRTrainer(use_model=args.use_model,
+                       mean_std_path=args.mean_std_path,
+                       test_manifest=args.test_manifest,
+                       dataset_vocab=args.dataset_vocab,
+                       num_workers=args.num_workers,
+                       alpha=args.alpha,
+                       beta=args.beta,
+                       beam_size=args.beam_size,
+                       num_proc_bsearch=args.num_proc_bsearch,
+                       cutoff_prob=args.cutoff_prob,
+                       cutoff_top_n=args.cutoff_top_n,
+                       decoder=args.decoder,
+                       lang_model_path=args.lang_model_path)
 
-# 创建解码器
-decoder = CTCBeamDecoder(model.vocabulary,
-                         args.lm_path,
-                         alpha,
-                         beta,
-                         cutoff_top_n,
-                         cutoff_prob,
-                         beam_width,
-                         num_processes,
-                         blank_index)
-
-
-def translate(vocab, out, out_len):
-    return "".join([vocab[x] for x in out[0:out_len]])
-
-
-def predict(wav_path):
-    wav = data.load_audio(wav_path)
-    spec = data.spectrogram(wav)
-    spec.unsqueeze_(0)
-    with torch.no_grad():
-        spec = spec.cuda()
-        y = model.cnn(spec)
-        y = F.softmax(y, 1)
-    y_len = torch.tensor([y.size(-1)])
-    y = y.permute(0, 2, 1)
-    out, score, offset, out_len = decoder.decode(y, y_len)
-    return translate(model.vocabulary, out[0][0], out_len[0][0])
-
-
-def evaluate(dataloader, dev_manifest_path):
-    cer = 0
-    decoder1 = GreedyDecoder(dataloader.dataset.labels_str)
-    with open(dev_manifest_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    with torch.no_grad():
-        for line in tqdm(lines):
-            path, label = line.replace('\n', '').split(',')
-            out_strings = predict(path)
-            cer += decoder1.cer(out_strings, label) / float(len(label))
-        cer /= len(lines)
-    return cer
-
-
-def main():
-    dev_dataset = data.MASRDataset(args.dev_manifest_path, args.vocab_path)
-    dev_dataloader = data.MASRDataLoader(dev_dataset, batch_size=args.batch_size, num_workers=8)
-    cer = evaluate(dev_dataloader, args.dev_manifest_path)
-    print("CER=%f" % cer)
-
-
-if __name__ == '__main__':
-    main()
+start = time.time()
+cer = trainer.evaluate(batch_size=args.batch_size,
+                       resume_model=args.resume_model)
+end = time.time()
+print('评估消耗时间：{}s，字错率：{:.5f}'.format(int(end - start), cer))
