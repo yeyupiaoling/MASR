@@ -231,10 +231,6 @@ class PPASRTrainer(object):
                                                   sortagrad=True,
                                                   drop_last=True,
                                                   shuffle=True)
-        if nranks > 1:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        else:
-            train_sampler = None
         train_loader = DataLoader(dataset=train_dataset,
                                   collate_fn=collate_fn,
                                   batch_sampler=train_batch_sampler,
@@ -336,8 +332,12 @@ class PPASRTrainer(object):
                         train_times = []
                     # 固定步数也要保存一次模型
                     if batch_id % 10000 == 0 and batch_id != 0 and local_rank == 0:
-                        self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                        model=model, optimizer=optimizer)
+                        if nranks > 1:
+                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
+                                            model=model.module, optimizer=optimizer)
+                        else:
+                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
+                                            model=model, optimizer=optimizer)
                     start = time.time()
 
                 # 多卡训练只使用一个进程执行评估和保存模型
@@ -359,18 +359,30 @@ class PPASRTrainer(object):
                     # 保存最优模型
                     if c <= best_test_cer:
                         best_test_cer = c
-                        self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model,
-                                        optimizer=optimizer, epoch=epoch, test_cer=c, test_loss=l, best_model=True)
+                        if nranks > 1:
+                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model.module,
+                                            optimizer=optimizer, epoch=epoch, test_cer=c, test_loss=l, best_model=True)
+                        else:
+                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model,
+                                            optimizer=optimizer, epoch=epoch, test_cer=c, test_loss=l, best_model=True)
                     # 保存模型
-                    self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch, model=model,
-                                    test_cer=c, test_loss=l, optimizer=optimizer)
+                    if nranks > 1:
+                        self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
+                                        model=model.module, test_cer=c, test_loss=l, optimizer=optimizer)
+                    else:
+                        self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
+                                        model=model, test_cer=c, test_loss=l, optimizer=optimizer)
                 scheduler.step()
         except KeyboardInterrupt:
             # Ctrl+C退出时保存模型
             if local_rank == 0:
                 print('请等一下，正在保存模型...')
-                self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch, model=model,
-                                optimizer=optimizer)
+                if nranks > 1:
+                    self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
+                                    model=model.module, optimizer=optimizer)
+                else:
+                    self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
+                                    model=model, optimizer=optimizer)
 
     # 评估模型
     @torch.no_grad()
