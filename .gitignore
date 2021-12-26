@@ -15,4 +15,4 @@ android/
 convert_model.py
 build/
 dist/
-ppasr.egg-info/
+masr.egg-info/
