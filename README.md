@@ -22,7 +22,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 | 数据集 | 使用模型 | 测试集字错率 | 下载地址 |
 | :---: | :---: | :---: | :---: |
 | aishell(179小时) | deepspeech2 | 0.06346 | [点击下载](https://download.csdn.net/download/qq_33200967/71141450) |
-| free_st_chinese_mandarin_corpus(109小时) | deepspeech2 | 训练中 | 训练中 |
+| free_st_chinese_mandarin_corpus(109小时) | deepspeech2 | 0.13941 | [点击下载](https://download.csdn.net/download/qq_33200967/71495689) |
 | thchs_30(34小时) | deepspeech2 | 0.06751 | [点击下载](https://download.csdn.net/download/qq_33200967/71142778) |
 | 超大数据集(1600多小时真实数据)+(1300多小时合成数据) | deepspeech2 | 训练中 | 训练中 |
 
