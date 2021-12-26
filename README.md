@@ -101,7 +101,7 @@ python infer_path.py --wav_path=./dataset/test_vad.wav --is_long_audio=True
 ## 相关项目
  - 基于Pytorch实现的声纹识别：[VoiceprintRecognition-Pytorch](https://github.com/yeyupiaoling/VoiceprintRecognition-Pytorch)
  - 基于Pytorch实现的分类：[AudioClassification-Pytorch](https://github.com/yeyupiaoling/AudioClassification-Pytorch)
- - 基于PaddlePaddle实现的语音识别：[MASR](https://github.com/yeyupiaoling/PPASR)
+ - 基于PaddlePaddle实现的语音识别：[PPASR](https://github.com/yeyupiaoling/PPASR)
 
 
 ## 参考资料
