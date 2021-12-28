@@ -1,7 +1,7 @@
 import argparse
 import functools
 
-from masr.trainer import PPASRTrainer
+from masr.trainer import MASRTrainer
 from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -15,8 +15,8 @@ args = parser.parse_args()
 print_arguments(args)
 
 
-trainer = PPASRTrainer(use_model=args.use_model,
-                       mean_std_path=args.mean_std_path,
-                       dataset_vocab=args.dataset_vocab)
+trainer = MASRTrainer(use_model=args.use_model,
+                      mean_std_path=args.mean_std_path,
+                      dataset_vocab=args.dataset_vocab)
 
 trainer.export(save_model_path=args.save_model, resume_model=args.resume_model)

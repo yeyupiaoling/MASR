@@ -2,7 +2,7 @@ import argparse
 import functools
 import time
 
-from masr.trainer import PPASRTrainer
+from masr.trainer import MASRTrainer
 from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -26,19 +26,19 @@ args = parser.parse_args()
 print_arguments(args)
 
 
-trainer = PPASRTrainer(use_model=args.use_model,
-                       mean_std_path=args.mean_std_path,
-                       test_manifest=args.test_manifest,
-                       dataset_vocab=args.dataset_vocab,
-                       num_workers=args.num_workers,
-                       alpha=args.alpha,
-                       beta=args.beta,
-                       beam_size=args.beam_size,
-                       num_proc_bsearch=args.num_proc_bsearch,
-                       cutoff_prob=args.cutoff_prob,
-                       cutoff_top_n=args.cutoff_top_n,
-                       decoder=args.decoder,
-                       lang_model_path=args.lang_model_path)
+trainer = MASRTrainer(use_model=args.use_model,
+                      mean_std_path=args.mean_std_path,
+                      test_manifest=args.test_manifest,
+                      dataset_vocab=args.dataset_vocab,
+                      num_workers=args.num_workers,
+                      alpha=args.alpha,
+                      beta=args.beta,
+                      beam_size=args.beam_size,
+                      num_proc_bsearch=args.num_proc_bsearch,
+                      cutoff_prob=args.cutoff_prob,
+                      cutoff_top_n=args.cutoff_top_n,
+                      decoder=args.decoder,
+                      lang_model_path=args.lang_model_path)
 
 start = time.time()
 cer = trainer.evaluate(batch_size=args.batch_size,

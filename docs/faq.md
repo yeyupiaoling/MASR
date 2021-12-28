@@ -1,4 +1,4 @@
-# LLVM版本错误
+# 1. LLVM版本错误
 
 **如果出现LLVM版本错误**，则执行下面的命令，然后重新执行上面的安装命令，否则不需要执行。
 ```shell
@@ -21,7 +21,7 @@ sudo make install
 export LLVM_CONFIG=/usr/local/llvm/bin/llvm-config
 ```
 
-- git clone 本项目源码
-```shell script
-git clone https://github.com/yeyupiaoling/DeepSpeech.git
-```
+
+# 2. 训练出现nan
+
+调小学习率，再继续训练看看是否有效果。

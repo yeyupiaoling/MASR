@@ -21,7 +21,7 @@ from masr.data_utils.collate_fn import collate_fn
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.data_utils.normalizer import FeatureNormalizer
-from masr.data_utils.reader import PPASRDataset
+from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.model_utils.deepspeech2.model import DeepSpeech2Model
@@ -31,7 +31,7 @@ from masr.utils.utils import create_manifest, create_noise, count_manifest, comp
 from masr.utils.utils import labels_to_string
 
 
-class PPASRTrainer(object):
+class MASRTrainer(object):
     def __init__(self,
                  use_model='deepspeech2',
                  mean_std_path='dataset/mean_std.npz',
@@ -142,7 +142,7 @@ class PPASRTrainer(object):
         :return: 评估结果
         """
         # 获取测试数据
-        test_dataset = PPASRDataset(self.test_manifest, self.dataset_vocab, self.mean_std_path)
+        test_dataset = MASRDataset(self.test_manifest, self.dataset_vocab, self.mean_std_path)
         test_loader = DataLoader(dataset=test_dataset,
                                  batch_size=batch_size,
                                  collate_fn=collate_fn,
@@ -213,11 +213,11 @@ class PPASRTrainer(object):
             if augment_conf_path is not None and not os.path.exists(augment_conf_path):
                 print('[{}] 数据增强配置文件{}不存在'.format(datetime.now(), augment_conf_path), file=sys.stderr)
             augmentation_config = '{}'
-        train_dataset = PPASRDataset(self.train_manifest, self.dataset_vocab,
-                                     mean_std_filepath=self.mean_std_path,
-                                     min_duration=min_duration,
-                                     max_duration=max_duration,
-                                     augmentation_config=augmentation_config)
+        train_dataset = MASRDataset(self.train_manifest, self.dataset_vocab,
+                                    mean_std_filepath=self.mean_std_path,
+                                    min_duration=min_duration,
+                                    max_duration=max_duration,
+                                    augmentation_config=augmentation_config)
         # 设置支持多卡训练
         if nranks > 1:
             train_batch_sampler = DSElasticDistributedSampler(train_dataset,
@@ -236,10 +236,10 @@ class PPASRTrainer(object):
                                   batch_sampler=train_batch_sampler,
                                   num_workers=self.num_workers)
         # 获取测试数据
-        test_dataset = PPASRDataset(self.test_manifest, self.dataset_vocab,
-                                    mean_std_filepath=self.mean_std_path,
-                                    min_duration=min_duration,
-                                    max_duration=max_duration)
+        test_dataset = MASRDataset(self.test_manifest, self.dataset_vocab,
+                                   mean_std_filepath=self.mean_std_path,
+                                   min_duration=min_duration,
+                                   max_duration=max_duration)
         test_loader = DataLoader(dataset=test_dataset,
                                  batch_size=batch_size,
                                  collate_fn=collate_fn,

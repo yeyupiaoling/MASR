@@ -1,7 +1,7 @@
 import argparse
 import functools
 
-from masr.trainer import PPASRTrainer
+from masr.trainer import MASRTrainer
 from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -22,11 +22,11 @@ args = parser.parse_args()
 print_arguments(args)
 
 
-trainer = PPASRTrainer(mean_std_path=args.mean_std_path,
-                       train_manifest=args.train_manifest,
-                       test_manifest=args.test_manifest,
-                       dataset_vocab=args.dataset_vocab,
-                       num_workers=args.num_workers)
+trainer = MASRTrainer(mean_std_path=args.mean_std_path,
+                      train_manifest=args.train_manifest,
+                      test_manifest=args.test_manifest,
+                      dataset_vocab=args.dataset_vocab,
+                      num_workers=args.num_workers)
 
 trainer.create_data(annotation_path=args.annotation_path,
                     noise_manifest_path=args.noise_manifest_path,

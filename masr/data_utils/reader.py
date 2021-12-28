@@ -12,10 +12,10 @@ from masr.data_utils.speech import SpeechSegment
 
 
 # 音频数据加载器
-class PPASRDataset(Dataset):
+class MASRDataset(Dataset):
     def __init__(self, data_list, vocab_filepath, mean_std_filepath, min_duration=0, max_duration=20,
                  augmentation_config='{}'):
-        super(PPASRDataset, self).__init__()
+        super(MASRDataset, self).__init__()
         self._normalizer = FeatureNormalizer(mean_std_filepath)
         self._augmentation_pipeline = AugmentationPipeline(augmentation_config=augmentation_config)
         self._speech_featurizer = SpeechFeaturizer(vocab_filepath=vocab_filepath)
