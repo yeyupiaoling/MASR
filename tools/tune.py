@@ -9,17 +9,17 @@ sys.path.append(os.path.abspath(os.path.join(__dir__, '..')))
 import numpy as np
 import argparse
 import functools
-from ppasr.decoders.beam_search_decoder import BeamSearchDecoder
-import paddle
-from paddle.io import DataLoader
+from masr.decoders.beam_search_decoder import BeamSearchDecoder
+import torch
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from ppasr.utils.utils import add_arguments, print_arguments
-from ppasr.data_utils.reader import PPASRDataset
-from ppasr.data_utils.collate_fn import collate_fn
-from ppasr.model_utils.deepspeech2.model import DeepSpeech2Model
-from ppasr.utils.metrics import cer
-from ppasr.utils.utils import labels_to_string
+from masr.utils.utils import add_arguments, print_arguments
+from masr.data_utils.reader import MASRDataset
+from masr.data_utils.collate_fn import collate_fn
+from masr.model_utils.deepspeech2.model import DeepSpeech2Model
+from masr.utils.metrics import cer
+from masr.utils.utils import labels_to_string
 
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -55,11 +55,10 @@ def tune():
         raise ValueError("num_betas must be non-negative!")
 
     # 获取测试数据
-    test_dataset = PPASRDataset(args.test_manifest, args.dataset_vocab, args.mean_std_path)
+    test_dataset = MASRDataset(args.test_manifest, args.dataset_vocab, args.mean_std_path)
     test_loader = DataLoader(dataset=test_dataset,
                              batch_size=args.batch_size,
-                             collate_fn=collate_fn,
-                             use_shared_memory=False)
+                             collate_fn=collate_fn)
 
     # 获取模型
     if args.use_model == 'deepspeech2':
@@ -67,8 +66,8 @@ def tune():
     else:
         raise Exception('没有该模型：%s' % args.use_model)
 
-    assert os.path.exists(os.path.join(args.resume_model, 'model.pdparams')), "模型不存在！"
-    model.set_state_dict(paddle.load(os.path.join(args.resume_model, 'model.pdparams')))
+    assert os.path.exists(os.path.join(args.resume_model, 'model.pt')), "模型不存在！"
+    model.load_state_dict(torch.load(os.path.join(args.resume_model, 'model.pt')))
     model.eval()
 
     # 创建用于搜索的alphas参数和betas参数
@@ -81,12 +80,13 @@ def tune():
     # 多批增量调优参数
     print('开始识别数据...')
     used_sum = 0
-    for inputs, label, input_lens, _ in tqdm(test_loader()):
+    for inputs, label, input_lens, _ in tqdm(test_loader):
         used_sum += inputs.shape[0]
         # 执行识别
-        outs, _ = model(inputs, input_lens)
-        outs = paddle.nn.functional.softmax(outs, 2)
-        outputs.append(outs.numpy())
+        outs, out_lens, _ = model(inputs, input_lens)
+        outs = torch.nn.functional.softmax(outs, 2)
+        outs = outs.cpu().detach().numpy()
+        outputs.append(outs)
         labels.append(label.numpy())
         if args.num_data != -1 and used_sum >= args.num_data:break
 
