@@ -288,7 +288,7 @@ class MASRTrainer(object):
         scheduler = StepLR(optimizer, step_size=1, gamma=0.93, last_epoch=last_epoch)
 
         # 获取损失函数
-        ctc_loss = torch.nn.CTCLoss(reduction='none')
+        ctc_loss = torch.nn.CTCLoss(reduction='none', zero_infinity=True)
 
         test_step, train_step = 0, 0
         best_test_cer = 1
@@ -325,8 +325,7 @@ class MASRTrainer(object):
                         print(
                             '[{}] Train epoch: [{}/{}], batch: [{}/{}], loss: {:.5f}, learning rate: {:>.8f}, eta: {}'.format(
                                 datetime.now(), epoch, num_epoch, batch_id, len(train_loader),
-                                loss.cpu().detach().numpy(),
-                                scheduler.get_last_lr()[0], eta_str))
+                                loss.cpu().detach().numpy(), scheduler.get_last_lr()[0], eta_str))
                         writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), train_step)
                         train_step += 1
                         train_times = []

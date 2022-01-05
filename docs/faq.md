@@ -25,3 +25,10 @@ export LLVM_CONFIG=/usr/local/llvm/bin/llvm-config
 # 2. 训练出现nan
 
 调小学习率，再继续训练看看是否有效果。
+
+
+# 3. Linux 报错 OSError: sndfile library not found
+
+```shell
+sudo apt-get install libsndfile1
+```
