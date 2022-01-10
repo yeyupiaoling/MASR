@@ -280,7 +280,10 @@ class MASRTrainer(object):
             if resume_model is None: resume_model = last_model_dir
             assert os.path.exists(os.path.join(resume_model, 'model.pt')), "模型参数文件不存在！"
             assert os.path.exists(os.path.join(resume_model, 'optimizer.pt')), "优化方法参数文件不存在！"
-            model.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
+            if nranks > 1:
+                model.module.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
+            else:
+                model.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
             optimizer.load_state_dict(torch.load(os.path.join(resume_model, 'optimizer.pt')))
             with open(os.path.join(resume_model, 'model.state'), 'r', encoding='utf-8') as f:
                 last_epoch = json.load(f)['last_epoch'] - 1
