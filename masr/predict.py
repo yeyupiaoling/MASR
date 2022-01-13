@@ -10,6 +10,7 @@ from masr.data_utils.audio import AudioSegment
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder
+from masr.utils.text_utils import PunctuationExecutor
 
 
 class Predictor:
@@ -20,6 +21,8 @@ class Predictor:
                  decoder='ctc_beam_search',
                  alpha=2.2,
                  beta=4.3,
+                 use_pun_model=False,
+                 pun_model_dir='models/pun_models/',
                  lang_model_path='lm/zh_giga.no_cna_cmn.prune01244.klm',
                  beam_size=300,
                  cutoff_prob=0.99,
@@ -33,6 +36,8 @@ class Predictor:
         :param decoder: 结果解码方法，有集束搜索(ctc_beam_search)、贪婪策略(ctc_greedy)
         :param alpha: 集束搜索解码相关参数，LM系数
         :param beta: 集束搜索解码相关参数，WC系数
+        :param use_pun_model: 是否使用加标点符号的模型
+        :param pun_model_dir: 给识别结果加标点符号的模型文件夹路径
         :param lang_model_path: 集束搜索解码相关参数，语言模型文件路径
         :param beam_size: 集束搜索解码相关参数，搜索的大小，范围建议:[5, 500]
         :param cutoff_prob: 集束搜索解码相关参数，剪枝的概率
@@ -48,6 +53,7 @@ class Predictor:
         self.cutoff_prob = cutoff_prob
         self.cutoff_top_n = cutoff_top_n
         self.use_gpu = use_gpu
+        self.use_pun_model = use_pun_model
         self.lac = None
         self.last_audio_data = []
         self._text_featurizer = TextFeaturizer(vocab_filepath=vocab_path)
@@ -77,6 +83,10 @@ class Predictor:
             self.predictor = torch.load(model_path, map_location='cpu')
         self.predictor.eval()
 
+        # 加标点符号
+        if self.use_pun_model:
+            self.pun_executor = PunctuationExecutor(model_dir=pun_model_dir, use_gpu=use_gpu)
+
         # 预热
         warmup_audio_path = 'dataset/test.wav'
         if os.path.exists(warmup_audio_path):
@@ -101,6 +111,9 @@ class Predictor:
             result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list)
 
         score, text = result[0], result[1]
+        # 加标点符号
+        if self.use_pun_model and len(text) > 0:
+            text = self.pun_executor(text)
         # 是否转为阿拉伯数字
         if to_an:
             text = self.cn2an(text)

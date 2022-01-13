@@ -19,6 +19,8 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - [在线使用Dome](https://masr.yeyupiaoling.cn)
 
 ## 更新记录
+
+ - 2022.01.13: 支持给识别结果加标点符号
  - 2021.12.26: 支持pip方式安装。
  - 2021.12.25: 初步完成基本程序。
 
@@ -48,6 +50,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 - [集束搜索解码](./docs/beam_search.md)
 - [执行评估](./docs/eval.md)
 - [导出模型](./docs/export_model.md)
+- [使用标点符号模型](./docs/punctuation.md)
 - 预测
    - [本地模型](./docs/infer.md)
    - [长语音模型](./docs/infer.md)
