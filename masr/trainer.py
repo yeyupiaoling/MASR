@@ -13,7 +13,6 @@ import torch
 import torch.distributed as dist
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualdl import LogWriter
 
@@ -26,7 +25,7 @@ from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.model_utils.deepspeech2.model import DeepSpeech2Model
 from masr.model_utils.utils import DeepSpeech2ModelExport
-from masr.utils.metrics import cer
+from masr.utils.metrics import cer, wer
 from masr.utils.utils import create_manifest, create_noise, count_manifest, compute_mean_std
 from masr.utils.utils import labels_to_string
 
@@ -46,6 +45,7 @@ class MASRTrainer(object):
                  cutoff_prob=0.99,
                  cutoff_top_n=40,
                  decoder='ctc_greedy',
+                 metrics_type='cer',
                  lang_model_path='lm/zh_giga.no_cna_cmn.prune01244.klm'):
         """
         PPASR集成工具类
@@ -61,6 +61,7 @@ class MASRTrainer(object):
         :param num_proc_bsearch: 集束搜索方法使用CPU数量
         :param cutoff_prob: 剪枝的概率
         :param cutoff_top_n: 剪枝的最大值
+        :param metrics_type: 计算错误方法
         :param decoder: 结果解码方法，支持ctc_beam_search和ctc_greedy
         :param lang_model_path: 语言模型文件路径
         """
@@ -81,6 +82,7 @@ class MASRTrainer(object):
         self.cutoff_prob = cutoff_prob
         self.cutoff_top_n = cutoff_top_n
         self.decoder = decoder
+        self.metrics_type = metrics_type
         self.lang_model_path = lang_model_path
         self.beam_search_decoder = None
 
@@ -123,6 +125,7 @@ class MASRTrainer(object):
         with open(self.dataset_vocab, 'w', encoding='utf-8') as fout:
             fout.write('<blank>\t-1\n')
             for char, count in count_sorted:
+                if char == ' ': char = '<space>'
                 # 跳过指定的字符阈值，超过这大小的字符都忽略
                 if count < count_threshold: break
                 fout.write('%s\t%d\n' % (char, count))
@@ -168,8 +171,11 @@ class MASRTrainer(object):
             out_strings = self.decoder_result(outs, out_lens, test_dataset.vocab_list)
             labels_str = labels_to_string(labels.numpy(), test_dataset.vocab_list)
             for out_string, label in zip(*(out_strings, labels_str)):
-                # 计算字错率
-                c.append(cer(out_string, label) / float(len(label)))
+                # 计算字错率或者词错率
+                if self.metrics_type == 'wer':
+                    c.append(wer(out_string, label))
+                else:
+                    c.append(cer(out_string, label))
         cer_result = float(sum(c) / len(c))
         return cer_result
 
@@ -363,17 +369,17 @@ class MASRTrainer(object):
                         best_test_cer = c
                         if nranks > 1:
                             self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model.module,
-                                            optimizer=optimizer, epoch=epoch, test_cer=c, test_loss=l, best_model=True)
+                                            optimizer=optimizer, epoch=epoch, error_type=self.metrics_type, error_rate=c, test_loss=l, best_model=True)
                         else:
                             self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model,
-                                            optimizer=optimizer, epoch=epoch, test_cer=c, test_loss=l, best_model=True)
+                                            optimizer=optimizer, epoch=epoch, error_type=self.metrics_type, error_rate=c, test_loss=l, best_model=True)
                     # 保存模型
                     if nranks > 1:
                         self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                        model=model.module, test_cer=c, test_loss=l, optimizer=optimizer)
+                                        model=model.module, error_type=self.metrics_type, error_rate=c, test_loss=l, optimizer=optimizer)
                     else:
                         self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                        model=model, test_cer=c, test_loss=l, optimizer=optimizer)
+                                        model=model, error_type=self.metrics_type, error_rate=c, test_loss=l, optimizer=optimizer)
                 scheduler.step()
         except KeyboardInterrupt:
             # Ctrl+C退出时保存模型
@@ -407,27 +413,31 @@ class MASRTrainer(object):
             labels_str = labels_to_string(labels.cpu().detach().numpy(), vocabulary)
             cer_batch = []
             for out_string, label in zip(*(out_strings, labels_str)):
-                # 计算字错率
-                c = cer(out_string, label) / float(len(label))
+                # 计算字错率或者词错率
+                if self.metrics_type == 'wer':
+                    c = wer(out_string, label)
+                else:
+                    c = cer(out_string, label)
                 cer_result.append(c)
                 cer_batch.append(c)
             if batch_id % 10 == 0:
-                print('[{}] Test batch: [{}/{}], loss: {:.5f}, cer: {:.5f}'
-                      .format(datetime.now(), batch_id, len(test_loader), loss, float(sum(cer_batch) / len(cer_batch))))
+                print('[{}] Test batch: [{}/{}], loss: {:.5f}, '
+                      '{}: {:.5f}'.format(datetime.now(), batch_id, len(test_loader),loss,self.metrics_type,
+                                          float(sum(cer_batch) / len(cer_batch))))
         cer_result = float(sum(cer_result) / len(cer_result))
         test_loss = float(sum(test_loss) / len(test_loss))
         return cer_result, test_loss
 
     # 保存模型
     @staticmethod
-    def save_model(save_model_path, use_model, epoch, model, optimizer, test_cer=-1., test_loss=-1., best_model=False):
+    def save_model(save_model_path, use_model, epoch, model, optimizer, error_type='cer', error_rate=-1., test_loss=-1., best_model=False):
         if not best_model:
             model_path = os.path.join(save_model_path, use_model, 'epoch_{}'.format(epoch))
             os.makedirs(model_path, exist_ok=True)
             torch.save(optimizer.state_dict(), os.path.join(model_path, 'optimizer.pt'))
             torch.save(model.state_dict(), os.path.join(model_path, 'model.pt'))
             with open(os.path.join(model_path, 'model.state'), 'w', encoding='utf-8') as f:
-                f.write('{"last_epoch": %d, "test_cer": %f, "test_loss": %f}' % (epoch, test_cer, test_loss))
+                f.write('{"last_epoch": %d, "test_%s": %f, "test_loss": %f}' % (epoch, error_type, error_rate, test_loss))
             last_model_path = os.path.join(save_model_path, use_model, 'last_model')
             shutil.rmtree(last_model_path, ignore_errors=True)
             shutil.copytree(model_path, last_model_path)
@@ -441,7 +451,7 @@ class MASRTrainer(object):
             torch.save(model.state_dict(), os.path.join(model_path, 'model.pt'))
             torch.save(optimizer.state_dict(), os.path.join(model_path, 'optimizer.pt'))
             with open(os.path.join(model_path, 'model.state'), 'w', encoding='utf-8') as f:
-                f.write('{"last_epoch": %d, "test_cer": %f, "test_loss": %f}' % (epoch, test_cer, test_loss))
+                f.write('{"last_epoch": %d, "test_%s": %f, "test_loss": %f}' % (epoch, error_type, error_rate, test_loss))
         print('[{}] 已保存模型：{}'.format(datetime.now(), model_path))
 
     def decoder_result(self, outs, outs_lens, vocabulary):
