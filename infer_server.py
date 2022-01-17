@@ -18,7 +18,7 @@ add_arg("host",             str,    "0.0.0.0",            "监听主机的IP地�
 add_arg("port",             int,    5000,                 "服务所使用的端口号")
 add_arg("save_path",        str,    'dataset/upload/',    "上传音频文件的保存目录")
 add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
-add_arg('to_an',            bool,   True,   "是否转为阿拉伯数字")
+add_arg('to_an',            bool,   False,  "是否转为阿拉伯数字")
 add_arg('use_pun',          bool,   False,  "是否给识别结果加标点符号")
 add_arg('beam_size',        int,    300,    "集束搜索解码相关参数，搜索大小，范围:[5, 500]")
 add_arg('alpha',            float,  2.2,    "集束搜索解码相关参数，LM系数")
@@ -30,7 +30,8 @@ add_arg('vocab_path',       str,    'dataset/vocabulary.txt',    "数据集的�
 add_arg('model_path',       str,    'models/deepspeech2/inference.pt', "导出的预测模型文件路径")
 add_arg('pun_model_dir',    str,    'models/pun_models/',        "加标点符号的模型文件夹路径")
 add_arg('lang_model_path',  str,    'lm/zh_giga.no_cna_cmn.prune01244.klm',    "集束搜索解码相关参数，语言模型文件路径")
-add_arg('decoder',          str,    'ctc_beam_search',    "结果解码方法", choices=['ctc_beam_search', 'ctc_greedy'])
+add_arg('feature_method',   str,    'linear',             "音频预处理方法", choices=['linear', 'mfcc', 'fbank'])
+add_arg('decoder',          str,    'ctc_beam_search',    "结果解码方法",   choices=['ctc_beam_search', 'ctc_greedy'])
 args = parser.parse_args()
 
 app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/")
@@ -40,7 +41,8 @@ CORS(app)
 predictor = Predictor(model_path=args.model_path, vocab_path=args.vocab_path, use_model=args.use_model,
                       decoder=args.decoder, alpha=args.alpha, beta=args.beta, lang_model_path=args.lang_model_path,
                       beam_size=args.beam_size, cutoff_prob=args.cutoff_prob, cutoff_top_n=args.cutoff_top_n,
-                      use_gpu=args.use_gpu, use_pun_model=args.use_pun, pun_model_dir=args.pun_model_dir)
+                      use_gpu=args.use_gpu, use_pun_model=args.use_pun, pun_model_dir=args.pun_model_dir,
+                      feature_method=args.feature_method)
 
 
 # 语音识别接口

@@ -21,6 +21,7 @@ class Predictor:
                  decoder='ctc_beam_search',
                  alpha=2.2,
                  beta=4.3,
+                 feature_method='linear',
                  use_pun_model=False,
                  pun_model_dir='models/pun_models/',
                  lang_model_path='lm/zh_giga.no_cna_cmn.prune01244.klm',
@@ -36,6 +37,7 @@ class Predictor:
         :param decoder: 结果解码方法，有集束搜索(ctc_beam_search)、贪婪策略(ctc_greedy)
         :param alpha: 集束搜索解码相关参数，LM系数
         :param beta: 集束搜索解码相关参数，WC系数
+        :param feature_method: 所使用的预处理方法
         :param use_pun_model: 是否使用加标点符号的模型
         :param pun_model_dir: 给识别结果加标点符号的模型文件夹路径
         :param lang_model_path: 集束搜索解码相关参数，语言模型文件路径
@@ -57,7 +59,7 @@ class Predictor:
         self.lac = None
         self.last_audio_data = []
         self._text_featurizer = TextFeaturizer(vocab_filepath=vocab_path)
-        self._audio_featurizer = AudioFeaturizer()
+        self._audio_featurizer = AudioFeaturizer(feature_method=feature_method)
         # 集束搜索方法的处理
         if decoder == "ctc_beam_search":
             try:
@@ -90,7 +92,7 @@ class Predictor:
         # 预热
         warmup_audio_path = 'dataset/test.wav'
         if os.path.exists(warmup_audio_path):
-            self.predict(warmup_audio_path, to_an=True)
+            self.predict(warmup_audio_path, to_an=False)
         else:
             print('预热文件不存在，忽略预热！', file=sys.stderr)
 
