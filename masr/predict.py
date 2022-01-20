@@ -4,13 +4,11 @@ import sys
 import cn2an
 import numpy as np
 import torch
-from LAC import LAC
 
 from masr.data_utils.audio import AudioSegment
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder
-from masr.utils.text_utils import PunctuationExecutor
 
 
 class Predictor:
@@ -87,6 +85,7 @@ class Predictor:
 
         # 加标点符号
         if self.use_pun_model:
+            from masr.utils.text_utils import PunctuationExecutor
             self.pun_executor = PunctuationExecutor(model_dir=pun_model_dir, use_gpu=use_gpu)
 
         # 预热
@@ -216,6 +215,7 @@ class Predictor:
     def cn2an(self, text):
         # 获取分词模型
         if self.lac is None:
+            from LAC import LAC
             self.lac = LAC(mode='lac', use_cuda=self.use_gpu)
         lac_result = self.lac.run(text)
         result_text = ''
