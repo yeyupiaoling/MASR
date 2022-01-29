@@ -27,13 +27,13 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - 2021.12.25: 初步完成基本程序。
 
 ## 模型下载
-|                                            数据集                                            |    使用模型     | 语言  | 测试集字错率（词错率） |                              下载地址                               |
-|:-----------------------------------------------------------------------------------------:|:-----------:|:---:|:-----------:|:---------------------------------------------------------------:|
-|             [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)             | deepspeech2 | 中文  |   0.06346   | [点击下载](https://download.csdn.net/download/qq_33200967/71141450) |
-| [free_st_chinese_mandarin_corpus](https://openslr.magicdatatech.com/resources/38) (109小时) | deepspeech2 | 中文  |   0.13941   | [点击下载](https://download.csdn.net/download/qq_33200967/71495689) |
-|             [thchs_30](https://openslr.magicdatatech.com/resources/18) (34小时)             | deepspeech2 | 中文  |   0.06751   | [点击下载](https://download.csdn.net/download/qq_33200967/71142778) |
-|                             超大数据集(1600多小时真实数据)+(1300多小时合成数据)                              | deepspeech2 | 中文  |   0.06215   | [点击下载](https://download.csdn.net/download/qq_33200967/75138230) |
-|           [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时)           | deepspeech2 | 英文  |     训练中      |                               训练中                               |                               训练中                               |
+|                                            数据集                                            |    使用模型     | 语言  |                                     解码参数                                      | 测试集字错率（词错率） |                              下载地址                               |
+|:-----------------------------------------------------------------------------------------:|:-----------:|:---:|:-----------------------------------------------------------------------------:|:-----------:|:---------------------------------------------------------------:|
+|             [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)             | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.06346   | [点击下载](https://download.csdn.net/download/qq_33200967/71141450) |
+| [free_st_chinese_mandarin_corpus](https://openslr.magicdatatech.com/resources/38) (109小时) | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.13941   | [点击下载](https://download.csdn.net/download/qq_33200967/71495689) |
+|             [thchs_30](https://openslr.magicdatatech.com/resources/18) (34小时)             | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.06751   | [点击下载](https://download.csdn.net/download/qq_33200967/71142778) |
+|                             超大数据集(1600多小时真实数据)+(1300多小时合成数据)                              | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.06215   | [点击下载](https://download.csdn.net/download/qq_33200967/75138230) |
+|           [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时)           | deepspeech2 | 英文  | alpha=1.9<br>beta=0.3<br>beam_size=500<br>cutoff_prob=1.0<br>cutoff_top_n=40  |     训练中     |                               训练中                               |                               训练中                               |
 
 
 **说明：** 

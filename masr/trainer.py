@@ -144,10 +144,14 @@ class MASRTrainer(object):
 
     def evaluate(self,
                  batch_size=32,
+                 min_duration=0,
+                 max_duration=-1,
                  resume_model='models/deepspeech2/best_model/'):
         """
         评估模型
         :param batch_size: 评估的批量大小
+        :param min_duration: 过滤最短的音频长度
+        :param max_duration: 过滤最长的音频长度，当为-1的时候不限制长度
         :param resume_model: 所使用的模型
         :return: 评估结果
         """
