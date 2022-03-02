@@ -3,6 +3,7 @@ import sys
 
 import cn2an
 import numpy as np
+import paddle
 import torch
 
 from masr.data_utils.audio import AudioSegment
@@ -86,6 +87,9 @@ class Predictor:
         # 加标点符号
         if self.use_pun_model:
             from masr.utils.text_utils import PunctuationExecutor
+            use_gpu = self.use_gpu
+            # 判断Paddle是否支持GPU
+            if not paddle.is_compiled_with_cuda(): use_gpu = False
             self.pun_executor = PunctuationExecutor(model_dir=pun_model_dir, use_gpu=use_gpu)
 
         # 预热
@@ -216,7 +220,10 @@ class Predictor:
         # 获取分词模型
         if self.lac is None:
             from LAC import LAC
-            self.lac = LAC(mode='lac', use_cuda=self.use_gpu)
+            use_gpu = self.use_gpu
+            # 判断Paddle是否支持GPU
+            if not paddle.is_compiled_with_cuda(): use_gpu = False
+            self.lac = LAC(mode='lac', use_cuda=use_gpu)
         lac_result = self.lac.run(text)
         result_text = ''
         for t, r in zip(lac_result[0], lac_result[1]):
