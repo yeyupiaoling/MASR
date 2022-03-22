@@ -159,6 +159,8 @@ class MASRTrainer(object):
         test_dataset = MASRDataset(data_list=self.test_manifest,
                                    vocab_filepath=self.dataset_vocab,
                                    mean_std_filepath=self.mean_std_path,
+                                   min_duration=min_duration,
+                                   max_duration=max_duration,
                                    feature_method=self.feature_method)
         test_loader = DataLoader(dataset=test_dataset,
                                  batch_size=batch_size,
@@ -172,18 +174,21 @@ class MASRTrainer(object):
             raise Exception('没有该模型：{}'.format(self.use_model))
 
         assert os.path.exists(os.path.join(resume_model, 'model.pt')), "模型不存在！"
+        model.cuda()
         model.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
         model.eval()
 
         c = []
         for inputs, labels, input_lens, _ in tqdm(test_loader):
+            inputs = inputs.cuda()
+            labels = labels.cuda()
             # 执行识别
             outs, out_lens, _ = model(inputs, input_lens)
             outs = torch.nn.functional.softmax(outs, 2)
             # 解码获取识别结果
             outs = outs.cpu().detach().numpy()
             out_strings = self.decoder_result(outs, out_lens, test_dataset.vocab_list)
-            labels_str = labels_to_string(labels.numpy(), test_dataset.vocab_list)
+            labels_str = labels_to_string(labels.cpu().detach().numpy(), test_dataset.vocab_list)
             for out_string, label in zip(*(out_strings, labels_str)):
                 # 计算字错率或者词错率
                 if self.metrics_type == 'wer':

@@ -69,6 +69,7 @@ def tune():
         raise Exception('没有该模型：%s' % args.use_model)
 
     assert os.path.exists(os.path.join(args.resume_model, 'model.pt')), "模型不存在！"
+    model.cuda()
     model.load_state_dict(torch.load(os.path.join(args.resume_model, 'model.pt')))
     model.eval()
 
@@ -83,13 +84,15 @@ def tune():
     print('开始识别数据...')
     used_sum = 0
     for inputs, label, input_lens, _ in tqdm(test_loader):
+        inputs = inputs.cuda()
+        label = label.cuda()
         used_sum += inputs.shape[0]
         # 执行识别
         outs, out_lens, _ = model(inputs, input_lens)
         outs = torch.nn.functional.softmax(outs, 2)
         outs = outs.cpu().detach().numpy()
         outputs.append(outs)
-        labels.append(label.numpy())
+        labels.append(label.cpu().detach().numpy())
         if args.num_data != -1 and used_sum >= args.num_data:break
 
     print('开始使用识别结果解码...')
