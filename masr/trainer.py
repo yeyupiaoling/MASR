@@ -23,7 +23,7 @@ from masr.data_utils.normalizer import FeatureNormalizer
 from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
-from masr.model_utils.deepspeech2.model import DeepSpeech2Model
+from masr.model_utils.deepspeech2.model import deepspeech2, deepspeech2_big
 from masr.model_utils.utils import DeepSpeech2ModelExport
 from masr.utils.metrics import cer, wer
 from masr.utils.utils import create_manifest, create_noise, count_manifest, compute_mean_std
@@ -169,7 +169,9 @@ class MASRTrainer(object):
 
         # 获取模型
         if self.use_model == 'deepspeech2':
-            model = DeepSpeech2Model(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
+            model = deepspeech2(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
+        elif self.use_model == 'deepspeech2_big':
+            model = deepspeech2_big(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
 
@@ -183,7 +185,7 @@ class MASRTrainer(object):
             inputs = inputs.cuda()
             labels = labels.cuda()
             # 执行识别
-            outs, out_lens, _ = model(inputs, input_lens)
+            outs, out_lens, _, _ = model(inputs, input_lens)
             outs = torch.nn.functional.softmax(outs, 2)
             # 解码获取识别结果
             outs = outs.cpu().detach().numpy()
@@ -276,7 +278,9 @@ class MASRTrainer(object):
 
         # 获取模型
         if self.use_model == 'deepspeech2':
-            model = DeepSpeech2Model(feat_size=train_dataset.feature_dim, vocab_size=train_dataset.vocab_size)
+            model = deepspeech2(feat_size=train_dataset.feature_dim, vocab_size=train_dataset.vocab_size)
+        elif self.use_model == 'deepspeech2_big':
+            model = deepspeech2_big(feat_size=train_dataset.feature_dim, vocab_size=train_dataset.vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
         # 设置优化方法
@@ -337,7 +341,7 @@ class MASRTrainer(object):
                 for batch_id, (inputs, labels, input_lens, label_lens) in enumerate(train_loader):
                     inputs = inputs.cuda()
                     labels = labels.cuda()
-                    out, out_lens, _ = model(inputs, input_lens)
+                    out, out_lens, _, _ = model(inputs, input_lens)
                     out = out.log_softmax(2)
                     out = out.permute(1, 0, 2)
 
@@ -423,7 +427,7 @@ class MASRTrainer(object):
             inputs = inputs.cuda()
             labels = labels.cuda()
             # 执行识别
-            outs, out_lens, _ = model(inputs, input_lens)
+            outs, out_lens, _, _ = model(inputs, input_lens)
             out = outs.permute(1, 0, 2)
             # 计算损失
             loss = ctc_loss(out.log_softmax(2), labels, out_lens, label_lens)
@@ -519,7 +523,9 @@ class MASRTrainer(object):
 
         # 获取模型
         if self.use_model == 'deepspeech2':
-            base_model = DeepSpeech2Model(feat_size=audio_featurizer.feature_dim, vocab_size=text_featurizer.vocab_size)
+            base_model = deepspeech2(feat_size=audio_featurizer.feature_dim, vocab_size=text_featurizer.vocab_size)
+        elif self.use_model == 'deepspeech2_big':
+            base_model = deepspeech2_big(feat_size=audio_featurizer.feature_dim, vocab_size=text_featurizer.vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
 
@@ -534,7 +540,7 @@ class MASRTrainer(object):
         std = torch.from_numpy(featureNormalizer.std).float().cuda()
 
         # 获取模型
-        if self.use_model == 'deepspeech2':
+        if 'deepspeech2' in self.use_model:
             model = DeepSpeech2ModelExport(model=base_model, feature_mean=mean, feature_std=std)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))

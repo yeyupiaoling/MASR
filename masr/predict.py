@@ -154,12 +154,13 @@ class Predictor:
         audio_data = torch.from_numpy(audio_data).float()
         audio_len = torch.from_numpy(audio_len)
         init_state_h_box = None
+        init_state_c_box = None
 
         if self.use_gpu:
             audio_data = audio_data.cuda()
 
         # 运行predictor
-        output_data, _ = self.predictor(audio_data, audio_len, init_state_h_box)
+        output_data, _, _ = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
         output_data = output_data.cpu().detach().numpy()[0]
 
         # 解码
@@ -171,6 +172,7 @@ class Predictor:
                        audio_bytes=None,
                        audio_ndarray=None,
                        init_state_h_box=None,
+                       init_state_c_box=None,
                        is_end=False,
                        to_an=False):
         """
@@ -178,6 +180,7 @@ class Predictor:
         :param audio_bytes: 需要预测的音频wave读取的字节流
         :param audio_ndarray: 需要预测的音频未预处理的numpy值
         :param init_state_h_box: 模型上次输出的状态，如果不是流式识别，这个为None
+        :param init_state_c_box: 模型上次输出的状态，如果不是流式识别，这个为None
         :param is_end: 是否结束语音识别
         :param to_an: 是否转为阿拉伯数字
         :return: 识别的文本结果和解码的得分数
@@ -203,7 +206,7 @@ class Predictor:
             audio_data = audio_data.cuda()
 
         # 运行predictor
-        output_data, output_state = self.predictor(audio_data, audio_len, init_state_h_box)
+        output_data, output_state_h, output_state_c = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
         output_data = output_data.cpu().detach().numpy()[0]
 
         if is_end or is_interrupt:
@@ -213,7 +216,7 @@ class Predictor:
             # 说话的中心使用贪心解码策略，快速解码
             result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list)
             score, text = result[0], result[1]
-        return score, text, output_state
+        return score, text, output_state_h, output_state_c
 
     # 是否转为阿拉伯数字
     def cn2an(self, text):

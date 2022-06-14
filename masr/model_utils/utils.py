@@ -29,11 +29,11 @@ class DeepSpeech2ModelExport(torch.nn.Module):
         # 在输出层加上Softmax
         self.softmax = torch.nn.Softmax(dim=2)
 
-    def forward(self, audio, audio_len, init_state_h_box):
+    def forward(self, audio, audio_len, init_state_h_box, init_state_c_box):
         x = self.normalizer(audio)
-        logits, _, final_chunk_state_h_box = self.model(x, audio_len, init_state_h_box)
+        logits, _, final_chunk_state_h_box, final_chunk_state_c_box = self.model(x, audio_len, init_state_h_box, init_state_c_box)
         output = self.softmax(logits)
-        return output, final_chunk_state_h_box
+        return output, final_chunk_state_h_box, final_chunk_state_c_box
 
 
 class LinearSpecgram(nn.Module):
