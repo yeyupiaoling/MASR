@@ -55,9 +55,8 @@ class RNNStack(nn.Module):
 
     def forward(self, x, x_lens, init_state_h_box=None, init_state_c_box=None):
         if init_state_h_box is not None:
-            if self.use_gru is True:
-                init_state_h_list = torch.split(init_state_h_box, self.num_rnn_layers, dim=0)
-                init_state_list = init_state_h_list
+            if self.use_gru:
+                init_state_list = init_state_h_box
             else:
                 init_state_h_list = torch.split(init_state_h_box, self.num_rnn_layers, dim=0)
                 init_state_c_list = torch.split(init_state_c_box, self.num_rnn_layers, dim=0)
@@ -69,9 +68,8 @@ class RNNStack(nn.Module):
             x, final_state = rnn(x, x_lens, init_state)
             final_chunk_state_list.append(final_state)
 
-        if self.use_gru is True:
-            final_chunk_state_h_box = torch.concat(final_chunk_state_list, dim=0)
-            final_chunk_state_c_box = init_state_c_box
+        if self.use_gru:
+            return x, final_chunk_state_list, init_state_c_box
         else:
             final_chunk_state_h_list = [final_chunk_state_list[i][0] for i in range(self.num_rnn_layers)]
             final_chunk_state_c_list = [final_chunk_state_list[i][1] for i in range(self.num_rnn_layers)]
