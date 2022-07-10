@@ -56,10 +56,11 @@ class RNNStack(nn.Module):
     def forward(self, x, x_lens, init_state_h_box=None, init_state_c_box=None):
         if init_state_h_box is not None:
             if self.use_gru:
-                init_state_list = init_state_h_box
+                init_state_h_list = torch.split(init_state_h_box, 1, dim=0)
+                init_state_list = init_state_h_list
             else:
-                init_state_h_list = torch.split(init_state_h_box, self.num_rnn_layers, dim=0)
-                init_state_c_list = torch.split(init_state_c_box, self.num_rnn_layers, dim=0)
+                init_state_h_list = torch.split(init_state_h_box, 1, dim=0)
+                init_state_c_list = torch.split(init_state_c_box, 1, dim=0)
                 init_state_list = [(init_state_h_list[i], init_state_c_list[i]) for i in range(self.num_rnn_layers)]
         else:
             init_state_list = [None] * self.num_rnn_layers
@@ -69,7 +70,8 @@ class RNNStack(nn.Module):
             final_chunk_state_list.append(final_state)
 
         if self.use_gru:
-            return x, final_chunk_state_list, init_state_c_box
+            final_chunk_state_h_box = torch.concat(final_chunk_state_list, dim=0)
+            final_chunk_state_c_box = init_state_c_box
         else:
             final_chunk_state_h_list = [final_chunk_state_list[i][0] for i in range(self.num_rnn_layers)]
             final_chunk_state_c_list = [final_chunk_state_list[i][1] for i in range(self.num_rnn_layers)]
