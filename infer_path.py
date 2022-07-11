@@ -2,6 +2,7 @@ import argparse
 import functools
 import time
 import wave
+import pyaudio
 
 from masr.predict import Predictor
 from masr.utils.audio_vad import crop_audio_vad
@@ -86,8 +87,9 @@ def real_time_predict_demo():
     score, text, _, _ = predictor.predict_stream(audio_bytes=all_data, to_an=args.to_an, is_end=True)
     print("整一句结果：消耗时间：%dms, 识别结果: %s, 得分: %d" % ((time.time() - start) * 1000, text, score))
 
+
 # 麦克风实时识别模拟
-def micphone_predict_demo(save_wav=True):
+def microphone_predict_demo(save_wav=True):
     state_h, state_c = None, None
     result = []
     # 识别间隔时间
@@ -96,7 +98,6 @@ def micphone_predict_demo(save_wav=True):
     CHUNK = 16000 * interval_time
 
     # 麦克风读取数据
-    import pyaudio
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
     p = pyaudio.PyAudio()
