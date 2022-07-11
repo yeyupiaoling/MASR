@@ -76,7 +76,6 @@ class Predictor:
         if not os.path.exists(model_path):
             raise Exception("模型文件不存在，请检查{}是否存在！".format(model_path))
         # 根据 config 创建 predictor
-        self.predictor = torch.load(model_path)
         if self.use_gpu:
             self.predictor = torch.load(model_path)
             self.predictor.to('cuda')
@@ -176,7 +175,7 @@ class Predictor:
                        is_end=False,
                        to_an=False):
         """
-        预测函数，流式预测，通过一直输入音频数据，实现实现实时识别。
+        预测函数，流式预测，通过一直输入音频数据，实现实时识别。
         :param audio_bytes: 需要预测的音频wave读取的字节流
         :param audio_ndarray: 需要预测的音频未预处理的numpy值
         :param init_state_h_box: 模型上次输出的状态，如果不是流式识别，这个为None

@@ -86,6 +86,40 @@ def real_time_predict_demo():
     score, text, _, _ = predictor.predict_stream(audio_bytes=all_data, to_an=args.to_an, is_end=True)
     print("整一句结果：消耗时间：%dms, 识别结果: %s, 得分: %d" % ((time.time() - start) * 1000, text, score))
 
+# 麦克风实时识别模拟
+def micphone_predict_demo(save_wav=True):
+    state_h, state_c = None, None
+    result = []
+    # 识别间隔时间
+    interval_time = 1
+
+    CHUNK = 16000 * interval_time
+
+    # 麦克风读取数据
+    import pyaudio
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    p = pyaudio.PyAudio()
+    # 打开流
+    stream = p.open(format=FORMAT, channels=CHANNELS, rate=CHUNK, input=True, frames_per_buffer=CHUNK)
+    all_data = []
+    while True:
+        data = stream.read(CHUNK)
+
+        start = time.time()
+        score, text, state_h, state_c = predictor.predict_stream(audio_bytes=data, to_an=args.to_an, init_state_h_box=state_h, init_state_c_box=state_c)
+        result.append(text)
+        print("分段结果：消耗时间：%dms, 识别结果: %s, 得分: %d" % ((time.time() - start) * 1000, ''.join(result), score))
+        if save_wav:
+            all_data.append(data)
+            save_file="record.wav"
+            wf = wave.open(save_file, 'wb')  # 保存
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(p.get_sample_size(FORMAT))
+            wf.setframerate(CHUNK)
+            wf.writeframes(b''.join(all_data))
+            wf.close()
+
 
 if __name__ == "__main__":
     if args.real_time_demo:
