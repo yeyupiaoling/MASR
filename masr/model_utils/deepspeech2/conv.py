@@ -16,12 +16,11 @@ class ConvBn(nn.Module):
         # self.dropout = nn.Dropout()
         self.output_dim = (input_dim - self.kernel_size) // self.stride + 1
 
-    def forward(self, x, x_len):
+    def forward(self, x):
         x = self.conv(x)
         x = self.act(x)
         # x = self.dropout(x)
-        x_len = ((x_len - self.kernel_size) / self.stride + 1).int()
-        return x, x_len
+        return x
 
 
 class ConvStack(nn.Module):
@@ -47,7 +46,7 @@ class ConvStack(nn.Module):
                             input_dim=self.conv1.output_dim)
         self.output_dim = self.conv2.output_dim * conv_out_channels
 
-    def forward(self, x, x_len):
+    def forward(self, x):
         """
         x: shape [B, D, T]
         x_len : shape [B]
@@ -56,9 +55,9 @@ class ConvStack(nn.Module):
         x = x.permute(0, 2, 1)
         # [B, T, D] -> [B, C=1, T, D]
         x = x.unsqueeze(1)
-        x, x_len = self.conv1(x, x_len)
-        x, x_len = self.conv2(x, x_len)
+        x = self.conv1(x)
+        x = self.conv2(x)
         # 将数据从卷积特征映射转换为向量序列
         x = x.permute(0, 2, 1, 3)  # [B, T, C, D]
         x = x.reshape([x.shape[0], x.shape[1], -1])  # [B, T, C*D]
-        return x, x_len
+        return x

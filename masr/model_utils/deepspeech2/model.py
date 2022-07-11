@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from masr.model_utils.deepspeech2.conv import ConvStack
@@ -48,11 +49,11 @@ class DeepSpeech2Model(nn.Module):
             x_lens (Tensor): [B]
         """
         # [B, T, D]
-        x, x_lens = self.conv(audio, audio_len)
+        x = self.conv(audio)
         # [B, T, D] [num_rnn_layers, B, rnn_size] [num_rnn_layers, B, rnn_size]
-        x, final_chunk_state_h_box, final_chunk_state_c_box = self.rnn(x, x_lens, init_state_h_box, init_state_c_box)
+        x, final_chunk_state_h_box, final_chunk_state_c_box = self.rnn(x, init_state_h_box, init_state_c_box)
         logits = self.output(x)
-        return logits, x_lens, final_chunk_state_h_box, final_chunk_state_c_box
+        return logits, final_chunk_state_h_box, final_chunk_state_c_box
 
 
 # 获取普通的DeepSpeech模型

@@ -56,7 +56,6 @@ class Predictor:
         self.use_gpu = use_gpu
         self.use_pun_model = use_pun_model
         self.lac = None
-        self.last_audio_data = []
         self._text_featurizer = TextFeaturizer(vocab_filepath=vocab_path)
         self._audio_featurizer = AudioFeaturizer(feature_method=feature_method)
         # 集束搜索方法的处理
@@ -148,10 +147,8 @@ class Predictor:
             audio_data = AudioSegment.from_wave_bytes(audio_bytes)
         audio_feature = self._audio_featurizer.featurize(audio_data)
         audio_data = np.array(audio_feature).astype('float32')[np.newaxis, :]
-        audio_len = np.array([audio_data.shape[2]]).astype('int64')
 
         audio_data = torch.from_numpy(audio_data).float()
-        audio_len = torch.from_numpy(audio_len)
         init_state_h_box = None
         init_state_c_box = None
 
@@ -159,7 +156,7 @@ class Predictor:
             audio_data = audio_data.cuda()
 
         # 运行predictor
-        output_data, _, _ = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
+        output_data, _, _ = self.predictor(audio_data, init_state_h_box, init_state_c_box)
         output_data = output_data.cpu().detach().numpy()[0]
 
         # 解码
@@ -195,17 +192,14 @@ class Predictor:
             audio_data = AudioSegment.from_wave_bytes(audio_bytes)
         audio_feature = self._audio_featurizer.featurize(audio_data)
         audio_data = np.array(audio_feature).astype('float32')[np.newaxis, :]
-        audio_len = np.array([audio_data.shape[2]]).astype('int64')
-        self.last_audio_data.append([audio_data, audio_len])
 
         audio_data = torch.from_numpy(audio_data).float()
-        audio_len = torch.from_numpy(audio_len)
 
         if self.use_gpu:
             audio_data = audio_data.cuda()
 
         # 运行predictor
-        output_data, output_state_h, output_state_c = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
+        output_data, output_state_h, output_state_c = self.predictor(audio_data, init_state_h_box, init_state_c_box)
         output_data = output_data.cpu().detach().numpy()[0]
 
         if is_end or is_interrupt:

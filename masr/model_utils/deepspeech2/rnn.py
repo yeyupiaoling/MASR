@@ -19,8 +19,9 @@ class RNNForward(nn.Module):
                                batch_first=True)
         self.norm = nn.LayerNorm(h_size)
 
-    def forward(self, x, x_lens, init_state):
-        x = nn.utils.rnn.pack_padded_sequence(x, x_lens.cpu(), batch_first=True)
+    def forward(self, x, init_state):
+        x_lens = [x.shape[1]]
+        x = nn.utils.rnn.pack_padded_sequence(x, x_lens, batch_first=True)
         x, final_state = self.rnn(x, init_state)  # [B, T, D]
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
         x = self.norm(x)
@@ -53,7 +54,7 @@ class RNNStack(nn.Module):
         for i in range(0, self.num_rnn_layers - 1):
             self.rnns.append(RNNForward(rnn_input_size=h_size, h_size=h_size, use_gru=use_gru))
 
-    def forward(self, x, x_lens, init_state_h_box=None, init_state_c_box=None):
+    def forward(self, x, init_state_h_box=None, init_state_c_box=None):
         if init_state_h_box is not None:
             if self.use_gru:
                 init_state_h_list = torch.split(init_state_h_box, 1, dim=0)
@@ -66,7 +67,7 @@ class RNNStack(nn.Module):
             init_state_list = [None] * self.num_rnn_layers
         final_chunk_state_list = []
         for rnn, init_state in zip(self.rnns, init_state_list):
-            x, final_state = rnn(x, x_lens, init_state)
+            x, final_state = rnn(x, init_state)
             final_chunk_state_list.append(final_state)
 
         if self.use_gru:
