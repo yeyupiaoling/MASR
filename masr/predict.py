@@ -3,7 +3,6 @@ import sys
 
 import cn2an
 import numpy as np
-import paddle
 import torch
 
 from masr.data_utils.audio import AudioSegment
@@ -25,6 +24,7 @@ class Predictor:
                  pun_model_dir='models/pun_models/',
                  lang_model_path='lm/zh_giga.no_cna_cmn.prune01244.klm',
                  beam_size=300,
+                 chunk_beam_size=30,
                  cutoff_prob=0.99,
                  cutoff_top_n=40,
                  use_gpu=True):
@@ -41,6 +41,7 @@ class Predictor:
         :param pun_model_dir: 给识别结果加标点符号的模型文件夹路径
         :param lang_model_path: 集束搜索解码相关参数，语言模型文件路径
         :param beam_size: 集束搜索解码相关参数，搜索的大小，范围建议:[5, 500]
+        :param chunk_beam_size: 流式音频片段的搜索的大小，大小建议为30，机器性能好，可以设置更高
         :param cutoff_prob: 集束搜索解码相关参数，剪枝的概率
         :param cutoff_top_n: 集束搜索解码相关参数，剪枝的最大值
         :param use_gpu: 是否使用GPU预测
@@ -51,12 +52,12 @@ class Predictor:
         self.beta = beta
         self.lang_model_path = lang_model_path
         self.beam_size = beam_size
+        self.chunk_beam_size = chunk_beam_size
         self.cutoff_prob = cutoff_prob
         self.cutoff_top_n = cutoff_top_n
         self.use_gpu = use_gpu
         self.use_pun_model = use_pun_model
         self.lac = None
-        self.last_audio_data = []
         self._text_featurizer = TextFeaturizer(vocab_filepath=vocab_path)
         self._audio_featurizer = AudioFeaturizer(feature_method=feature_method)
         # 集束搜索方法的处理
@@ -85,6 +86,7 @@ class Predictor:
 
         # 加标点符号
         if self.use_pun_model:
+            import paddle
             from masr.utils.text_utils import PunctuationExecutor
             use_gpu = self.use_gpu
             # 判断Paddle是否支持GPU
@@ -99,14 +101,21 @@ class Predictor:
             print('预热文件不存在，忽略预热！', file=sys.stderr)
 
     # 解码模型输出结果
-    def decode(self, output_data, to_an):
+    def decode(self, output_data, to_an, is_chunk=False):
+        """
+        解码模型输出结果
+        :param output_data: 模型输出结果
+        :param to_an: 是否转为阿拉伯数字
+        :param is_chunk: 是否为流式音频片段解码，是则使用较小的搜索大小
+        :return:
+        """
         # 执行解码
         if self.decoder == 'ctc_beam_search':
             # 集束搜索解码策略
             result = self.beam_search_decoder.decode_beam_search(probs_split=output_data,
                                                                  beam_alpha=self.alpha,
                                                                  beam_beta=self.beta,
-                                                                 beam_size=self.beam_size,
+                                                                 beam_size=self.chunk_beam_size if is_chunk else self.beam_size,
                                                                  cutoff_prob=self.cutoff_prob,
                                                                  cutoff_top_n=self.cutoff_top_n,
                                                                  vocab_list=self._text_featurizer.vocab_list)
@@ -172,6 +181,7 @@ class Predictor:
                        audio_ndarray=None,
                        init_state_h_box=None,
                        init_state_c_box=None,
+                       last_output_data=None,
                        is_end=False,
                        to_an=False):
         """
@@ -180,6 +190,7 @@ class Predictor:
         :param audio_ndarray: 需要预测的音频未预处理的numpy值
         :param init_state_h_box: 模型上次输出的状态，如果不是流式识别，这个为None
         :param init_state_c_box: 模型上次输出的状态，如果不是流式识别，这个为None
+        :param last_output_data: 模型上次输出的结果
         :param is_end: 是否结束语音识别
         :param to_an: 是否转为阿拉伯数字
         :return: 识别的文本结果和解码的得分数
@@ -196,10 +207,10 @@ class Predictor:
         audio_feature = self._audio_featurizer.featurize(audio_data)
         audio_data = np.array(audio_feature).astype('float32')[np.newaxis, :]
         audio_len = np.array([audio_data.shape[2]]).astype('int64')
-        self.last_audio_data.append([audio_data, audio_len])
-
         audio_data = torch.from_numpy(audio_data).float()
         audio_len = torch.from_numpy(audio_len)
+        # 数据长度不足
+        if audio_data.shape[2] <= 2:return 0, '', None, None, None, True
 
         if self.use_gpu:
             audio_data = audio_data.cuda()
@@ -207,20 +218,27 @@ class Predictor:
         # 运行predictor
         output_data, output_state_h, output_state_c = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
         output_data = output_data.cpu().detach().numpy()[0]
-
+        # 拼接模型输出结果
+        if last_output_data is not None:
+            output_data = np.concatenate((last_output_data, output_data), axis=0)
+            if output_data.shape[0] >= 200:
+                is_interrupt = True
+        # 解码
         if is_end or is_interrupt:
             # 完整解码
             score, text = self.decode(output_data=output_data, to_an=to_an)
+            # 重置模型输出
+            output_state_h, output_state_c, output_data = None, None, None
         else:
-            # 说话的中心使用贪心解码策略，快速解码
-            result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list)
-            score, text = result[0], result[1]
-        return score, text, output_state_h, output_state_c
+            # 音频片段解码，需要快速
+            score, text = self.decode(output_data=output_data, to_an=to_an, is_chunk=True)
+        return score, text, output_state_h, output_state_c, output_data, is_end or is_interrupt
 
     # 是否转为阿拉伯数字
     def cn2an(self, text):
         # 获取分词模型
         if self.lac is None:
+            import paddle
             from LAC import LAC
             use_gpu = self.use_gpu
             # 判断Paddle是否支持GPU
