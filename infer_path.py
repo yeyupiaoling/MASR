@@ -123,11 +123,10 @@ def microphone_predict_demo():
 
 
 if __name__ == "__main__":
-    microphone_predict_demo()
-    # if args.real_time_demo:
-    #     real_time_predict_demo()
-    # else:
-    #     if args.is_long_audio:
-    #         predict_long_audio()
-    #     else:
-    #         predict_audio()
+    if args.real_time_demo:
+        real_time_predict_demo()
+    else:
+        if args.is_long_audio:
+            predict_long_audio()
+        else:
+            predict_audio()

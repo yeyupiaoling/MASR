@@ -205,6 +205,7 @@ class SpeechRecognitionApp:
         wf.close()
         self.recording = False
         self.result_text.insert(END, "录音已结束，录音文件保存在：%s\n" % self.wav_path)
+        self.record_button.configure(text='录音识别')
 
     # 播放音频线程
     def play_audio_thread(self):
