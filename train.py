@@ -7,7 +7,6 @@ from masr.utils.utils import add_arguments, print_arguments
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('batch_size',       int,    16,                       '训练的批量大小')
-add_arg('local_rank',       int,    -1,                       '多卡训练的节点')
 add_arg('num_workers',      int,    8,                        '读取数据的线程数量')
 add_arg('num_epoch',        int,    65,                       '训练的轮数')
 add_arg('learning_rate',    float,  5e-5,                     '初始学习率的大小')

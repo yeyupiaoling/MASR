@@ -31,18 +31,22 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - 2021.12.25: 初步完成基本程序。
 
 ## 模型下载
-|                                            数据集                                            |    使用模型     | 语言  |                                     解码参数                                      | 测试集字错率（词错率） |                              下载地址                               |
-|:-----------------------------------------------------------------------------------------:|:-----------:|:---:|:-----------------------------------------------------------------------------:|:-----------:|:---------------------------------------------------------------:|
-|             [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)             | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.06346   | [点击下载](https://download.csdn.net/download/qq_33200967/71141450) |
-| [free_st_chinese_mandarin_corpus](https://openslr.magicdatatech.com/resources/38) (109小时) | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.13941   | [点击下载](https://download.csdn.net/download/qq_33200967/71495689) |
-|             [thchs_30](https://openslr.magicdatatech.com/resources/18) (34小时)             | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.06751   | [点击下载](https://download.csdn.net/download/qq_33200967/71142778) |
-|                             超大数据集(1600多小时真实数据)+(1300多小时合成数据)                              | deepspeech2 | 中文  | alpha=2.2<br>beta=4.3<br>beam_size=300<br>cutoff_prob=0.99<br>cutoff_top_n=40 |   0.06215   | [点击下载](https://download.csdn.net/download/qq_33200967/75138230) |
-|           [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时)           | deepspeech2 | 英文  | alpha=1.9<br>beta=0.3<br>beam_size=500<br>cutoff_prob=1.0<br>cutoff_top_n=40  |   0.12842   | [点击下载](https://download.csdn.net/download/qq_33200967/85016728) | 
+|                                            数据集                                            |      使用模型       | 预处理方式  |   语言   | 测试集字错率（词错率） |                              下载地址                               |
+|:-----------------------------------------------------------------------------------------:|:---------------:|:------:|:------:|:-----------:|:---------------------------------------------------------------:|
+|             [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)             |   deepspeech2   | linear |   中文   |   0.06346   | [点击下载](https://download.csdn.net/download/qq_33200967/71141450) |
+| [free_st_chinese_mandarin_corpus](https://openslr.magicdatatech.com/resources/38) (109小时) |   deepspeech2   | linear |   中文   |   0.13941   | [点击下载](https://download.csdn.net/download/qq_33200967/71495689) |
+|             [thchs_30](https://openslr.magicdatatech.com/resources/18) (34小时)             |   deepspeech2   | linear |   中文   |   0.06751   | [点击下载](https://download.csdn.net/download/qq_33200967/71142778) |
+|                             超大数据集(1600多小时真实数据)+(1300多小时合成数据)                              |   deepspeech2   | linear |   中文   |   0.06215   | [点击下载](https://download.csdn.net/download/qq_33200967/75138230) |
+|                             超大数据集(1600多小时真实数据)+(1300多小时合成数据)                              | deepspeech2_big | linear |   中文   |   0.05517   |                                                                 |
+|           [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时)           |   deepspeech2   |   英文   | linear |   0.12842   | [点击下载](https://download.csdn.net/download/qq_33200967/85016728) | 
 
 
 **说明：** 
 1. 这里字错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。
-2. 下载的压缩文件已经包含了`mean_std.npz`和`vocabulary.txt`，需要把解压得到的全部文件复制到项目根目录下。
+2. 中文解码参数为：`alpha=2.2，beta=4.3，beam_size=300，cutoff_prob=0.99，cutoff_top_n=40`。
+3. 英文解码参数为：`alpha=1.9，beta=0.3，beam_size=500，cutoff_prob=1.0，cutoff_top_n=40`。
+4. 除了aishell数据集按照数据集本身划分的训练数据和测试数据，其他的都是按照项目设置的固定比例划分训练数据和测试数据。
+5. 下载的压缩文件已经包含了`mean_std.npz`和`vocabulary.txt`，需要把解压得到的全部文件复制到项目根目录下。
 
 >有问题欢迎提 [issue](https://github.com/yeyupiaoling/MASR/issues) 交流
 
