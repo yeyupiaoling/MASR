@@ -6,8 +6,8 @@ class TextFeaturizer(object):
     """
 
     def __init__(self, vocab_filepath):
-        self._vocab_dict, self._vocab_list = self._load_vocabulary_from_file(
-            vocab_filepath)
+        self.unk = "<unk>"
+        self._vocab_dict, self._vocab_list = self._load_vocabulary_from_file(vocab_filepath)
 
     def featurize(self, text):
         """将文本字符串转换为字符级的令牌索引列表
@@ -22,7 +22,8 @@ class TextFeaturizer(object):
         for token in tokens:
             if token == ' ': token = '<space>'
             # 跳过词汇表不存在的字符
-            if token not in self._vocab_list: continue
+            if token not in self._vocab_list:
+                token = self.unk
             token_indices.append(self._vocab_dict[token])
         return token_indices
 

@@ -22,6 +22,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 ## 更新记录
 
+ - 2022.08.04: 发布1.0版本，优化实时识别流程。
  - 2022.07.12: 完成GUI界面的录音实时识别。
  - 2022.06.14: 支持`deepspeech2_big`模型，适合WenetSpeech大数据集训练模型。
  - 2022.01.16: 支持多种预处理方法。
@@ -64,9 +65,10 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 - [导出模型](./docs/export_model.md)
 - [使用标点符号模型](./docs/punctuation.md)
 - 预测
-   - [本地模型](./docs/infer.md)
-   - [长语音模型](./docs/infer.md)
+   - [本地预测](./docs/infer.md)
+   - [长语音预测](./docs/infer.md)
    - [Web部署模型](./docs/infer.md)
+   - [GUI界面预测](./docs/infer.md)
 
 
 ## 快速预测
