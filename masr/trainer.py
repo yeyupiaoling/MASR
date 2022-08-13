@@ -96,6 +96,7 @@ class MASRTrainer(object):
                     num_samples=1000000,
                     count_threshold=2,
                     is_change_frame_rate=True,
+					pinyin_data=False,
                     max_test_manifest=10000):
         """
         创建数据列表和词汇表
@@ -105,8 +106,10 @@ class MASRTrainer(object):
         :param num_samples: 用于计算均值和标准值得音频数量，当为-1使用全部数据
         :param count_threshold: 字符计数的截断阈值，0为不做限制
         :param is_change_frame_rate: 是否统一改变音频为16000Hz，这会消耗大量的时间
+		:param pinyin_data: 是否生成拼音识别
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
         """
+        print('拼音模式：',pinyin_data)
         print('开始生成数据列表...')
         create_manifest(annotation_path=annotation_path,
                         train_manifest_path=self.train_manifest,
@@ -122,7 +125,7 @@ class MASRTrainer(object):
 
         print('开始生成数据字典...')
         counter = Counter()
-        count_manifest(counter, self.train_manifest)
+        count_manifest(counter, self.train_manifest, pinyin_data)
 
         count_sorted = sorted(counter.items(), key=lambda x: x[1], reverse=True)
         with open(self.dataset_vocab, 'w', encoding='utf-8') as fout:

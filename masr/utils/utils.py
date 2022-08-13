@@ -172,20 +172,24 @@ def create_noise(path, noise_manifest_path, min_duration=30, is_change_frame_rat
             f_noise.write(json_line + '\n')
 
 
+def _count_lines(counter, f, pinyin_data):
+	for line in tqdm(f.readlines()):
+		line = json.loads(line)
+		if pinyin_data:
+			items = line["text"].replace('\n', ' ').replace('  ',' ').split(' ')
+		else:
+			items = line["text"].replace('\n', '')
+		for char in items:
+			counter.update([char])
+
+
 # 获取全部字符
-def count_manifest(counter, manifest_path):
+def count_manifest(counter, manifest_path, pinyin_data):
     with open(manifest_path, 'r', encoding='utf-8') as f:
-        for line in tqdm(f.readlines()):
-            line = json.loads(line)
-            for char in line["text"].replace('\n', ''):
-                counter.update(char)
+	    _count_lines(counter, f, pinyin_data)
     if os.path.exists(manifest_path.replace('train', 'test')):
         with open(manifest_path.replace('train', 'test'), 'r', encoding='utf-8') as f:
-            for line in tqdm(f.readlines()):
-                line = json.loads(line)
-                for char in line["text"].replace('\n', ''):
-                    counter.update(char)
-
+            _count_lines(counter, f, pinyin_data)
 
 # 计算数据集的均值和标准值
 def compute_mean_std(feature_method, manifest_path, output_path, num_samples=-1, num_workers=8):
