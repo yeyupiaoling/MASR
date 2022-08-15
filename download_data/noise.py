@@ -24,7 +24,7 @@ args = parser.parse_args()
 
 def prepare_dataset(url, md5sum, target_dir, noise_path):
     """Download, unpack and move noise file."""
-    data_dir = os.path.join(target_dir, 'RIRS_NOISES')
+    data_dir = os.path.join(target_dir, 'noise')
     if not os.path.exists(data_dir):
         filepath = download(url, md5sum, target_dir)
         unzip(filepath, target_dir)
