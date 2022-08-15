@@ -8,6 +8,7 @@ import numpy as np
 import soundfile
 from tqdm import tqdm
 from zhconv import convert
+from pypinyin import lazy_pinyin, Style
 
 from masr.data_utils.normalizer import FeatureNormalizer
 
@@ -46,7 +47,7 @@ def fuzzy_delete(dir, fuzzy_str):
 
 
 # 创建数据列表
-def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is_change_frame_rate=True, max_test_manifest=10000):
+def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is_change_frame_rate=True, pinyin_data=False, max_test_manifest=10000):
     data_list = []
     test_list = []
     durations = []
@@ -68,6 +69,8 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
             if len(text) == 0:continue
             # 保证全部都是简体
             text = convert(text, 'zh-cn')
+            if pinyin_data:
+                text = ' '.join(lazy_pinyin(text, style=Style.TONE3))
             # 加入数据列表中
             line = '{"audio_filepath":"%s", "duration":%.2f, "text":"%s"}' % (audio_path.replace('\\', '/'), duration, text)
             if annotation_text == 'test.txt':
@@ -173,20 +176,20 @@ def create_noise(path, noise_manifest_path, min_duration=30, is_change_frame_rat
 
 
 def _count_lines(counter, f, pinyin_data):
-	for line in tqdm(f.readlines()):
-		line = json.loads(line)
-		if pinyin_data:
-			items = line["text"].replace('\n', ' ').replace('  ',' ').split(' ')
-		else:
-			items = line["text"].replace('\n', '')
-		for char in items:
-			counter.update([char])
+    for line in tqdm(f.readlines()):
+        line = json.loads(line)
+        if pinyin_data:
+            items = line["text"].replace('\n', ' ').replace('  ',' ').split(' ')
+        else:
+            items = line["text"].replace('\n', '')
+        for char in items:
+            counter.update([char])
 
 
 # 获取全部字符
 def count_manifest(counter, manifest_path, pinyin_data):
     with open(manifest_path, 'r', encoding='utf-8') as f:
-	    _count_lines(counter, f, pinyin_data)
+        _count_lines(counter, f, pinyin_data)
     if os.path.exists(manifest_path.replace('train', 'test')):
         with open(manifest_path.replace('train', 'test'), 'r', encoding='utf-8') as f:
             _count_lines(counter, f, pinyin_data)
