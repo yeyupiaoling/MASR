@@ -5,8 +5,9 @@ class TextFeaturizer(object):
     :type vocab_filepath: str
     """
 
-    def __init__(self, vocab_filepath):
+    def __init__(self, vocab_filepath, delim=''):
         self.unk = "<unk>"
+        self._delim = delim
         self._vocab_dict, self._vocab_list = self._load_vocabulary_from_file(vocab_filepath)
 
     def featurize(self, text):
@@ -47,7 +48,10 @@ class TextFeaturizer(object):
 
     def _char_tokenize(self, text):
         """Character tokenizer."""
-        return list(text.strip())
+        if self._delim == '':
+            return list(text.strip())
+        else:
+            return text.strip().split(self._delim)
 
     def _load_vocabulary_from_file(self, vocab_filepath):
         """Load vocabulary from file."""

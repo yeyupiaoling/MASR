@@ -19,7 +19,7 @@ add_arg('mean_std_path',        str,  'dataset/mean_std.npz',     '保存均值�
 add_arg('noise_path',           str,  'dataset/audio/noise',      '噪声音频存放的文件夹路径')
 add_arg('noise_manifest_path',  str,  'dataset/manifest.noise',   '噪声数据列表的路径')
 add_arg('feature_method',       str,  'linear',                   '音频预处理方法', choices=['linear', 'mfcc', 'fbank'])
-add_arg('pinyin_data',          bool,  False,                     '生成拼音识别数据')
+add_arg('pinyin_mode',          bool,  False,                     '生成拼音识别数据')
 args = parser.parse_args()
 print_arguments(args)
 
@@ -29,6 +29,7 @@ trainer = MASRTrainer(mean_std_path=args.mean_std_path,
                       train_manifest=args.train_manifest,
                       test_manifest=args.test_manifest,
                       dataset_vocab=args.dataset_vocab,
+                      pinyin_mode=args.pinyin_mode,
                       num_workers=args.num_workers)
 
 trainer.create_data(annotation_path=args.annotation_path,
@@ -37,5 +38,4 @@ trainer.create_data(annotation_path=args.annotation_path,
                     num_samples=args.num_samples,
                     count_threshold=args.count_threshold,
                     is_change_frame_rate=args.is_change_frame_rate,
-                    pinyin_data=args.pinyin_data,
                     max_test_manifest=args.max_test_manifest)

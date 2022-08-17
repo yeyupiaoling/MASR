@@ -31,9 +31,9 @@ class SpeechFeaturizer(object):
     :type target_dB: float
     """
 
-    def __init__(self, vocab_filepath, feature_method='linear', target_sample_rate=16000, target_dB=-20):
+    def __init__(self, vocab_filepath, feature_method='linear', target_sample_rate=16000, target_dB=-20, text_delim=''):
         self._audio_featurizer = AudioFeaturizer(feature_method=feature_method, target_sample_rate=target_sample_rate, target_dB=target_dB)
-        self._text_featurizer = TextFeaturizer(vocab_filepath)
+        self._text_featurizer = TextFeaturizer(vocab_filepath, text_delim)
 
     def featurize(self, speech_segment):
         """提取语音片段的特征

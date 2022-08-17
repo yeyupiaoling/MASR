@@ -23,6 +23,7 @@ add_arg('metrics_type',     str,    'cer',                      '计算错误率
 add_arg('feature_method',   str,    'linear',                   '音频预处理方法', choices=['linear', 'mfcc', 'fbank'])
 add_arg('resume_model',     str,    None,                       '恢复训练，当为None则不使用预训练模型')
 add_arg('pretrained_model', str,    None,                       '预训练模型的路径，当为None则不使用预训练模型')
+add_arg('pinyin_mode',      bool,   False,                     '生成拼音识别数据')
 args = parser.parse_args()
 print_arguments(args)
 
@@ -33,6 +34,7 @@ trainer = MASRTrainer(use_model=args.use_model,
                       test_manifest=args.test_manifest,
                       dataset_vocab=args.dataset_vocab,
                       num_workers=args.num_workers,
+                      pinyin_mode=args.pinyin_mode,
                       metrics_type=args.metrics_type)
 
 trainer.train(batch_size=args.batch_size,

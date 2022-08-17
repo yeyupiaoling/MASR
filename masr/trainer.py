@@ -47,6 +47,7 @@ class MASRTrainer(object):
                  cutoff_top_n=40,
                  decoder='ctc_greedy',
                  metrics_type='cer',
+                 pinyin_mode=False,
                  lang_model_path='lm/zh_giga.no_cna_cmn.prune01244.klm'):
         """
         PPASR集成工具类
@@ -64,6 +65,7 @@ class MASRTrainer(object):
         :param cutoff_prob: 剪枝的概率
         :param cutoff_top_n: 剪枝的最大值
         :param metrics_type: 计算错误方法
+        :param pinyin_mode: 是否生成拼音识别，True:拼音模式,False:汉字模式
         :param decoder: 结果解码方法，支持ctc_beam_search和ctc_greedy
         :param lang_model_path: 语言模型文件路径
         """
@@ -86,6 +88,7 @@ class MASRTrainer(object):
         self.cutoff_top_n = cutoff_top_n
         self.decoder = decoder
         self.metrics_type = metrics_type
+        self.pinyin_mode = pinyin_mode
         self.lang_model_path = lang_model_path
         self.beam_search_decoder = None
 
@@ -96,7 +99,6 @@ class MASRTrainer(object):
                     num_samples=1000000,
                     count_threshold=2,
                     is_change_frame_rate=True,
-                    pinyin_data=False,
                     max_test_manifest=10000):
         """
         创建数据列表和词汇表
@@ -106,16 +108,15 @@ class MASRTrainer(object):
         :param num_samples: 用于计算均值和标准值得音频数量，当为-1使用全部数据
         :param count_threshold: 字符计数的截断阈值，0为不做限制
         :param is_change_frame_rate: 是否统一改变音频为16000Hz，这会消耗大量的时间
-        :param pinyin_data: 是否生成拼音识别
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
         """
-        print('拼音模式：',pinyin_data)
+        print('拼音模式：',self.pinyin_mode)
         print('开始生成数据列表...')
         create_manifest(annotation_path=annotation_path,
                         train_manifest_path=self.train_manifest,
                         test_manifest_path=self.test_manifest,
                         is_change_frame_rate=is_change_frame_rate,
-                        pinyin_data=pinyin_data,
+                        pinyin_mode=self.pinyin_mode,
                         max_test_manifest=max_test_manifest)
         print('=' * 70)
         print('开始生成噪声数据列表...')
@@ -126,7 +127,7 @@ class MASRTrainer(object):
 
         print('开始生成数据字典...')
         counter = Counter()
-        count_manifest(counter, self.train_manifest, pinyin_data)
+        count_manifest(counter, self.train_manifest, self.pinyin_mode)
 
         count_sorted = sorted(counter.items(), key=lambda x: x[1], reverse=True)
         with open(self.dataset_vocab, 'w', encoding='utf-8') as fout:
@@ -166,6 +167,7 @@ class MASRTrainer(object):
                                    mean_std_filepath=self.mean_std_path,
                                    min_duration=min_duration,
                                    max_duration=max_duration,
+                                   pinyin_mode=self.pinyin_mode,
                                    feature_method=self.feature_method)
         test_loader = DataLoader(dataset=test_dataset,
                                  batch_size=batch_size,
@@ -251,6 +253,7 @@ class MASRTrainer(object):
                                     mean_std_filepath=self.mean_std_path,
                                     min_duration=min_duration,
                                     max_duration=max_duration,
+                                    pinyin_mode=self.pinyin_mode,
                                     augmentation_config=augmentation_config)
         # 设置支持多卡训练
         if nranks > 1:
@@ -274,6 +277,7 @@ class MASRTrainer(object):
                                    vocab_filepath=self.dataset_vocab,
                                    feature_method=self.feature_method,
                                    mean_std_filepath=self.mean_std_path,
+                                   pinyin_mode=self.pinyin_mode,
                                    min_duration=min_duration,
                                    max_duration=max_duration)
         test_loader = DataLoader(dataset=test_dataset,

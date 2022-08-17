@@ -47,7 +47,7 @@ def fuzzy_delete(dir, fuzzy_str):
 
 
 # 创建数据列表
-def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is_change_frame_rate=True, pinyin_data=False, max_test_manifest=10000):
+def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is_change_frame_rate=True, pinyin_mode=False, max_test_manifest=10000):
     data_list = []
     test_list = []
     durations = []
@@ -69,7 +69,7 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
             if len(text) == 0:continue
             # 保证全部都是简体
             text = convert(text, 'zh-cn')
-            if pinyin_data:
+            if pinyin_mode:
                 text = ' '.join(lazy_pinyin(text, style=Style.NORMAL))  # NORMAL -- 无声调，TONE3 -- 类似 hao3 这样的声调标注
             # 加入数据列表中
             line = '{"audio_filepath":"%s", "duration":%.2f, "text":"%s"}' % (audio_path.replace('\\', '/'), duration, text)
@@ -175,10 +175,10 @@ def create_noise(path, noise_manifest_path, min_duration=30, is_change_frame_rat
             f_noise.write(json_line + '\n')
 
 
-def _count_lines(counter, f, pinyin_data):
+def _count_lines(counter, f, pinyin_mode):
     for line in tqdm(f.readlines()):
         line = json.loads(line)
-        if pinyin_data:
+        if pinyin_mode:
             items = line["text"].replace('\n', ' ').replace('  ',' ').split(' ')
         else:
             items = line["text"].replace('\n', '')
@@ -187,12 +187,12 @@ def _count_lines(counter, f, pinyin_data):
 
 
 # 获取全部字符
-def count_manifest(counter, manifest_path, pinyin_data):
+def count_manifest(counter, manifest_path, pinyin_mode):
     with open(manifest_path, 'r', encoding='utf-8') as f:
-        _count_lines(counter, f, pinyin_data)
+        _count_lines(counter, f, pinyin_mode)
     if os.path.exists(manifest_path.replace('train', 'test')):
         with open(manifest_path.replace('train', 'test'), 'r', encoding='utf-8') as f:
-            _count_lines(counter, f, pinyin_data)
+            _count_lines(counter, f, pinyin_mode)
 
 # 计算数据集的均值和标准值
 def compute_mean_std(feature_method, manifest_path, output_path, num_samples=-1, num_workers=8):
