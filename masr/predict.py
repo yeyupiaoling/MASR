@@ -22,6 +22,7 @@ class Predictor:
                  feature_method='linear',
                  use_pun_model=False,
                  pun_model_dir='models/pun_models/',
+                 pinyin_mode=False,
                  lang_model_path='lm/zh_giga.no_cna_cmn.prune01244.klm',
                  beam_size=300,
                  cutoff_prob=0.99,
@@ -42,6 +43,7 @@ class Predictor:
         :param beam_size: 集束搜索解码相关参数，搜索的大小，范围建议:[5, 500]
         :param cutoff_prob: 集束搜索解码相关参数，剪枝的概率
         :param cutoff_top_n: 集束搜索解码相关参数，剪枝的最大值
+        :param pinyin_mode: 拼音模式/汉字模式
         :param use_gpu: 是否使用GPU预测
         """
         self.decoder = decoder
@@ -52,6 +54,7 @@ class Predictor:
         self.beam_size = beam_size
         self.cutoff_prob = cutoff_prob
         self.cutoff_top_n = cutoff_top_n
+        self.pinyin_mode = pinyin_mode
         self.use_gpu = use_gpu
         self.use_pun_model = use_pun_model
         self.lac = None
@@ -122,8 +125,12 @@ class Predictor:
             # 集束搜索解码策略
             result = self.beam_search_decoder.decode_beam_search_offline(probs_split=output_data)
         else:
+            if self.pinyin_mode:
+                delim = ' '
+            else:
+                delim = ''
             # 贪心解码策略
-            result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list)
+            result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list, delim)
 
         score, text = result[0], result[1]
         # 加标点符号

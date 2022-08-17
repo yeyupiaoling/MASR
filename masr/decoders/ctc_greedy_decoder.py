@@ -3,7 +3,7 @@ from itertools import groupby
 import numpy as np
 
 
-def greedy_decoder(probs_seq, vocabulary, blank_index=0):
+def greedy_decoder(probs_seq, vocabulary, blank_index=0, delim=''):
     """CTC贪婪(最佳路径)解码器
 
     由最可能的令牌组成的路径将被进一步后处理到去掉连续重复和所有空白
@@ -24,7 +24,7 @@ def greedy_decoder(probs_seq, vocabulary, blank_index=0):
     index_list = [index_group[0] for index_group in groupby(max_index_list)]
     index_list = [index for index in index_list if index != blank_index]
     # 索引列表转换为字符串
-    text = ''.join([vocabulary[index] for index in index_list])
+    text = delim.join([vocabulary[index] for index in index_list])
     score = 0
     if len(max_prob_list) > 0:
         score = float(sum(max_prob_list) / len(max_prob_list)) * 100.0
