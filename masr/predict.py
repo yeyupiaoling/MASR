@@ -130,7 +130,7 @@ class Predictor:
             else:
                 delim = ''
             # 贪心解码策略
-            result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list, delim)
+            result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list, delim=delim)
 
         score, text = result[0], result[1]
         # 加标点符号
