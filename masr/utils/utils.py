@@ -70,7 +70,7 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
             # 保证全部都是简体
             text = convert(text, 'zh-cn')
             if pinyin_data:
-                text = ' '.join(lazy_pinyin(text, style=Style.TONE3))
+                text = ' '.join(lazy_pinyin(text, style=Style.NORMAL))  # NORMAL -- 无声调，TONE3 -- 类似 hao3 这样的声调标注
             # 加入数据列表中
             line = '{"audio_filepath":"%s", "duration":%.2f, "text":"%s"}' % (audio_path.replace('\\', '/'), duration, text)
             if annotation_text == 'test.txt':
