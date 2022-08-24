@@ -322,6 +322,7 @@ class MASRTrainer(object):
 
         # 加载恢复模型
         last_epoch = -1
+        best_error_rate = 1.0
         last_model_dir = os.path.join(save_model_path, self.use_model, 'last_model')
         if resume_model is not None or (os.path.exists(os.path.join(last_model_dir, 'model.pt'))
                                         and os.path.exists(os.path.join(last_model_dir, 'optimizer.pt'))):
@@ -335,7 +336,12 @@ class MASRTrainer(object):
                 model.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
             optimizer.load_state_dict(torch.load(os.path.join(resume_model, 'optimizer.pt')))
             with open(os.path.join(resume_model, 'model.state'), 'r', encoding='utf-8') as f:
-                last_epoch = json.load(f)['last_epoch'] - 1
+                json_data = json.load(f)
+                last_epoch = json_data['last_epoch'] - 1
+                if 'test_cer' in json_data.keys():
+                    best_error_rate = abs(json_data['test_cer'])
+                if 'test_wer' in json_data.keys():
+                    best_error_rate = abs(json_data['test_wer'])
             logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
         scheduler = StepLR(optimizer, step_size=1, gamma=0.93, last_epoch=last_epoch)
 
@@ -343,7 +349,6 @@ class MASRTrainer(object):
         ctc_loss = torch.nn.CTCLoss(reduction='none', zero_infinity=True)
 
         test_step, train_step = 0, 0
-        best_test_cer = 1
         train_times = []
         sum_batch = len(train_loader) * num_epoch
         if local_rank == 0:
@@ -410,8 +415,8 @@ class MASRTrainer(object):
                     # 记录学习率
                     writer.add_scalar('Train/lr', scheduler.get_last_lr()[0], epoch)
                     # 保存最优模型
-                    if c <= best_test_cer:
-                        best_test_cer = c
+                    if c <= best_error_rate:
+                        best_error_rate = c
                         if nranks > 1:
                             self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model.module,
                                             optimizer=optimizer, epoch=epoch, error_type=self.metrics_type, error_rate=c, test_loss=l, best_model=True)
@@ -429,13 +434,16 @@ class MASRTrainer(object):
         except KeyboardInterrupt:
             # Ctrl+C退出时保存模型
             if local_rank == 0:
-                logger.info('请等一下，正在保存模型...')
+                try:
+                    logger.info(f'请等一下，正在保存模型，当前损失值为：{l}')
+                except NameError as e:
+                    c, l = 1.0, 1e3
                 if nranks > 1:
                     self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                    model=model.module, optimizer=optimizer)
+                                    model=model.module, optimizer=optimizer, error_rate=c, test_loss=l)
                 else:
                     self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                    model=model, optimizer=optimizer)
+                                    model=model, optimizer=optimizer, error_rate=c, test_loss=l)
 
     # 评估模型
     @torch.no_grad()
@@ -478,7 +486,7 @@ class MASRTrainer(object):
 
     # 保存模型
     @staticmethod
-    def save_model(save_model_path, use_model, epoch, model, optimizer, error_type='cer', error_rate=-1., test_loss=-1., best_model=False):
+    def save_model(save_model_path, use_model, epoch, model, optimizer, error_type='cer', error_rate=1.0, test_loss=1e3, best_model=False):
         if not best_model:
             model_path = os.path.join(save_model_path, use_model, 'epoch_{}'.format(epoch))
             os.makedirs(model_path, exist_ok=True)
