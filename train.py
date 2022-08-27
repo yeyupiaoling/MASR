@@ -7,7 +7,7 @@ from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('use_model',        str,    'deepspeech2_big',            '所使用的模型', choices=SUPPORT_MODEL)
+add_arg('use_model',        str,    'deepspeech2',            '所使用的模型', choices=SUPPORT_MODEL)
 add_arg("local_rank",       int,    0,                        '多卡训练需要的参数')
 add_arg('batch_size',       int,    8,                       '训练的批量大小')
 add_arg('num_workers',      int,    8,                        '读取数据的线程数量')
@@ -22,7 +22,7 @@ add_arg('mean_std_path',    str,    'dataset/mean_std.npz',     '数据集的均
 add_arg('augment_conf_path',str,    'conf/augmentation.json',   '数据增强的配置文件，为json格式')
 add_arg('save_model_path',  str,    'models/',                  '模型保存的路径')
 add_arg('metrics_type',     str,    'cer',                      '计算错误率方法', choices=['cer', 'wer'])
-add_arg('feature_method',   str,    'linear',                    '音频预处理方法', choices=['linear', 'mfcc', 'fbank'])
+add_arg('feature_method',   str,    'fbank',                    '音频预处理方法', choices=['linear', 'mfcc', 'fbank'])
 add_arg('resume_model',     str,    None,                       '恢复训练模型的文件夹路径，当为None则不使用预训练模型')
 add_arg('pretrained_model', str,    'models/deepspeech2_big_fbank/best_model/',                       '预训练模型的文件夹路径，当为None则不使用预训练模型')
 args = parser.parse_args()

@@ -10,7 +10,7 @@ from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('use_model',        str,    'deepspeech2_big',        "所使用的模型", choices=SUPPORT_MODEL)
+add_arg('use_model',        str,    'deepspeech2',        "所使用的模型", choices=SUPPORT_MODEL)
 add_arg('wav_path',         str,    './dataset/test.wav', "预测音频的路径")
 add_arg('is_long_audio',    bool,   False,  "是否为长语音")
 add_arg('real_time_demo',   bool,   False,  "是否使用实时语音识别演示")

@@ -8,7 +8,7 @@ from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('use_model',        str,    'deepspeech2_big',            '所使用的模型', choices=SUPPORT_MODEL)
+add_arg('use_model',        str,    'deepspeech2',            '所使用的模型', choices=SUPPORT_MODEL)
 add_arg('batch_size',       int,    32,                       '评估的批量大小')
 add_arg('min_duration',     int,    0.5,                      '过滤最短的音频长度')
 add_arg('max_duration',     int,    35,                       '过滤最长的音频长度，当为-1的时候不限制长度')
