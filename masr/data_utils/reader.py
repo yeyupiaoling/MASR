@@ -1,6 +1,4 @@
 import json
-import sys
-from datetime import datetime
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -9,16 +7,19 @@ from masr.data_utils.augmentor.augmentation import AugmentationPipeline
 from masr.data_utils.featurizer.speech_featurizer import SpeechFeaturizer
 from masr.data_utils.normalizer import FeatureNormalizer
 from masr.data_utils.speech import SpeechSegment
+from masr.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 # 音频数据加载器
 class MASRDataset(Dataset):
     def __init__(self, data_list, vocab_filepath, mean_std_filepath, feature_method='linear',
-                 min_duration=0, max_duration=20, augmentation_config='{}'):
+                 min_duration=0, max_duration=20, augmentation_config='{}', train=False):
         super(MASRDataset, self).__init__()
         self._normalizer = FeatureNormalizer(mean_std_filepath, feature_method=feature_method)
         self._augmentation_pipeline = AugmentationPipeline(augmentation_config=augmentation_config)
-        self._speech_featurizer = SpeechFeaturizer(vocab_filepath=vocab_filepath, feature_method=feature_method)
+        self._speech_featurizer = SpeechFeaturizer(vocab_filepath=vocab_filepath, feature_method=feature_method, train=train)
         # 获取数据列表
         with open(data_list, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -44,7 +45,7 @@ class MASRDataset(Dataset):
             transcript = np.array(transcript, dtype='int32')
             return feature, transcript
         except Exception as ex:
-            print("[{}] 数据: {} 出错，错误信息: {}".format(datetime.now(), self.data_list[idx], ex), file=sys.stderr)
+            logger.warning("数据: {} 出错，错误信息: {}".format(self.data_list[idx], ex))
             rnd_idx = np.random.randint(self.__len__())
             return self.__getitem__(rnd_idx)
 
