@@ -317,7 +317,8 @@ class MASRTrainer(object):
             pretrained_dict = torch.load(os.path.join(pretrained_model, 'model.pt'))
             model_dict = model.state_dict()
             # 将pretrained_dict里不属于model_dict的键剔除掉
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict
+                               and pretrained_dict[k].shape == model_dict[k].shape}
             model_dict.update(pretrained_dict)
             model.load_state_dict(model_dict)
             logger.info('成功加载预训练模型：{}'.format(pretrained_model))

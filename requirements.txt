@@ -17,4 +17,4 @@ audioread~=2.1.9
 pyyaml~=5.4.1
 flask~=2.1.2
 termcolor~=1.1.0
-torchaudio~=0.10.0
+torchaudio~=0.12.0

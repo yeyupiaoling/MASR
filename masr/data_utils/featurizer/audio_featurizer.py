@@ -117,7 +117,7 @@ class AudioFeaturizer(object):
         n_frame_shift = n_shift / num_point_ms
 
         dither = dither if self.train else 0.0
-        waveform = torch.from_numpy(np.expand_dims(samples, 0)).float()
+        waveform = torch.from_numpy(np.expand_dims(samples, 0)).double()
         # 计算MFCC
         mfcc_feat = mfcc(waveform,
                          num_mel_bins=n_mels,
@@ -149,7 +149,7 @@ class AudioFeaturizer(object):
         n_frame_shift = n_shift / num_point_ms
 
         dither = dither if self.train else 0.0
-        waveform = torch.from_numpy(np.expand_dims(samples, 0)).float()
+        waveform = torch.from_numpy(np.expand_dims(samples, 0)).double()
         # 计算Fbank
         mat = fbank(waveform,
                     num_mel_bins=n_mels,
