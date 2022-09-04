@@ -30,6 +30,8 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 ## 更新记录
 
+ - 2022.08.27: 修改使用kaldi实现`fbank`和`mfcc`预处理方法。
+ - 2022.08.22: 增加非流式模型`deepspeech2_no_stream`和`deepspeech2_big_no_stream`。
  - 2022.08.04: 发布1.0版本，优化实时识别流程。
  - 2022.07.12: 完成GUI界面的录音实时识别。
  - 2022.06.14: 支持`deepspeech2_big`模型，适合WenetSpeech大数据集训练模型。
@@ -40,14 +42,26 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - 2021.12.25: 初步完成基本程序。
 
 ## 模型下载
-|                                            数据集                                            |      使用模型       | 预处理方式  |   语言   | 测试集字错率（词错率） |                                    下载地址                                    |
-|:-----------------------------------------------------------------------------------------:|:---------------:|:------:|:------:|:-----------:|:--------------------------------------------------------------------------:|
-|             [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)             |   deepspeech2   | linear |   中文   |   0.06346   |      [点击下载](https://download.csdn.net/download/qq_33200967/71141450)       |
-| [free_st_chinese_mandarin_corpus](https://openslr.magicdatatech.com/resources/38) (109小时) |   deepspeech2   | linear |   中文   |   0.13941   |      [点击下载](https://download.csdn.net/download/qq_33200967/71495689)       |
-|             [thchs_30](https://openslr.magicdatatech.com/resources/18) (34小时)             |   deepspeech2   | linear |   中文   |   0.06751   |      [点击下载](https://download.csdn.net/download/qq_33200967/71142778)       |
-|                             超大数据集(1600多小时真实数据)+(1300多小时合成数据)                              |   deepspeech2   | linear |   中文   |   0.06215   |      [点击下载](https://download.csdn.net/download/qq_33200967/75138230)(需要重新导出模型)       |
-|                             超大数据集(1600多小时真实数据)+(1300多小时合成数据)                              | deepspeech2_big | linear |   中文   |   0.05517   | 先`star`项目再[点击下载](https://pan.baidu.com/s/1IW7HJP16IxRHeqSfMfNK5g?pwd=0w36) |
-|           [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时)           |   deepspeech2   |   英文   | linear |   0.12842   |      [点击下载](https://download.csdn.net/download/qq_33200967/85016728)       | 
+
+本项目支持流式识别模型`deepspeech2`、`deepspeech2_big`，非流式模型`deepspeech2_no_stream`、`deepspeech2_big_no_stream`。
+
+|           使用模型            |                                  数据集                                  | 预处理方式  | 语言  | 测试集字错率（词错率） |                                    下载地址                                    |
+|:-------------------------:|:---------------------------------------------------------------------:|:------:|:---:|:-----------:|:--------------------------------------------------------------------------:|
+|      deepspeech2_big      |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank  | 中文  |             |    [点击下载](链接：https://pan.baidu.com/s/1tGlHCBHF7vIWfU2N_7FE7A?pwd=j8hi)     |
+|        deepspeech2        |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  | 中文  |   0.07321   |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+|      deepspeech2_big      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  | 中文  |  0.04879*   |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+|   deepspeech2_no_stream   |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  | 中文  |   0.06518   |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  | 中文  |             |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+|        deepspeech2        |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear | 中文  |   0.07991   |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+|      deepspeech2_big      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear | 中文  |   0.09148   |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+|   deepspeech2_no_stream   |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear | 中文  |   0.06865   |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear | 中文  |             |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+|        deepspeech2        | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  | 英文  |             |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
+|      deepspeech2_big      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  | 英文  |             |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
+|   deepspeech2_no_stream   | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  | 英文  |             |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
+| deepspeech2_big_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  | 英文  |             |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
+|        deepspeech2        |                   超大数据集(1600多小时真实数据)+(1300多小时合成数据)                    | linear | 中文  |   0.06215   | [点击下载](https://download.csdn.net/download/qq_33200967/75138230)(需要重新导出模型)  |
+|      deepspeech2_big      |                   超大数据集(1600多小时真实数据)+(1300多小时合成数据)                    | linear | 中文  |   0.05517   | 先`star`项目再[点击下载](https://pan.baidu.com/s/1IW7HJP16IxRHeqSfMfNK5g?pwd=0w36) |
 
 
 **说明：** 
@@ -56,6 +70,9 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 3. 英文解码参数为：`alpha=1.9，beta=0.3，beam_size=500，cutoff_prob=1.0，cutoff_top_n=40`。
 4. 除了aishell数据集按照数据集本身划分的训练数据和测试数据，其他的都是按照项目设置的固定比例划分训练数据和测试数据。
 5. 下载的压缩文件已经包含了`mean_std.npz`和`vocabulary.txt`，需要把解压得到的全部文件复制到项目根目录下。
+6. 模型名称包含`no_stream`为非流式模型，不能用于流式识别。
+7. 带有`*`的使用了`WenetSpeech`作为预训练模型。
+8. 由于算力不足，大部分的模型都没有训练足够轮数，有算力的同学，欢迎提供模型。
 
 >有问题欢迎提 [issue](https://github.com/yeyupiaoling/MASR/issues) 交流
 

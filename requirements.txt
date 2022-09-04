@@ -1,6 +1,6 @@
 numpy>=1.19.2
-scipy>=1.6.1
-tqdm>=4.49.0
+scipy>=1.6.3
+tqdm~=4.59.0
 librosa~=0.9.2
 python-Levenshtein==0.12.2
 visualdl>=2.1.1
@@ -9,7 +9,6 @@ SoundFile~=0.10
 resampy==0.2.2
 numba>=0.53.0
 zhconv>=1.4.2
-paddlespeech_feat
 ijson~=3.1.4
 webrtcvad~=2.0.10
 pydub~=0.25.1
@@ -19,3 +18,5 @@ audioread~=2.1.9
 pyyaml~=5.4.1
 flask~=2.1.2
 pypinyin>=0.47.0
+termcolor~=1.1.0
+torchaudio~=0.12.0

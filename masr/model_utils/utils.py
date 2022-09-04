@@ -3,8 +3,9 @@ import math
 import torch
 from torch import nn
 from masr.model_utils.deepspeech2.model import DeepSpeech2Model
+from masr.model_utils.deepspeech2_no_stream.model import DeepSpeech2NoStreamModel
 
-__all__ = ['Normalizer', 'DeepSpeech2ModelExport']
+__all__ = ['Normalizer', 'DeepSpeech2ModelExport', 'DeepSpeech2NoStreamModelExport']
 
 
 # 对数据归一化模型
@@ -34,6 +35,22 @@ class DeepSpeech2ModelExport(torch.nn.Module):
         logits, output_lens, final_chunk_state_h_box, final_chunk_state_c_box = self.model(x, audio_len, init_state_h_box, init_state_c_box)
         output = self.softmax(logits)
         return output, output_lens, final_chunk_state_h_box, final_chunk_state_c_box
+
+
+# 导出使用的DeepSpeech2NoStreamModel模型
+class DeepSpeech2NoStreamModelExport(torch.nn.Module):
+    def __init__(self, model:DeepSpeech2NoStreamModel, feature_mean, feature_std):
+        super(DeepSpeech2NoStreamModelExport, self).__init__()
+        self.normalizer = Normalizer(feature_mean, feature_std)
+        self.model = model
+        # 在输出层加上Softmax
+        self.softmax = torch.nn.Softmax(dim=2)
+
+    def forward(self, audio, audio_len):
+        x = self.normalizer(audio)
+        logits, output_lens = self.model(x, audio_len)
+        output = self.softmax(logits)
+        return output, output_lens
 
 
 class LinearSpecgram(nn.Module):

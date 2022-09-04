@@ -3,10 +3,8 @@ import json
 import os
 import platform
 import shutil
-import sys
 import time
 from collections import Counter
-from datetime import datetime
 from datetime import timedelta
 
 import torch
@@ -16,6 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualdl import LogWriter
 
+from masr import SUPPORT_MODEL
 from masr.data_utils.collate_fn import collate_fn
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
@@ -24,16 +23,20 @@ from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.model_utils.deepspeech2.model import deepspeech2, deepspeech2_big
-from masr.model_utils.utils import DeepSpeech2ModelExport
+from masr.model_utils.deepspeech2_no_stream.model import deepspeech2_no_stream, deepspeech2_big_no_stream
+from masr.model_utils.utils import DeepSpeech2ModelExport, DeepSpeech2NoStreamModelExport
+from masr.utils.logger import setup_logger
 from masr.utils.metrics import cer, wer
 from masr.utils.utils import create_manifest, create_noise, count_manifest, compute_mean_std
 from masr.utils.utils import labels_to_string
+
+logger = setup_logger(__name__)
 
 
 class MASRTrainer(object):
     def __init__(self,
                  use_model='deepspeech2',
-                 feature_method='linear',
+                 feature_method='fbank',
                  mean_std_path='dataset/mean_std.npz',
                  train_manifest='dataset/manifest.train',
                  test_manifest='dataset/manifest.test',
@@ -70,6 +73,7 @@ class MASRTrainer(object):
         :param lang_model_path: 语言模型文件路径
         """
         self.use_model = use_model
+        assert self.use_model in SUPPORT_MODEL, f'没有该模型：{self.use_model}'
         self.feature_method = feature_method
         self.mean_std_path = mean_std_path
         self.train_manifest = train_manifest
@@ -77,7 +81,7 @@ class MASRTrainer(object):
         self.dataset_vocab = dataset_vocab
         if platform.system().lower() == 'windows':
             self.num_workers = 0
-            print('[{}] Windows系统不支持多线程读取数据，已自动关闭！'.format(datetime.now()), file=sys.stderr)
+            logger.warning('Windows系统不支持多线程读取数据，已自动关闭！')
         else:
             self.num_workers = num_workers
         self.alpha = alpha
@@ -110,22 +114,22 @@ class MASRTrainer(object):
         :param is_change_frame_rate: 是否统一改变音频为16000Hz，这会消耗大量的时间
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
         """
-        print('拼音模式：',self.pinyin_mode)
-        print('开始生成数据列表...')
+        logger.info('拼音模式：',self.pinyin_mode)
+        logger.info('开始生成数据列表...')
         create_manifest(annotation_path=annotation_path,
                         train_manifest_path=self.train_manifest,
                         test_manifest_path=self.test_manifest,
                         is_change_frame_rate=is_change_frame_rate,
                         pinyin_mode=self.pinyin_mode,
                         max_test_manifest=max_test_manifest)
-        print('=' * 70)
-        print('开始生成噪声数据列表...')
+        logger.info('=' * 70)
+        logger.info('开始生成噪声数据列表...')
         create_noise(path=noise_path,
                      noise_manifest_path=noise_manifest_path,
                      is_change_frame_rate=is_change_frame_rate)
-        print('=' * 70)
+        logger.info('=' * 70)
 
-        print('开始生成数据字典...')
+        logger.info('开始生成数据字典...')
         counter = Counter()
         count_manifest(counter, self.train_manifest, self.pinyin_mode)
 
@@ -138,10 +142,10 @@ class MASRTrainer(object):
                 # 跳过指定的字符阈值，超过这大小的字符都忽略
                 if count < count_threshold: break
                 fout.write('%s\t%d\n' % (char, count))
-        print('数据字典生成完成！')
+        logger.info('数据字典生成完成！')
 
-        print('=' * 70)
-        print('开始抽取{}条数据计算均值和标准值...'.format(num_samples))
+        logger.info('=' * 70)
+        logger.info('开始抽取{}条数据计算均值和标准值...'.format(num_samples))
         compute_mean_std(feature_method=self.feature_method,
                          manifest_path=self.train_manifest,
                          output_path=self.mean_std_path,
@@ -152,7 +156,7 @@ class MASRTrainer(object):
                  batch_size=32,
                  min_duration=0,
                  max_duration=-1,
-                 resume_model='models/deepspeech2/best_model/'):
+                 resume_model='models/deepspeech2_fbank/best_model/'):
         """
         评估模型
         :param batch_size: 评估的批量大小
@@ -177,14 +181,19 @@ class MASRTrainer(object):
         # 获取模型
         if self.use_model == 'deepspeech2':
             model = deepspeech2(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
+        elif self.use_model == 'deepspeech2_no_stream':
+            model = deepspeech2_no_stream(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
         elif self.use_model == 'deepspeech2_big':
             model = deepspeech2_big(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
+        elif self.use_model == 'deepspeech2_big_no_stream':
+            model = deepspeech2_big_no_stream(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
 
-        assert os.path.exists(os.path.join(resume_model, 'model.pt')), "模型不存在！"
+        assert os.path.exists(os.path.join(resume_model, 'model.pt')), f"{os.path.join(resume_model, 'model.pt')} 模型不存在！"
         model.cuda()
         model.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
+        logger.info(f'成功加载模型：{os.path.join(resume_model, "model.pt")}')
         model.eval()
 
         c = []
@@ -192,7 +201,10 @@ class MASRTrainer(object):
             inputs = inputs.cuda()
             labels = labels.cuda()
             # 执行识别
-            outs, out_lens, _, _ = model(inputs, input_lens)
+            if 'no_stream' not in self.use_model:
+                outs, out_lens, _, _ = model(inputs, input_lens)
+            else:
+                outs, out_lens = model(inputs, input_lens)
             outs = torch.nn.functional.softmax(outs, 2)
             # 解码获取识别结果
             outs = outs.cpu().detach().numpy()
@@ -245,7 +257,7 @@ class MASRTrainer(object):
             augmentation_config = io.open(augment_conf_path, mode='r', encoding='utf8').read()
         else:
             if augment_conf_path is not None and not os.path.exists(augment_conf_path):
-                print('[{}] 数据增强配置文件{}不存在'.format(datetime.now(), augment_conf_path), file=sys.stderr)
+                logger.info('数据增强配置文件{}不存在'.format(augment_conf_path))
             augmentation_config = '{}'
         train_dataset = MASRDataset(data_list=self.train_manifest,
                                     vocab_filepath=self.dataset_vocab,
@@ -254,7 +266,8 @@ class MASRTrainer(object):
                                     min_duration=min_duration,
                                     max_duration=max_duration,
                                     pinyin_mode=self.pinyin_mode,
-                                    augmentation_config=augmentation_config)
+                                    augmentation_config=augmentation_config,
+                                    train=True)
         # 设置支持多卡训练
         if nranks > 1:
             train_batch_sampler = DSElasticDistributedSampler(train_dataset,
@@ -288,8 +301,12 @@ class MASRTrainer(object):
         # 获取模型
         if self.use_model == 'deepspeech2':
             model = deepspeech2(feat_size=train_dataset.feature_dim, vocab_size=train_dataset.vocab_size)
+        elif self.use_model == 'deepspeech2_no_stream':
+            model = deepspeech2_no_stream(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
         elif self.use_model == 'deepspeech2_big':
             model = deepspeech2_big(feat_size=train_dataset.feature_dim, vocab_size=train_dataset.vocab_size)
+        elif self.use_model == 'deepspeech2_big_no_stream':
+            model = deepspeech2_big_no_stream(feat_size=test_dataset.feature_dim, vocab_size=test_dataset.vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
         # 设置优化方法
@@ -300,7 +317,7 @@ class MASRTrainer(object):
         if nranks > 1:
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
-        print('[{}] 训练数据：{}'.format(datetime.now(), len(train_dataset)))
+        logger.info('训练数据：{}'.format(len(train_dataset)))
 
         # 加载预训练模型
         if pretrained_model is not None:
@@ -308,14 +325,16 @@ class MASRTrainer(object):
             pretrained_dict = torch.load(os.path.join(pretrained_model, 'model.pt'))
             model_dict = model.state_dict()
             # 将pretrained_dict里不属于model_dict的键剔除掉
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict
+                               and pretrained_dict[k].shape == model_dict[k].shape}
             model_dict.update(pretrained_dict)
             model.load_state_dict(model_dict)
-            print('[{}] 成功加载预训练模型：{}'.format(datetime.now(), pretrained_model))
+            logger.info('成功加载预训练模型：{}'.format(pretrained_model))
 
         # 加载恢复模型
         last_epoch = -1
-        last_model_dir = os.path.join(save_model_path, self.use_model, 'last_model')
+        best_error_rate = 1.0
+        last_model_dir = os.path.join(save_model_path, f'{self.use_model}_{self.feature_method}', 'last_model')
         if resume_model is not None or (os.path.exists(os.path.join(last_model_dir, 'model.pt'))
                                         and os.path.exists(os.path.join(last_model_dir, 'optimizer.pt'))):
             # 自动获取最新保存的模型
@@ -328,15 +347,19 @@ class MASRTrainer(object):
                 model.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
             optimizer.load_state_dict(torch.load(os.path.join(resume_model, 'optimizer.pt')))
             with open(os.path.join(resume_model, 'model.state'), 'r', encoding='utf-8') as f:
-                last_epoch = json.load(f)['last_epoch'] - 1
-            print('[{}] 成功恢复模型参数和优化方法参数：{}'.format(datetime.now(), resume_model))
+                json_data = json.load(f)
+                last_epoch = json_data['last_epoch'] - 1
+                if 'test_cer' in json_data.keys():
+                    best_error_rate = abs(json_data['test_cer'])
+                if 'test_wer' in json_data.keys():
+                    best_error_rate = abs(json_data['test_wer'])
+            logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
         scheduler = StepLR(optimizer, step_size=1, gamma=0.93, last_epoch=last_epoch)
 
         # 获取损失函数
         ctc_loss = torch.nn.CTCLoss(reduction='none', zero_infinity=True)
 
         test_step, train_step = 0, 0
-        best_test_cer = 1
         train_times = []
         sum_batch = len(train_loader) * num_epoch
         if local_rank == 0:
@@ -350,7 +373,10 @@ class MASRTrainer(object):
                 for batch_id, (inputs, labels, input_lens, label_lens) in enumerate(train_loader):
                     inputs = inputs.cuda()
                     labels = labels.cuda()
-                    out, out_lens, _, _ = model(inputs, input_lens)
+                    if 'no_stream' not in self.use_model:
+                        out, out_lens, _, _ = model(inputs, input_lens)
+                    else:
+                        out, out_lens = model(inputs, input_lens)
                     out = out.log_softmax(2)
                     out = out.permute(1, 0, 2)
 
@@ -367,32 +393,26 @@ class MASRTrainer(object):
                         eta_sec = (sum(train_times) / len(train_times)) * (
                                 sum_batch - (epoch - 1) * len(train_loader) - batch_id)
                         eta_str = str(timedelta(seconds=int(eta_sec / 1000)))
-                        print(
-                            '[{}] Train epoch: [{}/{}], batch: [{}/{}], loss: {:.5f}, learning rate: {:>.8f}, eta: {}'.format(
-                                datetime.now(), epoch, num_epoch, batch_id, len(train_loader),
-                                loss.cpu().detach().numpy(), scheduler.get_last_lr()[0], eta_str))
+                        logger.info('Train epoch: [{}/{}], batch: [{}/{}], loss: {:.5f}, learning rate: {:>.8f}, '
+                                    'eta: {}'.format(epoch, num_epoch, batch_id, len(train_loader),
+                                                     loss.cpu().detach().numpy(), scheduler.get_last_lr()[0], eta_str))
                         writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), train_step)
                         train_step += 1
                         train_times = []
                     # 固定步数也要保存一次模型
                     if batch_id % 10000 == 0 and batch_id != 0 and local_rank == 0:
-                        if nranks > 1:
-                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                            model=model.module, optimizer=optimizer)
-                        else:
-                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                            model=model, optimizer=optimizer)
+                        self.save_model(save_model_path=save_model_path, epoch=epoch, model=model, optimizer=optimizer)
                     start = time.time()
 
                 # 多卡训练只使用一个进程执行评估和保存模型
                 if local_rank == 0:
                     # 执行评估
                     model.eval()
-                    print('\n', '=' * 70)
+                    logger.info('=' * 70)
                     c, l = self.__test(model, test_loader, test_dataset.vocab_list, ctc_loss)
-                    print('[{}] Test epoch: {}, time/epoch: {}, loss: {:.5f}, cer: {:.5f}'.format(
-                        datetime.now(), epoch, str(timedelta(seconds=(time.time() - start_epoch))), l, c))
-                    print('=' * 70, '\n')
+                    logger.info('Test epoch: {}, time/epoch: {}, loss: {:.5f}, cer: {:.5f}'.format(
+                        epoch, str(timedelta(seconds=(time.time() - start_epoch))), l, c))
+                    logger.info('=' * 70)
                     writer.add_scalar('Test/Cer', c, test_step)
                     writer.add_scalar('Test/Loss', l, test_step)
                     test_step += 1
@@ -401,32 +421,23 @@ class MASRTrainer(object):
                     # 记录学习率
                     writer.add_scalar('Train/lr', scheduler.get_last_lr()[0], epoch)
                     # 保存最优模型
-                    if c <= best_test_cer:
-                        best_test_cer = c
-                        if nranks > 1:
-                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model.module,
-                                            optimizer=optimizer, epoch=epoch, error_type=self.metrics_type, error_rate=c, test_loss=l, best_model=True)
-                        else:
-                            self.save_model(save_model_path=save_model_path, use_model=self.use_model, model=model,
-                                            optimizer=optimizer, epoch=epoch, error_type=self.metrics_type, error_rate=c, test_loss=l, best_model=True)
+                    if c <= best_error_rate:
+                        best_error_rate = c
+                        self.save_model(save_model_path=save_model_path, model=model,
+                                        optimizer=optimizer, epoch=epoch, error_rate=c, test_loss=l, best_model=True)
                     # 保存模型
-                    if nranks > 1:
-                        self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                        model=model.module, error_type=self.metrics_type, error_rate=c, test_loss=l, optimizer=optimizer)
-                    else:
-                        self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                        model=model, error_type=self.metrics_type, error_rate=c, test_loss=l, optimizer=optimizer)
+                    self.save_model(save_model_path=save_model_path, epoch=epoch,
+                                    model=model, error_rate=c, test_loss=l, optimizer=optimizer)
                 scheduler.step()
         except KeyboardInterrupt:
             # Ctrl+C退出时保存模型
             if local_rank == 0:
-                print('请等一下，正在保存模型...')
-                if nranks > 1:
-                    self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                    model=model.module, optimizer=optimizer)
-                else:
-                    self.save_model(save_model_path=save_model_path, use_model=self.use_model, epoch=epoch,
-                                    model=model, optimizer=optimizer)
+                try:
+                    logger.info(f'请等一下，正在保存模型，当前损失值为：{l}')
+                except NameError as e:
+                    c, l = 1.0, 1e3
+                self.save_model(save_model_path=save_model_path, epoch=epoch, model=model, optimizer=optimizer,
+                                error_rate=c, test_loss=l)
 
     # 评估模型
     @torch.no_grad()
@@ -436,7 +447,10 @@ class MASRTrainer(object):
             inputs = inputs.cuda()
             labels = labels.cuda()
             # 执行识别
-            outs, out_lens, _, _ = model(inputs, input_lens)
+            if 'no_stream' not in self.use_model:
+                outs, out_lens, _, _ = model(inputs, input_lens)
+            else:
+                outs, out_lens = model(inputs, input_lens)
             out = outs.permute(1, 0, 2)
             # 计算损失
             loss = ctc_loss(out.log_softmax(2), labels, out_lens, label_lens)
@@ -457,56 +471,66 @@ class MASRTrainer(object):
                 cer_result.append(c)
                 cer_batch.append(c)
             if batch_id % 10 == 0:
-                print('[{}] Test batch: [{}/{}], loss: {:.5f}, '
-                      '{}: {:.5f}'.format(datetime.now(), batch_id, len(test_loader),loss,self.metrics_type,
-                                          float(sum(cer_batch) / len(cer_batch))))
+                logger.info('Test batch: [{}/{}], loss: {:.5f}, '
+                            '{}: {:.5f}'.format(batch_id, len(test_loader),loss,self.metrics_type,
+                                                float(sum(cer_batch) / len(cer_batch))))
         cer_result = float(sum(cer_result) / len(cer_result))
         test_loss = float(sum(test_loss) / len(test_loss))
         return cer_result, test_loss
 
     # 保存模型
-    @staticmethod
-    def save_model(save_model_path, use_model, epoch, model, optimizer, error_type='cer', error_rate=-1., test_loss=-1., best_model=False):
+    def save_model(self, save_model_path, epoch, model, optimizer, error_rate=1.0, test_loss=1e3, best_model=False):
+        # 获取有多少张显卡训练
+        nranks = torch.cuda.device_count()
+        if nranks > 1:
+            model = model.module
         if not best_model:
-            model_path = os.path.join(save_model_path, use_model, 'epoch_{}'.format(epoch))
+            model_path = os.path.join(save_model_path, f'{self.use_model}_{self.feature_method}', 'epoch_{}'.format(epoch))
             os.makedirs(model_path, exist_ok=True)
             torch.save(optimizer.state_dict(), os.path.join(model_path, 'optimizer.pt'))
             torch.save(model.state_dict(), os.path.join(model_path, 'model.pt'))
             with open(os.path.join(model_path, 'model.state'), 'w', encoding='utf-8') as f:
-                f.write('{"last_epoch": %d, "test_%s": %f, "test_loss": %f}' % (epoch, error_type, error_rate, test_loss))
-            last_model_path = os.path.join(save_model_path, use_model, 'last_model')
+                f.write('{"last_epoch": %d, "test_%s": %f, "test_loss": %f}' % (epoch, self.metrics_type, error_rate, test_loss))
+            last_model_path = os.path.join(save_model_path, f'{self.use_model}_{self.feature_method}', 'last_model')
             shutil.rmtree(last_model_path, ignore_errors=True)
             shutil.copytree(model_path, last_model_path)
             # 删除旧的模型
-            old_model_path = os.path.join(save_model_path, use_model, 'epoch_{}'.format(epoch - 3))
+            old_model_path = os.path.join(save_model_path, f'{self.use_model}_{self.feature_method}', 'epoch_{}'.format(epoch - 3))
             if os.path.exists(old_model_path):
                 shutil.rmtree(old_model_path)
         else:
-            model_path = os.path.join(save_model_path, use_model, 'best_model')
+            model_path = os.path.join(save_model_path, f'{self.use_model}_{self.feature_method}', 'best_model')
             os.makedirs(model_path, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(model_path, 'model.pt'))
             torch.save(optimizer.state_dict(), os.path.join(model_path, 'optimizer.pt'))
             with open(os.path.join(model_path, 'model.state'), 'w', encoding='utf-8') as f:
-                f.write('{"last_epoch": %d, "test_%s": %f, "test_loss": %f}' % (epoch, error_type, error_rate, test_loss))
-        print('[{}] 已保存模型：{}'.format(datetime.now(), model_path))
+                f.write('{"last_epoch": %d, "test_%s": %f, "test_loss": %f}' % (epoch, self.metrics_type, error_rate, test_loss))
+        logger.info('已保存模型：{}'.format(model_path))
 
     def decoder_result(self, outs, outs_lens, vocabulary):
         # 集束搜索方法的处理
         if self.decoder == "ctc_beam_search" and self.beam_search_decoder is None:
-            try:
-                from masr.decoders.beam_search_decoder import BeamSearchDecoder
-                self.beam_search_decoder = BeamSearchDecoder(beam_alpha=self.alpha,
-                                                             beam_beta=self.beta,
-                                                             beam_size=self.beam_size,
-                                                             cutoff_prob=self.cutoff_prob,
-                                                             cutoff_top_n=self.cutoff_top_n,
-                                                             vocab_list=vocabulary,
-                                                             num_processes=1)
-            except ModuleNotFoundError:
-                print('\n==================================================================', file=sys.stderr)
-                print('缺少 paddlespeech-ctcdecoders 库，请根据文档安装，如果是Windows系统，只能使用ctc_greedy。', file=sys.stderr)
-                print('【注意】已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率比较低。', file=sys.stderr)
-                print('==================================================================\n', file=sys.stderr)
+            if platform.system() != 'Windows':
+                try:
+                    from masr.decoders.beam_search_decoder import BeamSearchDecoder
+                    self.beam_search_decoder = BeamSearchDecoder(beam_alpha=self.alpha,
+                                                                 beam_beta=self.beta,
+                                                                 beam_size=self.beam_size,
+                                                                 cutoff_prob=self.cutoff_prob,
+                                                                 cutoff_top_n=self.cutoff_top_n,
+                                                                 vocab_list=vocabulary,
+                                                                 language_model_path=self.lang_model_path,
+                                                                 num_processes=1)
+                except ModuleNotFoundError:
+                    logger.warning('==================================================================')
+                    logger.warning('缺少 paddlespeech-ctcdecoders 库，请根据文档安装。')
+                    logger.warning('【注意】已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
+                    logger.warning('==================================================================\n')
+                    self.decoder = 'ctc_greedy'
+            else:
+                logger.warning('==================================================================')
+                logger.warning('【注意】Windows不支持ctc_beam_search，已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
+                logger.warning('==================================================================\n')
                 self.decoder = 'ctc_greedy'
 
         # 执行解码
@@ -517,7 +541,7 @@ class MASRTrainer(object):
             result = self.beam_search_decoder.decode_batch_beam_search_offline(probs_split=outs)
         return result
 
-    def export(self, save_model_path='models/', resume_model='models/deepspeech2/best_model/'):
+    def export(self, save_model_path='models/', resume_model='models/deepspeech2_fbank/best_model/'):
         """
         导出预测模型
         :param save_model_path: 模型保存的路径
@@ -532,8 +556,12 @@ class MASRTrainer(object):
         # 获取模型
         if self.use_model == 'deepspeech2':
             base_model = deepspeech2(feat_size=audio_featurizer.feature_dim, vocab_size=text_featurizer.vocab_size)
+        elif self.use_model == 'deepspeech2_no_stream':
+            base_model = deepspeech2_no_stream(feat_size=audio_featurizer.feature_dim, vocab_size=text_featurizer.vocab_size)
         elif self.use_model == 'deepspeech2_big':
             base_model = deepspeech2_big(feat_size=audio_featurizer.feature_dim, vocab_size=text_featurizer.vocab_size)
+        elif self.use_model == 'deepspeech2_big_no_stream':
+            base_model = deepspeech2_big_no_stream(feat_size=audio_featurizer.feature_dim, vocab_size=text_featurizer.vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
 
@@ -541,19 +569,22 @@ class MASRTrainer(object):
         resume_model_path = os.path.join(resume_model, 'model.pt')
         assert os.path.exists(resume_model_path), "恢复模型不存在！"
         base_model.load_state_dict(torch.load(resume_model_path))
-        print('[{}] 成功恢复模型参数和优化方法参数：{}'.format(datetime.now(), resume_model_path))
+        logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model_path))
 
         base_model.to('cuda')
+        base_model.eval()
         mean = torch.from_numpy(featureNormalizer.mean).float().cuda()
         std = torch.from_numpy(featureNormalizer.std).float().cuda()
 
         # 获取模型
-        if 'deepspeech2' in self.use_model:
+        if self.use_model == 'deepspeech2' or self.use_model == 'deepspeech2_big':
             model = DeepSpeech2ModelExport(model=base_model, feature_mean=mean, feature_std=std)
+        elif self.use_model == 'deepspeech2_no_stream' or self.use_model == 'deepspeech2_big_no_stream':
+            model = DeepSpeech2NoStreamModelExport(model=base_model, feature_mean=mean, feature_std=std)
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
 
-        infer_model_dir = os.path.join(save_model_path, self.use_model)
+        infer_model_dir = os.path.join(save_model_path, f'{self.use_model}_{self.feature_method}')
         os.makedirs(infer_model_dir, exist_ok=True)
         infer_model_path = os.path.join(infer_model_dir, 'inference.pt')
         # script_model = torch.jit.trace(model, (torch.rand((1, audio_featurizer.feature_dim, 300)),
@@ -562,4 +593,4 @@ class MASRTrainer(object):
         #                                                   dtype=torch.float32)))
         # torch.jit.save(script_model, infer_model_path)
         torch.save(model, infer_model_path)
-        print("预测模型已保存：{}".format(infer_model_path))
+        logger.info("预测模型已保存：{}".format(infer_model_path))

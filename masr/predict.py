@@ -1,14 +1,19 @@
 import os
+import platform
 import sys
 
 import cn2an
 import numpy as np
 import torch
 
+from masr import SUPPORT_MODEL
 from masr.data_utils.audio import AudioSegment
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder, greedy_decoder_chunk
+from masr.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class Predictor:
@@ -67,22 +72,30 @@ class Predictor:
         self.cached_feat = None
         self.greedy_last_max_prob_list = None
         self.greedy_last_max_index_list = None
+        assert self.use_model in SUPPORT_MODEL, f'没有该模型：{self.use_model}'
         # 集束搜索方法的处理
         if decoder == "ctc_beam_search":
-            try:
-                from masr.decoders.beam_search_decoder import BeamSearchDecoder
-                self.beam_search_decoder = BeamSearchDecoder(beam_alpha=self.alpha,
-                                                             beam_beta=self.beta,
-                                                             beam_size=self.beam_size,
-                                                             cutoff_prob=self.cutoff_prob,
-                                                             cutoff_top_n=self.cutoff_top_n,
-                                                             vocab_list=self._text_featurizer.vocab_list,
-                                                             num_processes=1)
-            except ModuleNotFoundError:
-                print('\n==================================================================', file=sys.stderr)
-                print('缺少 paddlespeech-ctcdecoders 库，请根据文档安装，如果是Windows系统，只能使用ctc_greedy。', file=sys.stderr)
-                print('【注意】已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率比较低。', file=sys.stderr)
-                print('==================================================================\n', file=sys.stderr)
+            if platform.system() != 'Windows':
+                try:
+                    from masr.decoders.beam_search_decoder import BeamSearchDecoder
+                    self.beam_search_decoder = BeamSearchDecoder(beam_alpha=self.alpha,
+                                                                 beam_beta=self.beta,
+                                                                 beam_size=self.beam_size,
+                                                                 cutoff_prob=self.cutoff_prob,
+                                                                 cutoff_top_n=self.cutoff_top_n,
+                                                                 vocab_list=self._text_featurizer.vocab_list,
+                                                                 language_model_path=self.lang_model_path,
+                                                                 num_processes=1)
+                except ModuleNotFoundError:
+                    logger.warning('==================================================================')
+                    logger.warning('缺少 paddlespeech-ctcdecoders 库，请根据文档安装。')
+                    logger.warning('【注意】已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
+                    logger.warning('==================================================================\n')
+                    self.decoder = 'ctc_greedy'
+            else:
+                logger.warning('==================================================================')
+                logger.warning('【注意】Windows不支持ctc_beam_search，已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
+                logger.warning('==================================================================\n')
                 self.decoder = 'ctc_greedy'
 
         # 创建模型
@@ -95,6 +108,8 @@ class Predictor:
         else:
             self.predictor = torch.load(model_path, map_location='cpu')
         self.predictor.eval()
+
+        logger.info(f'已加载模型：{model_path}')
 
         # 加标点符号
         if self.use_pun_model:
@@ -110,7 +125,7 @@ class Predictor:
         if os.path.exists(warmup_audio_path):
             self.predict(warmup_audio_path, to_an=False)
         else:
-            print('预热文件不存在，忽略预热！', file=sys.stderr)
+            logger.warning('预热文件不存在，忽略预热！')
 
     # 解码模型输出结果
     def decode(self, output_data, to_an):
@@ -177,7 +192,10 @@ class Predictor:
             audio_data = audio_data.cuda()
 
         # 运行predictor
-        output_data, _, _, _ = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
+        if 'no_stream' not in self.use_model:
+            output_data, _, _, _ = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
+        else:
+            output_data, _ = self.predictor(audio_data, audio_len)
         output_data = output_data.cpu().detach().numpy()[0]
 
         # 解码
@@ -212,6 +230,7 @@ class Predictor:
         :param to_an: 是否转为阿拉伯数字
         :return: 识别的文本结果和解码的得分数
         """
+        assert 'no_stream' not in self.use_model, f'当前模型不是流式模型，当前模型为：{self.use_model}'
         assert audio_bytes is not None or audio_ndarray is not None, \
             'audio_bytes和audio_ndarray至少有一个不为None！'
         # 加载音频文件，并进行预处理
