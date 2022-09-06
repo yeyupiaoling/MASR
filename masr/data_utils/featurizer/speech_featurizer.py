@@ -31,7 +31,7 @@ class SpeechFeaturizer(object):
     :type target_dB: float
     """
 
-    def __init__(self, vocab_filepath, feature_method='linear', target_sample_rate=16000, target_dB=-20, train=Falsei, text_delim):
+    def __init__(self, vocab_filepath, feature_method='linear', target_sample_rate=16000, target_dB=-20, train=False, text_delim=''):
         self._audio_featurizer = AudioFeaturizer(feature_method=feature_method, target_sample_rate=target_sample_rate, target_dB=target_dB, train=train)
         self._text_featurizer = TextFeaturizer(vocab_filepath, text_delim)
 

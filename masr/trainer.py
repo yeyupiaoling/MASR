@@ -114,7 +114,7 @@ class MASRTrainer(object):
         :param is_change_frame_rate: 是否统一改变音频为16000Hz，这会消耗大量的时间
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
         """
-        logger.info('拼音模式：',self.pinyin_mode)
+        logger.info('拼音模式：'.format(self.pinyin_mode))
         logger.info('开始生成数据列表...')
         create_manifest(annotation_path=annotation_path,
                         train_manifest_path=self.train_manifest,
