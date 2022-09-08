@@ -362,6 +362,7 @@ class MASRTrainer(object):
         test_step, train_step = 0, 0
         train_times = []
         sum_batch = len(train_loader) * num_epoch
+        train_batch_sampler.epoch = last_epoch
         if local_rank == 0:
             writer.add_scalar('Train/lr', scheduler.get_last_lr()[0], last_epoch)
         try:
