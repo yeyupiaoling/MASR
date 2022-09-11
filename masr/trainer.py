@@ -36,7 +36,7 @@ logger = setup_logger(__name__)
 class MASRTrainer(object):
     def __init__(self,
                  use_model='deepspeech2',
-                 feature_method='fbank',
+                 feature_method='linear',
                  mean_std_path='dataset/mean_std.npz',
                  train_manifest='dataset/manifest.train',
                  test_manifest='dataset/manifest.test',
@@ -354,6 +354,7 @@ class MASRTrainer(object):
         test_step, train_step = 0, 0
         train_times = []
         sum_batch = len(train_loader) * num_epoch
+        last_epoch += 1
         train_batch_sampler.epoch = last_epoch
         if local_rank == 0:
             writer.add_scalar('Train/lr', scheduler.get_last_lr()[0], last_epoch)
@@ -560,7 +561,7 @@ class MASRTrainer(object):
 
         # 加载预训练模型
         resume_model_path = os.path.join(resume_model, 'model.pt')
-        assert os.path.exists(resume_model_path), "恢复模型不存在！"
+        assert os.path.exists(resume_model_path), f"{resume_model_path} 模型不存在！"
         base_model.load_state_dict(torch.load(resume_model_path))
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model_path))
 
