@@ -1,5 +1,5 @@
 """Contains the volume perturb augmentation model."""
-
+from masr.data_utils.audio import AudioSegment
 from masr.data_utils.augmentor.base import AugmentorBase
 
 
@@ -25,7 +25,7 @@ class VolumePerturbAugmentor(AugmentorBase):
         self._max_gain_dBFS = max_gain_dBFS
         self._rng = rng
 
-    def transform_audio(self, audio_segment):
+    def transform_audio(self, audio_segment: AudioSegment):
         """Change audio loadness.
 
         Note that this is an in-place transformation.
