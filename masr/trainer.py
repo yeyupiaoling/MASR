@@ -184,10 +184,12 @@ class MASRTrainer(object):
         else:
             raise Exception('没有该模型：{}'.format(self.use_model))
 
-        assert os.path.exists(os.path.join(resume_model, 'model.pt')), f"{os.path.join(resume_model, 'model.pt')} 模型不存在！"
+        if os.path.isdir(resume_model):
+            resume_model = os.path.join(resume_model, 'model.pt')
+        assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
         model.cuda()
-        model.load_state_dict(torch.load(os.path.join(resume_model, 'model.pt')))
-        logger.info(f'成功加载模型：{os.path.join(resume_model, "model.pt")}')
+        model.load_state_dict(torch.load(resume_model))
+        logger.info(f'成功加载模型：{resume_model}')
         model.eval()
 
         c = []
@@ -313,8 +315,10 @@ class MASRTrainer(object):
 
         # 加载预训练模型
         if pretrained_model is not None:
-            assert os.path.exists(os.path.join(pretrained_model, 'model.pt')), "模型参数文件不存在！"
-            pretrained_dict = torch.load(os.path.join(pretrained_model, 'model.pt'))
+            if os.path.isdir(pretrained_model):
+                pretrained_model = os.path.join(pretrained_model, 'model.pt')
+            assert os.path.exists(pretrained_model), f"{pretrained_model} 模型不存在！"
+            pretrained_dict = torch.load(pretrained_model)
             model_dict = model.state_dict()
             # 将pretrained_dict里不属于model_dict的键剔除掉
             pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict
@@ -560,10 +564,11 @@ class MASRTrainer(object):
             raise Exception('没有该模型：{}'.format(self.use_model))
 
         # 加载预训练模型
-        resume_model_path = os.path.join(resume_model, 'model.pt')
-        assert os.path.exists(resume_model_path), f"{resume_model_path} 模型不存在！"
-        base_model.load_state_dict(torch.load(resume_model_path))
-        logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model_path))
+        if os.path.isdir(resume_model):
+            resume_model = os.path.join(resume_model, 'model.pt')
+        assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
+        base_model.load_state_dict(torch.load(resume_model))
+        logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
 
         base_model.to('cuda')
         base_model.eval()
