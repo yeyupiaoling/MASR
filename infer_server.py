@@ -20,8 +20,8 @@ add_arg("host",             str,    "0.0.0.0",            "监听主机的IP地�
 add_arg("port",             int,    5000,                 "服务所使用的端口号")
 add_arg("save_path",        str,    'dataset/upload/',    "上传音频文件的保存目录")
 add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
-add_arg('to_an',            bool,   False,  "是否转为阿拉伯数字")
 add_arg('use_pun',          bool,   False,  "是否给识别结果加标点符号")
+add_arg('to_an',            bool,   False,  "是否转为阿拉伯数字")
 add_arg('beam_size',        int,    300,    "集束搜索解码相关参数，搜索大小，范围:[5, 500]")
 add_arg('alpha',            float,  2.2,    "集束搜索解码相关参数，LM系数")
 add_arg('beta',             float,  4.3,    "集束搜索解码相关参数，WC系数")
@@ -42,7 +42,7 @@ CORS(app)
 predictor = Predictor(model_path=args.model_path.format(args.use_model, args.feature_method), vocab_path=args.vocab_path, use_model=args.use_model,
                       decoder=args.decoder, alpha=args.alpha, beta=args.beta, lang_model_path=args.lang_model_path,
                       beam_size=args.beam_size, cutoff_prob=args.cutoff_prob, cutoff_top_n=args.cutoff_top_n,
-                      use_gpu=args.use_gpu, use_pun_model=args.use_pun, pun_model_dir=args.pun_model_dir,
+                      use_gpu=args.use_gpu, use_pun=args.use_pun, pun_model_dir=args.pun_model_dir,
                       feature_method=args.feature_method)
 
 
@@ -57,7 +57,7 @@ def recognition():
         try:
             start = time.time()
             # 执行识别
-            score, text = predictor.predict(audio_path=file_path, to_an=args.to_an)
+            score, text = predictor.predict(audio_path=file_path, use_pun=args.use_pun, to_an=args.to_an)
             end = time.time()
             print("识别时间：%dms，识别结果：%s， 得分: %f" % (round((end - start) * 1000), text, score))
             result = str({"code": 0, "msg": "success", "result": text, "score": round(score, 3)}).replace("'", '"')
@@ -84,7 +84,7 @@ def recognition_long_audio():
             scores = []
             # 执行识别
             for i, audio_bytes in enumerate(audios_bytes):
-                score, text = predictor.predict(audio_bytes=audio_bytes, to_an=args.to_an)
+                score, text = predictor.predict(audio_bytes=audio_bytes, use_pun=args.use_pun, to_an=args.to_an)
                 texts = texts + text if args.use_pun else texts + '，' + text
                 scores.append(score)
             end = time.time()

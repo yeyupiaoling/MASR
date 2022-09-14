@@ -25,7 +25,7 @@ class Predictor:
                  alpha=2.2,
                  beta=4.3,
                  feature_method='linear',
-                 use_pun_model=False,
+                 use_pun=False,
                  pun_model_dir='models/pun_models/',
                  lang_model_path='lm/zh_giga.no_cna_cmn.prune01244.klm',
                  beam_size=300,
@@ -41,7 +41,7 @@ class Predictor:
         :param alpha: 集束搜索解码相关参数，LM系数
         :param beta: 集束搜索解码相关参数，WC系数
         :param feature_method: 所使用的预处理方法
-        :param use_pun_model: 是否使用加标点符号的模型
+        :param use_pun: 是否使用加标点符号的模型
         :param pun_model_dir: 给识别结果加标点符号的模型文件夹路径
         :param lang_model_path: 集束搜索解码相关参数，语言模型文件路径
         :param beam_size: 集束搜索解码相关参数，搜索的大小，范围建议:[5, 500]
@@ -58,8 +58,8 @@ class Predictor:
         self.cutoff_prob = cutoff_prob
         self.cutoff_top_n = cutoff_top_n
         self.use_gpu = use_gpu
-        self.use_pun_model = use_pun_model
         self.lac = None
+        self.pun_executor = None
         self._text_featurizer = TextFeaturizer(vocab_filepath=vocab_path)
         self._audio_featurizer = AudioFeaturizer(feature_method=feature_method)
         # 流式解码参数
@@ -109,7 +109,7 @@ class Predictor:
         logger.info(f'已加载模型：{model_path}')
 
         # 加标点符号
-        if self.use_pun_model:
+        if use_pun:
             import paddle
             from masr.utils.text_utils import PunctuationExecutor
             use_gpu = self.use_gpu
@@ -125,10 +125,11 @@ class Predictor:
             logger.warning('预热文件不存在，忽略预热！')
 
     # 解码模型输出结果
-    def decode(self, output_data, to_an):
+    def decode(self, output_data, use_pun, to_an):
         """
         解码模型输出结果
         :param output_data: 模型输出结果
+        :param use_pun: 是否使用加标点符号的模型
         :param to_an: 是否转为阿拉伯数字
         :return:
         """
@@ -142,8 +143,11 @@ class Predictor:
 
         score, text = result[0], result[1]
         # 加标点符号
-        if self.use_pun_model and len(text) > 0:
-            text = self.pun_executor(text)
+        if use_pun and len(text) > 0:
+            if self.pun_executor is not None:
+                text = self.pun_executor(text)
+            else:
+                logger.warning('标点符号模型没有初始化！')
         # 是否转为阿拉伯数字
         if to_an:
             text = self.cn2an(text)
@@ -154,12 +158,14 @@ class Predictor:
                 audio_path=None,
                 audio_bytes=None,
                 audio_ndarray=None,
+                use_pun=False,
                 to_an=False):
         """
         预测函数，只预测完整的一句话。
         :param audio_path: 需要预测音频的路径
         :param audio_bytes: 需要预测的音频wave读取的字节流
         :param audio_ndarray: 需要预测的音频未预处理的numpy值
+        :param use_pun: 是否使用加标点符号的模型
         :param to_an: 是否转为阿拉伯数字
         :return: 识别的文本结果和解码的得分数
         """
@@ -192,7 +198,7 @@ class Predictor:
         output_data = output_data.cpu().detach().numpy()[0]
 
         # 解码
-        score, text = self.decode(output_data=output_data, to_an=to_an)
+        score, text = self.decode(output_data=output_data, use_pun=use_pun, to_an=to_an)
         return score, text
 
     def predict_chunk(self, x_chunk, x_chunk_lens):
@@ -214,12 +220,14 @@ class Predictor:
                        audio_bytes=None,
                        audio_ndarray=None,
                        is_end=False,
+                       use_pun=False,
                        to_an=False):
         """
         预测函数，流式预测，通过一直输入音频数据，实现实时识别。
         :param audio_bytes: 需要预测的音频wave读取的字节流
         :param audio_ndarray: 需要预测的音频未预处理的numpy值
         :param is_end: 是否结束语音识别
+        :param use_pun: 是否使用加标点符号的模型
         :param to_an: 是否转为阿拉伯数字
         :return: 识别的文本结果和解码的得分数
         """
@@ -288,8 +296,11 @@ class Predictor:
         self.cached_feat = self.cached_feat[:, :, end - cached_feature_num:]
 
         # 加标点符号
-        if self.use_pun_model and len(text) > 0:
-            text = self.pun_executor(text)
+        if use_pun and is_end and len(text) > 0:
+            if self.pun_executor is not None:
+                text = self.pun_executor(text)
+            else:
+                logger.warning('标点符号模型没有初始化！')
         # 是否转为阿拉伯数字
         if to_an:
             text = self.cn2an(text)

@@ -1,10 +1,12 @@
 import os
 import re
-import sys
 
 import numpy as np
 import paddle.inference as paddle_infer
 from paddlenlp.transformers import ErnieTokenizer
+from masr.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 __all__ = ['PunctuationExecutor']
 
@@ -48,6 +50,7 @@ class PunctuationExecutor:
 
         # 预热
         self('近几年不但我用书给女儿儿压岁也劝说亲朋不要给女儿压岁钱而改送压岁书')
+        logger.info('标点符号模型加载成功。')
 
     def _clean_text(self, text):
         text = text.lower()
@@ -100,5 +103,5 @@ class PunctuationExecutor:
             preds = self.infer(input_ids=input_ids, seg_ids=seg_ids)[0]
             text = self.postprocess(input_ids, seq_len, preds)
         except Exception as e:
-            print(e, file=sys.stderr)
+            logger.error(e)
         return text

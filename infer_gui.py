@@ -84,7 +84,7 @@ class SpeechRecognitionApp:
         self.predictor = Predictor(model_path=args.model_path.format(args.use_model, args.feature_method), vocab_path=args.vocab_path, use_model=args.use_model,
                                    decoder=args.decoder, alpha=args.alpha, beta=args.beta, lang_model_path=args.lang_model_path,
                                    beam_size=args.beam_size, cutoff_prob=args.cutoff_prob, cutoff_top_n=args.cutoff_top_n,
-                                   use_gpu=args.use_gpu, use_pun_model=args.use_pun, pun_model_dir=args.pun_model_dir,
+                                   use_gpu=args.use_gpu, use_pun=args.use_pun, pun_model_dir=args.pun_model_dir,
                                    feature_method=args.feature_method)
 
     # 是否中文数字转阿拉伯数字
@@ -108,7 +108,7 @@ class SpeechRecognitionApp:
         self.predicting = True
         try:
             start = time.time()
-            score, text = self.predictor.predict(audio_path=wav_path, to_an=self.to_an)
+            score, text = self.predictor.predict(audio_path=wav_path, use_pun=args.use_pun, to_an=self.to_an)
             self.result_text.insert(END, "消耗时间：%dms, 识别结果: %s, 得分: %d\n" % (
             round((time.time() - start) * 1000), text, score))
         except Exception as e:
@@ -138,7 +138,7 @@ class SpeechRecognitionApp:
             scores = []
             # 执行识别
             for i, audio_bytes in enumerate(audios_bytes):
-                score, text = self.predictor.predict(audio_bytes=audio_bytes, to_an=self.to_an)
+                score, text = self.predictor.predict(audio_bytes=audio_bytes, use_pun=args.use_pun, to_an=self.to_an)
                 texts = texts + text if args.use_pun else texts + '，' + text
                 scores.append(score)
                 self.result_text.insert(END, "第%d个分割音频, 得分: %d, 识别结果: %s\n" % (i, score, text))
@@ -182,7 +182,7 @@ class SpeechRecognitionApp:
         while True:
             data = self.stream.read(CHUNK)
             frames.append(data)
-            score, text = self.predictor.predict_stream(audio_bytes=data, to_an=self.to_an, is_end=not self.recording)
+            score, text = self.predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, to_an=self.to_an, is_end=not self.recording)
             self.result_text.delete('1.0', 'end')
             self.result_text.insert(END, f"{text}\n")
             if not self.recording:break
