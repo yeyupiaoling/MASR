@@ -45,21 +45,21 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 本项目支持流式识别模型`deepspeech2`、`deepspeech2_big`，非流式模型`deepspeech2_no_stream`、`deepspeech2_big_no_stream`。
 
-|           使用模型            |                                  数据集                                  | 预处理方式  | 参数大小（M） | 语言  |     测试集字错率（词错率）      |                                    下载地址                                    |
+|           使用模型            |                                  数据集                                  | 预处理方式  | 参数大小（M）`*` | 语言  |     测试集字错率（词错率）      |                                    下载地址                                    |
 |:-------------------------:|:---------------------------------------------------------------------:|:------:|:-------:|:---:|:--------------------:|:--------------------------------------------------------------------------:|
 |      deepspeech2_big      |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank  |   167   | 中文  | 0.08944(AIShell的测试集) |    [点击下载](链接：https://pan.baidu.com/s/1tGlHCBHF7vIWfU2N_7FE7A?pwd=j8hi)     |
 |        deepspeech2        |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |   35    | 中文  |       0.07321        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
 |      deepspeech2_big      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |   167   | 中文  |      0.04879`*`      |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
 |   deepspeech2_no_stream   |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |   98    | 中文  |       0.06518        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |   203   | 中文  |                      |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |   473   | 中文  |                      |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
 |        deepspeech2        |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |   35    | 中文  |       0.07991        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
 |      deepspeech2_big      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |   167   | 中文  |       0.09148        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
 |   deepspeech2_no_stream   |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |   98    | 中文  |       0.06865        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |   203   | 中文  |       0.07588        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
+| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |   473   | 中文  |       0.07588        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
 |        deepspeech2        | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |   35    | 英文  |       0.17229        |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
 |      deepspeech2_big      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |   167   | 英文  |                      |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
 |   deepspeech2_no_stream   | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |   98    | 英文  |                      |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
-| deepspeech2_big_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |   203   | 英文  |                      |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
+| deepspeech2_big_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |   473   | 英文  |                      |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
 |        deepspeech2        |                   超大数据集(1600多小时真实数据)+(1300多小时合成数据)                    | linear |   35    | 中文  |       0.06215        | [点击下载](https://download.csdn.net/download/qq_33200967/75138230)(需要重新导出模型)  |
 |      deepspeech2_big      |                   超大数据集(1600多小时真实数据)+(1300多小时合成数据)                    | linear |   167   | 中文  |       0.05517        | 先`star`项目再[点击下载](https://pan.baidu.com/s/1IW7HJP16IxRHeqSfMfNK5g?pwd=0w36) |
 
@@ -73,6 +73,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 6. 模型名称包含`no_stream`为非流式模型，不能用于流式识别。
 7. 带有`*`的使用了`WenetSpeech`作为预训练模型。
 8. 由于算力不足，大部分的模型都没有训练足够轮数，有算力的同学，欢迎提供模型。
+9. 由于音频的长度不一，所以参数大小也有所变化，以上参数大小为同一音频长度下的结果，仅供对比使用。
 
 >有问题欢迎提 [issue](https://github.com/yeyupiaoling/MASR/issues) 交流
 
