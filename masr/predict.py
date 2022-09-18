@@ -49,6 +49,7 @@ class Predictor:
         :param cutoff_top_n: 集束搜索解码相关参数，剪枝的最大值
         :param use_gpu: 是否使用GPU预测
         """
+        self.running = False
         self.decoder = decoder
         self.use_model = use_model
         self.alpha = alpha

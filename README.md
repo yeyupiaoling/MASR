@@ -1,10 +1,10 @@
-# MASR流式与非流式语音识别
-
 ![python version](https://img.shields.io/badge/python-3.8+-orange.svg)
 ![GitHub forks](https://img.shields.io/github/forks/yeyupiaoling/MASR)
 ![GitHub Repo stars](https://img.shields.io/github/stars/yeyupiaoling/MASR)
 ![GitHub](https://img.shields.io/github/license/yeyupiaoling/MASR)
 ![支持系统](https://img.shields.io/badge/支持系统-Win/Linux/MAC-9cf)
+
+# MASR流式与非流式语音识别项目
 
 MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神奇的自动语音识别框架（Magical Automatic Speech Recognition），MASR致力于简单，实用的语音识别项目。可部署在服务器，Nvidia Jetson设备，未来还计划支持Android等移动设备。
 
@@ -28,8 +28,15 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - [在线使用Dome](https://masr.yeyupiaoling.cn)
 -->
 
+## 项目快速了解
+
+ 1. 本项目支持流式识别模型`deepspeech2`、`deepspeech2_big`，非流式模型`deepspeech2_no_stream`、`deepspeech2_big_no_stream`。
+ 2. 本项目支持两种解码器，分别是集束搜索解码器`ctc_beam_search`和贪心解码器`ctc_greedy`，集束搜索解码器`ctc_beam_search`准确率更高，但不支持Windows。
+
+
 ## 更新记录
 
+ - 2022.09.18: 支持使用WebSocket调用流式识别。
  - 2022.08.27: 修改使用kaldi实现`fbank`和`mfcc`预处理方法。
  - 2022.08.22: 增加非流式模型`deepspeech2_no_stream`和`deepspeech2_big_no_stream`。
  - 2022.08.04: 发布1.0版本，优化实时识别流程。
@@ -40,6 +47,15 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - 2022.01.13: 支持给识别结果加标点符号
  - 2021.12.26: 支持pip方式安装。
  - 2021.12.25: 初步完成基本程序。
+
+
+## 视频讲解
+
+这个是PPSAR的视频教程，项目是通用的，可以参考使用。
+
+ - [知识点讲解（哔哩哔哩）](https://www.bilibili.com/video/BV1Rr4y1D7iZ)
+ - [流式识别的使用讲解（哔哩哔哩）](https://www.bilibili.com/video/BV1Te4y1h7KK)
+
 
 ## 模型下载
 
