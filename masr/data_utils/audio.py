@@ -273,7 +273,7 @@ class AudioSegment(object):
         new_length = int(old_length / speed_rate)
         old_indices = np.arange(old_length)
         new_indices = np.linspace(start=0, stop=old_length, num=new_length)
-        self._samples = np.interp(new_indices, old_indices, self._samples).astype(np.float32)
+        self._samples = np.interp(new_indices, old_indices, self._samples)
 
     def normalize(self, target_db=-20, max_gain_db=300.0):
         """将音频归一化，使其具有所需的有效值(以分贝为单位)
@@ -427,8 +427,7 @@ class AudioSegment(object):
         if self.sample_rate != impulse_segment.sample_rate:
             raise ValueError("脉冲段采样率(%d Hz)不等于基信号采样率(%d Hz)" %
                              (impulse_segment.sample_rate, self.sample_rate))
-        samples = signal.fftconvolve(self.samples, impulse_segment.samples,
-                                     "full")
+        samples = signal.fftconvolve(self.samples, impulse_segment.samples, "full")
         self._samples = samples
 
     def convolve_and_normalize(self, impulse_segment, allow_resample=False):

@@ -180,8 +180,8 @@ class Predictor:
         else:
             audio_data = AudioSegment.from_wave_bytes(audio_bytes)
         audio_feature = self._audio_featurizer.featurize(audio_data)
-        audio_data = np.array(audio_feature).astype('float32')[np.newaxis, :]
-        audio_len = np.array([audio_data.shape[2]]).astype('int64')
+        audio_data = np.array(audio_feature).astype(np.float32)[np.newaxis, :]
+        audio_len = np.array([audio_data.shape[2]]).astype(np.int64)
 
         audio_data = torch.from_numpy(audio_data).float()
         audio_len = torch.from_numpy(audio_len)
@@ -248,7 +248,7 @@ class Predictor:
 
         # 预处理语音块
         x_chunk = self._audio_featurizer.featurize(self.remained_wav)
-        x_chunk = np.array(x_chunk).astype('float32')[np.newaxis, :]
+        x_chunk = np.array(x_chunk).astype(np.float32)[np.newaxis, :]
         if self.cached_feat is None:
             self.cached_feat = x_chunk
         else:
