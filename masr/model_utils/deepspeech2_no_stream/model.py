@@ -36,14 +36,16 @@ class DeepSpeech2NoStreamModel(nn.Module):
     def forward(self, audio, audio_len):
         """
         Args:
-            audio (Tensor): [B, D, Tmax]
+            audio (Tensor): [B, Tmax, D]
             audio_len (Tensor): [B, Umax]
         Returns:
             logits (Tensor): [B, T, D]
             x_lens (Tensor): [B]
         """
+        # [B, T, D] -> [B, D, T]
+        x = audio.permute(0, 2, 1)
         # [B, D, T] -> [B, C=1, D, T]
-        x = audio.unsqueeze(1)
+        x = x.unsqueeze(1)
 
         x, x_lens = self.conv(x, audio_len)
 

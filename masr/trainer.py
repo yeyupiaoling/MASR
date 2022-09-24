@@ -140,7 +140,7 @@ class MASRTrainer(object):
         logger.info('数据字典生成完成！')
 
         logger.info('=' * 70)
-        logger.info('开始抽取{}条数据计算均值和标准值...'.format(num_samples))
+        logger.info('开始抽取不超过{}条数据计算均值和标准值...'.format(num_samples))
         compute_mean_std(feature_method=self.feature_method,
                          manifest_path=self.train_manifest,
                          output_path=self.mean_std_path,
@@ -586,10 +586,5 @@ class MASRTrainer(object):
         infer_model_dir = os.path.join(save_model_path, f'{self.use_model}_{self.feature_method}')
         os.makedirs(infer_model_dir, exist_ok=True)
         infer_model_path = os.path.join(infer_model_dir, 'inference.pt')
-        # script_model = torch.jit.trace(model, (torch.rand((1, audio_featurizer.feature_dim, 300)),
-        #                                        torch.randint(high=100, size=(1,), dtype=torch.int32),
-        #                                        torch.rand(size=(base_model.num_rnn_layers, 1, base_model.rnn_size),
-        #                                                   dtype=torch.float32)))
-        # torch.jit.save(script_model, infer_model_path)
         torch.save(model, infer_model_path)
         logger.info("预测模型已保存：{}".format(infer_model_path))

@@ -49,11 +49,9 @@ class ConvStack(nn.Module):
 
     def forward(self, x, x_len):
         """
-        x: shape [B, D, T]
+        x: shape [B, T, D]
         x_len : shape [B]
         """
-        # [B, D, T] -> [B, T, D]
-        x = x.permute(0, 2, 1)
         # [B, T, D] -> [B, C=1, T, D]
         x = x.unsqueeze(1)
         x, x_len = self.conv1(x, x_len)

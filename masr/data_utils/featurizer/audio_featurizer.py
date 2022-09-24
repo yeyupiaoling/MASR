@@ -102,6 +102,7 @@ class AudioFeaturizer(object):
         freqs = float(sample_rate) / window_size * np.arange(fft.shape[0])
         ind = np.where(freqs <= (sample_rate / 2))[0][-1] + 1
         linear_feat = np.log(fft[:ind, :] + eps)  # dim=161
+        linear_feat = linear_feat.transpose([1, 0])  # (T, 161)
         return linear_feat
 
     def _compute_mfcc(self,
@@ -117,7 +118,7 @@ class AudioFeaturizer(object):
         n_frame_shift = n_shift / num_point_ms
 
         dither = dither if self.train else 0.0
-        waveform = torch.from_numpy(np.expand_dims(samples, 0)).double()
+        waveform = torch.from_numpy(np.expand_dims(samples, 0)).float()
         # 计算MFCC
         mfcc_feat = mfcc(waveform,
                          num_mel_bins=n_mels,
@@ -133,7 +134,6 @@ class AudioFeaturizer(object):
         dd_feat = delta(mfcc_feat, 2)
         # concat above three features
         mfcc_feat = np.concatenate((mfcc_feat, d_feat, dd_feat), axis=1)  # dim=39
-        mfcc_feat = mfcc_feat.transpose([1, 0])
         return mfcc_feat
 
     def _compute_fbank(self,
@@ -149,7 +149,7 @@ class AudioFeaturizer(object):
         n_frame_shift = n_shift / num_point_ms
 
         dither = dither if self.train else 0.0
-        waveform = torch.from_numpy(np.expand_dims(samples, 0)).double()
+        waveform = torch.from_numpy(np.expand_dims(samples, 0)).float()
         # 计算Fbank
         mat = fbank(waveform,
                     num_mel_bins=n_mels,
@@ -158,8 +158,7 @@ class AudioFeaturizer(object):
                     dither=dither,
                     energy_floor=energy_floor,
                     sample_frequency=sample_rate)
-        mat = mat.transpose(1, 0)  # dim=161
-        fbank_feat = mat.numpy()
+        fbank_feat = mat.numpy()  # (T, 161)
         return fbank_feat
 
     @property

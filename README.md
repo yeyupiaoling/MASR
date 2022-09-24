@@ -36,6 +36,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 ## 更新记录
 
+ - 2022.09.24: 调整数据预处理，此前下载的模型，需要重新下载。
  - 2022.09.18: 支持使用WebSocket调用流式识别。
  - 2022.08.27: 修改使用kaldi实现`fbank`和`mfcc`预处理方法。
  - 2022.08.22: 增加非流式模型`deepspeech2_no_stream`和`deepspeech2_big_no_stream`。
@@ -75,9 +76,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 |        deepspeech2        | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |     35     | 英文  |       0.17229        |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
 |      deepspeech2_big      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |    167     | 英文  |       0.15086        |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
 |   deepspeech2_no_stream   | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |     98     | 英文  |       0.09826        |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
-| deepspeech2_big_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |    473     | 英文  |                      |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
-|        deepspeech2        |                   超大数据集(1600多小时真实数据)+(1300多小时合成数据)                    | linear |     35     | 中文  |       0.06215        | [点击下载](https://download.csdn.net/download/qq_33200967/75138230)(需要重新导出模型)  |
-|      deepspeech2_big      |                   超大数据集(1600多小时真实数据)+(1300多小时合成数据)                    | linear |    167     | 中文  |       0.05517        | 先`star`项目再[点击下载](https://pan.baidu.com/s/1IW7HJP16IxRHeqSfMfNK5g?pwd=0w36) |
+| deepspeech2_big_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |    473     | 英文  |                      |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      |
 
 
 **说明：** 

@@ -14,10 +14,9 @@ class Normalizer(nn.Module):
         super().__init__()
         self.mean = mean
         self.std = std
-        self.eps = 1e-20
 
     def forward(self, x):
-        x = (x - self.mean) / (self.std + self.eps)
+        x = (x - self.mean) / self.std
         return x
 
 
