@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-MASR_VERSION = "1.1.4"
+MASR_VERSION = "1.1.6"
 
 
 def readme():

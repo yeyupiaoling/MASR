@@ -119,11 +119,8 @@ class Predictor:
             self.pun_executor = PunctuationExecutor(model_dir=pun_model_dir, use_gpu=use_gpu)
 
         # 预热
-        warmup_audio_path = 'dataset/test.wav'
-        if os.path.exists(warmup_audio_path):
-            self.predict(warmup_audio_path, to_an=False)
-        else:
-            logger.warning('预热文件不存在，忽略预热！')
+        warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
+        self.predict(audio_ndarray=warmup_audio, to_an=False)
 
     # 解码模型输出结果
     def decode(self, output_data, use_pun, to_an):
