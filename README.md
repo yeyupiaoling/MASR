@@ -36,7 +36,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 ## 更新记录
 
- - 2022.09.24: 调整数据预处理，此前下载的模型，需要重新下载。
+ - 2022.10.01: 调整数据预处理，此前下载的模型，需要重新下载。
  - 2022.09.18: 支持使用WebSocket调用流式识别。
  - 2022.08.27: 修改使用kaldi实现`fbank`和`mfcc`预处理方法。
  - 2022.08.22: 增加非流式模型`deepspeech2_no_stream`和`deepspeech2_big_no_stream`。
@@ -62,33 +62,22 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 本项目支持流式识别模型`deepspeech2`、`deepspeech2_big`，非流式模型`deepspeech2_no_stream`、`deepspeech2_big_no_stream`。
 
-|           使用模型            |                                  数据集                                  | 预处理方式  | 参数大小（M）`*` | 语言  |     测试集字错率（词错率）      |                                    下载地址                                    |
-|:-------------------------:|:---------------------------------------------------------------------:|:------:|:----------:|:---:|:--------------------:|:--------------------------------------------------------------------------:|
-|      deepspeech2_big      |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank  |    167     | 中文  | 0.08944(AIShell的测试集) |    [点击下载](链接：https://pan.baidu.com/s/1tGlHCBHF7vIWfU2N_7FE7A?pwd=j8hi)     |
-|        deepspeech2        |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |     35     | 中文  |       0.07321        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-|      deepspeech2_big      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |    167     | 中文  |      0.04879`*`      |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-|   deepspeech2_no_stream   |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |     98     | 中文  |       0.06518        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank  |    473     | 中文  |                      |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-|        deepspeech2        |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |     35     | 中文  |       0.07991        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-|      deepspeech2_big      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |    167     | 中文  |       0.09148        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-|   deepspeech2_no_stream   |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |     98     | 中文  |       0.06865        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-| deepspeech2_big_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | linear |    473     | 中文  |       0.07588        |      [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)      |
-|        deepspeech2        | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |     35     | 英文  |       0.17229        |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
-|      deepspeech2_big      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |    167     | 英文  |       0.15086        |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
-|   deepspeech2_no_stream   | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |     98     | 英文  |       0.09826        |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      | 
-| deepspeech2_big_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank  |    473     | 英文  |                      |      [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)      |
-
+|         使用模型          |                                  数据集                                  | 预处理方式 | 参数大小（M）`*` | 语言  |     测试集字错率（词错率）      |                                下载地址                                 |
+|:---------------------:|:---------------------------------------------------------------------:|:-----:|:----------:|:---:|:--------------------:|:-------------------------------------------------------------------:|
+|    deepspeech2_big    |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank |    167     | 中文  | 0.08944(AIShell的测试集) | [点击下载](链接：https://pan.baidu.com/s/1tGlHCBHF7vIWfU2N_7FE7A?pwd=j8hi) |
+|      deepspeech2      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |     35     | 中文  |       0.08279        |  [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)   |
+|    deepspeech2_big    |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |    167     | 中文  |       0.05912        |  [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)   |
+| deepspeech2_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |     98     | 中文  |       0.06982        |  [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)   |
+|      deepspeech2      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     35     | 英文  |                      |  [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)   | 
+|    deepspeech2_big    | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |    167     | 英文  |                      |  [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)   | 
+| deepspeech2_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     98     | 英文  |                      |  [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)   | 
 
 **说明：** 
-1. 这里字错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。
-2. 中文解码参数为：`alpha=2.2，beta=4.3，beam_size=300，cutoff_prob=0.99，cutoff_top_n=40`。
-3. 英文解码参数为：`alpha=1.9，beta=0.3，beam_size=500，cutoff_prob=1.0，cutoff_top_n=40`。
-4. 除了aishell数据集按照数据集本身划分的训练数据和测试数据，其他的都是按照项目设置的固定比例划分训练数据和测试数据。
-5. 下载的压缩文件已经包含了`mean_std.npz`和`vocabulary.txt`，需要把解压得到的全部文件复制到项目根目录下。
-6. 模型名称包含`no_stream`为非流式模型，不能用于流式识别。
-7. 带有`*`的使用了`WenetSpeech`作为预训练模型。
-8. 由于算力不足，大部分的模型都没有训练足够轮数，有算力的同学，欢迎提供模型。
-9. 由于音频的长度不一，所以参数大小也有所变化，以上参数大小为同一音频长度下的结果，仅供对比使用。
+1. 这里字错率或者词错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。
+2. 把全部文件复制到项目根目录下。
+3. 模型名称包含`no_stream`为非流式模型，不能用于流式识别。
+4. 由于算力不足，大部分的模型都没有训练足够轮数，有算力的同学，欢迎提供模型。
+5. 由于音频的长度不一，所以参数大小也有所变化，以上参数大小为同一音频长度下的结果，仅供对比使用。
 
 >有问题欢迎提 [issue](https://github.com/yeyupiaoling/MASR/issues) 交流
 
@@ -121,24 +110,28 @@ python infer_path.py --wav_path=./dataset/test.wav
 
 输出结果：
 ```
------------  Configuration Arguments -----------
-alpha: 1.2
-beam_size: 10
-beta: 0.35
-cutoff_prob: 1.0
-cutoff_top_n: 40
-decoding_method: ctc_greedy
-enable_mkldnn: False
+----------- 额外配置参数 -----------
+configs: configs/config_zh.yml
 is_long_audio: False
-lang_model_path: ./lm/zh_giga.no_cna_cmn.prune01244.klm
-mean_std_path: ./dataset/mean_std.npz
-model_dir: ./models/infer/
-to_an: True
+model_dir: models/{}_{}/infer/
+pun_model_dir: models/pun_models/
+real_time_demo: False
+to_an: False
 use_gpu: True
-use_tensorrt: False
-vocab_path: ./dataset/zh_vocab.txt
-wav_path: ./dataset/test.wav
+use_pun: False
+wav_path: dataset/test.wav
 ------------------------------------------------
+----------- 配置文件参数 -----------
+ctc_beam_search_decoder: {'alpha': 2.2, 'beta': 4.3, 'beam_size': 300, 'num_processes': 10, 'cutoff_prob': 0.99, 'cutoff_top_n': 40, 'language_model_path': 'lm/zh_giga.no_cna_cmn.prune01244.klm'}
+dataset: {'batch_size': 32, 'num_workers': 4, 'min_duration': 0.5, 'max_duration': 20, 'train_manifest': 'dataset/manifest.train', 'test_manifest': 'dataset/manifest.test', 'dataset_vocab': 'dataset/vocabulary.txt', 'mean_std_path': 'dataset/mean_std.json', 'noise_manifest_path': 'dataset/manifest.noise'}
+decoder: ctc_beam_search
+metrics_type: cer
+num_epoch: 65
+optimizer: {'learning_rate': '5e-5', 'gamma': 0.93, 'clip_norm': 3.0, 'weight_decay': '1e-6'}
+preprocess: {'feature_method': 'fbank', 'n_mels': 80, 'n_mfcc': 40, 'sample_rate': 16000, 'use_dB_normalization': True, 'target_dB': -20}
+use_model: deepspeech2
+------------------------------------------------
+
 消耗时间：132, 识别结果: 近几年不但我用书给女儿儿压岁也劝说亲朋不要给女儿压岁钱而改送压岁书, 得分: 94
 ```
 

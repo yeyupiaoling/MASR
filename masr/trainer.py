@@ -174,6 +174,8 @@ class MASRTrainer(object):
         :param pretrained_model: 预训练模型的路径，当为None则不使用预训练模型
         :param augment_conf_path: 数据增强的配置文件，为json格式
         """
+        # 训练只能用贪心解码，解码速度快
+        self.configs.decoder = 'ctc_greedy'
         # 获取有多少张显卡训练
         nranks = torch.cuda.device_count()
         local_rank = 0
@@ -259,13 +261,18 @@ class MASRTrainer(object):
             if os.path.isdir(pretrained_model):
                 pretrained_model = os.path.join(pretrained_model, 'model.pt')
             assert os.path.exists(pretrained_model), f"{pretrained_model} 模型不存在！"
-            pretrained_dict = torch.load(pretrained_model)
             model_dict = model.state_dict()
-            # 将pretrained_dict里不属于model_dict的键剔除掉
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict
-                               and pretrained_dict[k].shape == model_dict[k].shape}
-            model_dict.update(pretrained_dict)
-            model.load_state_dict(model_dict)
+            model_state_dict = torch.load(pretrained_model)
+            # 特征层
+            for name, weight in model_dict.items():
+                if name in model_state_dict.keys():
+                    if list(weight.shape) != list(model_state_dict[name].shape):
+                        logger.warning('{} not used, shape {} unmatched with {} in model.'.
+                                       format(name, list(model_state_dict[name].shape), list(weight.shape)))
+                        model_state_dict.pop(name, None)
+                else:
+                    logger.warning('Lack weight: {}'.format(name))
+            model.load_state_dict(model_state_dict, strict=False)
             logger.info('成功加载预训练模型：{}'.format(pretrained_model))
 
         # 加载恢复模型
