@@ -8,6 +8,7 @@
 
 MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神奇的自动语音识别框架（Magical Automatic Speech Recognition），MASR致力于简单，实用的语音识别项目。可部署在服务器，Nvidia Jetson设备，未来还计划支持Android等移动设备。
 
+**如果熟悉PaddlePaddle，请优先使用：[PPASR](https://github.com/yeyupiaoling/PPASR)**
 
 **欢迎大家扫码入QQ群讨论**，或者直接搜索QQ群号`1169600237`，问题答案为博主Github的ID`yeyupiaoling`。
 
@@ -62,15 +63,15 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 本项目支持流式识别模型`deepspeech2`、`deepspeech2_big`，非流式模型`deepspeech2_no_stream`、`deepspeech2_big_no_stream`。
 
-|         使用模型          |                                  数据集                                  | 预处理方式 | 参数大小（M）`*` | 语言  |     测试集字错率（词错率）      |                                下载地址                                 |
-|:---------------------:|:---------------------------------------------------------------------:|:-----:|:----------:|:---:|:--------------------:|:-------------------------------------------------------------------:|
-|    deepspeech2_big    |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank |    167     | 中文  | 0.08944(AIShell的测试集) | [点击下载](链接：https://pan.baidu.com/s/1tGlHCBHF7vIWfU2N_7FE7A?pwd=j8hi) |
-|      deepspeech2      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |     35     | 中文  |       0.08279        |  [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)   |
-|    deepspeech2_big    |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |    167     | 中文  |       0.05912        |  [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)   |
-| deepspeech2_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |     98     | 中文  |       0.06982        |  [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez)   |
-|      deepspeech2      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     35     | 英文  |                      |  [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)   | 
-|    deepspeech2_big    | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |    167     | 英文  |                      |  [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)   | 
-| deepspeech2_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     98     | 英文  |                      |  [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw)   | 
+|         使用模型          |                                  数据集                                  | 预处理方式 | 参数大小（M）`*` | 语言  |     测试集字错率（词错率）      |                               下载地址                               |
+|:---------------------:|:---------------------------------------------------------------------:|:-----:|:----------:|:---:|:--------------------:|:----------------------------------------------------------------:|
+|    deepspeech2_big    |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank |    167     | 中文  | 0.08944(AIShell的测试集) | [点击下载](https://pan.baidu.com/s/1tGlHCBHF7vIWfU2N_7FE7A?pwd=j8hi) |
+|      deepspeech2      |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |     35     | 中文  |       0.08279        | [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez) |
+|    deepspeech2_big    |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |    167     | 中文  |       0.05912        | [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez) |
+| deepspeech2_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |     98     | 中文  |       0.06982        | [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez) |
+|      deepspeech2      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     35     | 英文  |                      | [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw) | 
+|    deepspeech2_big    | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |    167     | 英文  |       0.15533        | [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw) | 
+| deepspeech2_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     98     | 英文  |                      | [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw) | 
 
 **说明：** 
 1. 这里字错率或者词错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。
