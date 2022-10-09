@@ -71,7 +71,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 | deepspeech2_no_stream |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank |     98     | 中文  |       0.06982        | [点击下载](https://pan.baidu.com/s/1TuN6AmTk2EzEvwdf7cMZdg?pwd=quez) |
 |      deepspeech2      | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     35     | 英文  |                      | [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw) | 
 |    deepspeech2_big    | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |    167     | 英文  |       0.15533        | [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw) | 
-| deepspeech2_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     98     | 英文  |                      | [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw) | 
+| deepspeech2_no_stream | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank |     98     | 英文  |       0.09705        | [点击下载](https://pan.baidu.com/s/1c57J718blFgUAGqDO-dbJA?pwd=lcjw) | 
 
 **说明：** 
 1. 这里字错率或者词错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。

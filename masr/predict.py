@@ -1,11 +1,9 @@
 import os
 import platform
-import sys
 
-import cn2an
 import numpy as np
 import torch
-
+from itn.chinese.inverse_normalizer import InverseNormalizer
 from masr import SUPPORT_MODEL
 from masr.data_utils.audio import AudioSegment
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
@@ -34,7 +32,7 @@ class Predictor:
         self.configs = dict_to_object(configs)
         self.running = False
         self.use_gpu = use_gpu
-        self.lac = None
+        self.inv_normalizer = InverseNormalizer()
         self.pun_executor = None
         self._text_featurizer = TextFeaturizer(vocab_filepath=self.configs.dataset.dataset_vocab)
         self._audio_featurizer = AudioFeaturizer(**self.configs.preprocess)
@@ -90,15 +88,15 @@ class Predictor:
 
         # 预热
         warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
-        self.predict(audio_ndarray=warmup_audio, to_an=False)
+        self.predict(audio_ndarray=warmup_audio, is_itn=False)
 
     # 解码模型输出结果
-    def decode(self, output_data, use_pun, to_an):
+    def decode(self, output_data, use_pun, is_itn):
         """
         解码模型输出结果
         :param output_data: 模型输出结果
         :param use_pun: 是否使用加标点符号的模型
-        :param to_an: 是否转为阿拉伯数字
+        :param is_itn: 是否对文本进行反标准化
         :return:
         """
         # 执行解码
@@ -116,9 +114,9 @@ class Predictor:
                 text = self.pun_executor(text)
             else:
                 logger.warning('标点符号模型没有初始化！')
-        # 是否转为阿拉伯数字
-        if to_an:
-            text = self.cn2an(text)
+        # 是否对文本进行反标准化
+        if is_itn:
+            text = self.inverse_text_normalization(text)
         return score, text
 
     # 预测音频
@@ -127,14 +125,14 @@ class Predictor:
                 audio_bytes=None,
                 audio_ndarray=None,
                 use_pun=False,
-                to_an=False):
+                is_itn=True):
         """
         预测函数，只预测完整的一句话。
         :param audio_path: 需要预测音频的路径
         :param audio_bytes: 需要预测的音频wave读取的字节流
         :param audio_ndarray: 需要预测的音频未预处理的numpy值
         :param use_pun: 是否使用加标点符号的模型
-        :param to_an: 是否转为阿拉伯数字
+        :param is_itn: 是否对文本进行反标准化
         :return: 识别的文本结果和解码的得分数
         """
         assert audio_path is not None or audio_bytes is not None or audio_ndarray is not None, \
@@ -166,7 +164,7 @@ class Predictor:
         output_data = output_data.cpu().detach().numpy()[0]
 
         # 解码
-        score, text = self.decode(output_data=output_data, use_pun=use_pun, to_an=to_an)
+        score, text = self.decode(output_data=output_data, use_pun=use_pun, is_itn=is_itn)
         return score, text
 
     def predict_chunk(self, x_chunk, x_chunk_lens):
@@ -189,14 +187,14 @@ class Predictor:
                        audio_ndarray=None,
                        is_end=False,
                        use_pun=False,
-                       to_an=False):
+                       is_itn=True):
         """
         预测函数，流式预测，通过一直输入音频数据，实现实时识别。
         :param audio_bytes: 需要预测的音频wave读取的字节流
         :param audio_ndarray: 需要预测的音频未预处理的numpy值
         :param is_end: 是否结束语音识别
         :param use_pun: 是否使用加标点符号的模型
-        :param to_an: 是否转为阿拉伯数字
+        :param is_itn: 是否对文本进行反标准化
         :return: 识别的文本结果和解码的得分数
         """
         assert 'no_stream' not in self.configs.use_model, f'当前模型不是流式模型，当前模型为：{self.configs.use_model}'
@@ -269,9 +267,9 @@ class Predictor:
                 text = self.pun_executor(text)
             else:
                 logger.warning('标点符号模型没有初始化！')
-        # 是否转为阿拉伯数字
-        if to_an:
-            text = self.cn2an(text)
+        # 是否对文本进行反标准化
+        if is_itn:
+            text = self.inverse_text_normalization(text)
 
         return score, text
 
@@ -286,20 +284,7 @@ class Predictor:
         if self.configs.decoder == 'ctc_beam_search':
             self.beam_search_decoder.reset_decoder()
 
-    # 是否转为阿拉伯数字
-    def cn2an(self, text):
-        # 获取分词模型
-        if self.lac is None:
-            import paddle
-            from LAC import LAC
-            use_gpu = self.use_gpu
-            # 判断Paddle是否支持GPU
-            if not paddle.is_compiled_with_cuda(): use_gpu = False
-            self.lac = LAC(mode='lac', use_cuda=use_gpu)
-        lac_result = self.lac.run(text)
-        result_text = ''
-        for t, r in zip(lac_result[0], lac_result[1]):
-            if r == 'm' or r == 'TIME':
-                t = cn2an.transform(t, "cn2an")
-            result_text += t
+    # 对文本进行反标准化
+    def inverse_text_normalization(self, text):
+        result_text = self.inv_normalizer.normalize(text)
         return result_text

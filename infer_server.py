@@ -29,7 +29,7 @@ add_arg("port_stream",      int,    5001,                 "流式识别服务所
 add_arg("save_path",        str,    'dataset/upload/',    "上传音频文件的保存目录")
 add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
 add_arg('use_pun',          bool,   False,  "是否给识别结果加标点符号")
-add_arg('to_an',            bool,   False,  "是否转为阿拉伯数字")
+add_arg('is_itn',           bool,   True,   "是否对文本进行反标准化")
 add_arg('num_predictor',    int,    1,      "多少个预测器，也是就可以同时有多少个用户同时识别")
 add_arg('model_path',       str,    'models/{}_{}/inference.pt', "导出的预测模型文件路径")
 add_arg('pun_model_dir',    str,    'models/pun_models/',        "加标点符号的模型文件夹路径")
@@ -68,7 +68,7 @@ def recognition():
         try:
             start = time.time()
             # 执行识别
-            score, text = predictors[0].predict(audio_path=file_path, use_pun=args.use_pun, to_an=args.to_an)
+            score, text = predictors[0].predict(audio_path=file_path, use_pun=args.use_pun, is_itn=args.is_itn)
             end = time.time()
             print("识别时间：%dms，识别结果：%s， 得分: %f" % (round((end - start) * 1000), text, score))
             result = str({"code": 0, "msg": "success", "result": text, "score": round(score, 3)}).replace("'", '"')
@@ -95,7 +95,7 @@ def recognition_long_audio():
             scores = []
             # 执行识别
             for i, audio_bytes in enumerate(audios_bytes):
-                score, text = predictors[0].predict(audio_bytes=audio_bytes, use_pun=args.use_pun, to_an=args.to_an)
+                score, text = predictors[0].predict(audio_bytes=audio_bytes, use_pun=args.use_pun, is_itn=args.is_itn)
                 texts = texts + text if args.use_pun else texts + '，' + text
                 scores.append(score)
             end = time.time()
@@ -135,7 +135,7 @@ async def stream_server_run(websocket, path):
                     is_end = True
                     data = data[:-3]
                 # 开始预测
-                score, text = use_predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, to_an=args.to_an,
+                score, text = use_predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, is_itn=args.is_itn,
                                                            is_end=is_end)
                 send_data = str({"code": 0, "result": text}).replace("'", '"')
                 logger.info(f'向客户端发生消息：{send_data}')
