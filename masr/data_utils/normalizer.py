@@ -11,6 +11,9 @@ from torch.utils.data import Dataset, DataLoader
 from masr.data_utils.utils import read_manifest
 from masr.data_utils.audio import AudioSegment
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
+from masr.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 __all__ = ['FeatureNormalizer']
 
@@ -64,6 +67,7 @@ class FeatureNormalizer(object):
             sampled_manifest = manifest
         else:
             sampled_manifest = random.sample(manifest, num_samples)
+        logger.info('开始抽取{}条数据计算均值和标准值...'.format(len(sampled_manifest)))
         dataset = NormalizerDataset(sampled_manifest, preprocess_configs)
         test_loader = DataLoader(dataset=dataset, batch_size=64, collate_fn=collate_fn, num_workers=num_workers)
         with torch.no_grad():
