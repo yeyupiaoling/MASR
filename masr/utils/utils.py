@@ -6,6 +6,7 @@ import wave
 
 import librosa
 import numpy as np
+import resampy
 import soundfile
 from tqdm import tqdm
 from zhconv import convert
