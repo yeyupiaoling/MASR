@@ -19,13 +19,11 @@ class MASRDataset(Dataset):
                  preprocess_configs,
                  data_manifest,
                  vocab_filepath,
-                 mean_std_filepath,
                  min_duration=0,
                  max_duration=20,
                  augmentation_config='{}',
                  train=False):
         super(MASRDataset, self).__init__()
-        self._normalizer = FeatureNormalizer(mean_std_filepath)
         self._augmentation_pipeline = AugmentationPipeline(augmentation_config=augmentation_config)
         self._audio_featurizer = AudioFeaturizer(train=train, **preprocess_configs)
         self._text_featurizer = TextFeaturizer(vocab_filepath)
@@ -43,34 +41,27 @@ class MASRDataset(Dataset):
             self.data_list.append(dict(line))
 
     def __getitem__(self, idx):
-        try:
-            data_list = self.data_list[idx]
-            if 'start_time' not in data_list.keys():
-                # 分割音频路径和标签
-                audio_file, transcript = data_list["audio_filepath"], data_list["text"]
-                # 读取音频
-                audio_segment = AudioSegment.from_file(audio_file)
-            else:
-                # 分割音频路径和标签
-                audio_file, transcript = data_list["audio_filepath"], data_list["text"]
-                start_time, end_time = data_list["start_time"], data_list["end_time"]
-                # 读取音频
-                audio_segment = AudioSegment.slice_from_file(audio_file, start=start_time, end=end_time)
-            # 音频增强
-            self._augmentation_pipeline.transform_audio(audio_segment)
-            # 预处理，提取特征
-            feature = self._audio_featurizer.featurize(audio_segment)
-            transcript = self._text_featurizer.featurize(transcript)
-            # 归一化
-            feature = self._normalizer.apply(feature)
-            # 特征增强
-            feature = self._augmentation_pipeline.transform_feature(feature)
-            transcript = np.array(transcript, dtype=np.int32)
-            return feature.astype(np.float32), transcript
-        except Exception as ex:
-            logger.warning("数据: {} 出错，错误信息: {}".format(self.data_list[idx], ex))
-            rnd_idx = np.random.randint(self.__len__())
-            return self.__getitem__(rnd_idx)
+        data_list = self.data_list[idx]
+        if 'start_time' not in data_list.keys():
+            # 分割音频路径和标签
+            audio_file, transcript = data_list["audio_filepath"], data_list["text"]
+            # 读取音频
+            audio_segment = AudioSegment.from_file(audio_file)
+        else:
+            # 分割音频路径和标签
+            audio_file, transcript = data_list["audio_filepath"], data_list["text"]
+            start_time, end_time = data_list["start_time"], data_list["end_time"]
+            # 读取音频
+            audio_segment = AudioSegment.slice_from_file(audio_file, start=start_time, end=end_time)
+        # 音频增强
+        self._augmentation_pipeline.transform_audio(audio_segment)
+        # 预处理，提取特征
+        feature = self._audio_featurizer.featurize(audio_segment)
+        transcript = self._text_featurizer.featurize(transcript)
+        # 特征增强
+        feature = self._augmentation_pipeline.transform_feature(feature)
+        transcript = np.array(transcript, dtype=np.int32)
+        return feature.astype(np.float32), transcript
 
     def __len__(self):
         return len(self.data_list)

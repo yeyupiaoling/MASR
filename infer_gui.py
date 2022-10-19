@@ -24,7 +24,7 @@ logger = setup_logger(__name__)
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,   'configs/config_zh.yml',       "配置文件")
+add_arg('configs',          str,   'configs/conformer_offline_zh.yml',       "配置文件")
 add_arg('use_server',       bool,   False,         "是否使用服务器服务进行识别，否则使用本地识别")
 add_arg("host",             str,    "127.0.0.1",   "服务器IP地址")
 add_arg("port_server",      int,    5000,          "普通识别服务端口号")
@@ -50,7 +50,7 @@ class SpeechRecognitionApp:
         self.playing = False
         self.recording = False
         self.stream = None
-        self.is_itn = True
+        self.is_itn = False
         self.use_server = args.use_server
         # 录音参数
         self.frames = []
@@ -86,7 +86,7 @@ class SpeechRecognitionApp:
         self.result_text.place(x=10, y=100)
         # 对文本进行反标准化
         self.an_frame = Frame(self.window)
-        self.check_var = BooleanVar(value=True)
+        self.check_var = BooleanVar(value=False)
         self.is_itn_check = Checkbutton(self.an_frame, text='是否对文本进行反标准化', variable=self.check_var, command=self.is_itn_state)
         self.is_itn_check.grid(row=0)
         self.an_frame.grid(row=1)
@@ -95,7 +95,7 @@ class SpeechRecognitionApp:
         # 获取识别器中文数字转阿拉伯数字
         self.predictor = Predictor(configs=configs,
                                    model_path=args.model_path.format(configs['use_model'],
-                                                                     configs['preprocess']['feature_method']),
+                                                                     configs['preprocess_conf']['feature_method']),
                                    use_gpu=args.use_gpu,
                                    use_pun=args.use_pun,
                                    pun_model_dir=args.pun_model_dir)

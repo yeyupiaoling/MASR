@@ -22,14 +22,14 @@ logger = setup_logger(__name__)
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,    'configs/config_zh.yml', "配置文件")
+add_arg('configs',          str,    'configs/conformer_offline_zh.yml', "配置文件")
 add_arg("host",             str,    '0.0.0.0',            "监听主机的IP地址")
 add_arg("port_server",      int,    5000,                 "普通识别服务所使用的端口号")
 add_arg("port_stream",      int,    5001,                 "流式识别服务所使用的端口号")
 add_arg("save_path",        str,    'dataset/upload/',    "上传音频文件的保存目录")
 add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
 add_arg('use_pun',          bool,   False,  "是否给识别结果加标点符号")
-add_arg('is_itn',           bool,   True,   "是否对文本进行反标准化")
+add_arg('is_itn',           bool,   False,  "是否对文本进行反标准化")
 add_arg('num_predictor',    int,    1,      "多少个预测器，也是就可以同时有多少个用户同时识别")
 add_arg('model_path',       str,    'models/{}_{}/inference.pt', "导出的预测模型文件路径")
 add_arg('pun_model_dir',    str,    'models/pun_models/',        "加标点符号的模型文件夹路径")
@@ -51,7 +51,7 @@ predictors = []
 for _ in range(args.num_predictor):
     predictor1 = Predictor(configs=configs,
                            model_path=args.model_path.format(configs['use_model'],
-                                                             configs['preprocess']['feature_method']),
+                                                             configs['preprocess_conf']['feature_method']),
                            use_gpu=args.use_gpu,
                            use_pun=args.use_pun,
                            pun_model_dir=args.pun_model_dir)

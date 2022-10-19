@@ -3,7 +3,6 @@ import platform
 
 import numpy as np
 import torch
-from itn.chinese.inverse_normalizer import InverseNormalizer
 from masr import SUPPORT_MODEL
 from masr.data_utils.audio import AudioSegment
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
@@ -18,7 +17,7 @@ logger = setup_logger(__name__)
 class Predictor:
     def __init__(self,
                  configs,
-                 model_path='models/deepspeech2/inference.pt',
+                 model_path='models/conformer_fbank/inference.pt',
                  use_pun=False,
                  pun_model_dir='models/pun_models/',
                  use_gpu=True):
@@ -32,10 +31,10 @@ class Predictor:
         self.configs = dict_to_object(configs)
         self.running = False
         self.use_gpu = use_gpu
-        self.inv_normalizer = InverseNormalizer()
+        self.inv_normalizer = None
         self.pun_executor = None
-        self._text_featurizer = TextFeaturizer(vocab_filepath=self.configs.dataset.dataset_vocab)
-        self._audio_featurizer = AudioFeaturizer(**self.configs.preprocess)
+        self._text_featurizer = TextFeaturizer(vocab_filepath=self.configs.dataset_conf.dataset_vocab)
+        self._audio_featurizer = AudioFeaturizer(**self.configs.preprocess_conf)
         # 流式解码参数
         self.output_state_h = None
         self.output_state_c = None
@@ -51,7 +50,7 @@ class Predictor:
                 try:
                     from masr.decoders.beam_search_decoder import BeamSearchDecoder
                     self.beam_search_decoder = BeamSearchDecoder(vocab_list=self._text_featurizer.vocab_list,
-                                                                 **self.configs.ctc_beam_search_decoder)
+                                                                 **self.configs.ctc_beam_search_decoder_conf)
                 except ModuleNotFoundError:
                     logger.warning('==================================================================')
                     logger.warning('缺少 paddlespeech-ctcdecoders 库，请根据文档安装。')
@@ -69,10 +68,10 @@ class Predictor:
             raise Exception("模型文件不存在，请检查{}是否存在！".format(model_path))
         # 根据 config 创建 predictor
         if self.use_gpu:
-            self.predictor = torch.load(model_path)
+            self.predictor = torch.jit.load(model_path)
             self.predictor.to('cuda')
         else:
-            self.predictor = torch.load(model_path, map_location='cpu')
+            self.predictor = torch.jit.load(model_path, map_location='cpu')
         self.predictor.eval()
 
         logger.info(f'已加载模型：{model_path}')
@@ -150,18 +149,16 @@ class Predictor:
 
         audio_data = torch.from_numpy(audio_data).float()
         audio_len = torch.from_numpy(audio_len)
-        init_state_h_box = None
-        init_state_c_box = None
 
         if self.use_gpu:
             audio_data = audio_data.cuda()
+            audio_len = audio_len.cuda()
 
         # 运行predictor
-        if 'no_stream' not in self.configs.use_model:
-            output_data, _, _, _ = self.predictor(audio_data, audio_len, init_state_h_box, init_state_c_box)
+        if self.configs.use_model in ['conformer', 'deepspeech2']:
+            output_data = self.predictor.get_encoder_out(audio_data, audio_len).cpu().detach().numpy()[0]
         else:
-            output_data, _ = self.predictor(audio_data, audio_len)
-        output_data = output_data.cpu().detach().numpy()[0]
+            raise Exception(f'没有该模型：{self.configs.use_model}')
 
         # 解码
         score, text = self.decode(output_data=output_data, use_pun=use_pun, is_itn=is_itn)
@@ -173,6 +170,7 @@ class Predictor:
 
         if self.use_gpu:
             audio_data = audio_data.cuda()
+            audio_len = audio_len.cuda()
 
         # 运行predictor
         output_chunk_probs, output_lens, self.output_state_h, self.output_state_c = \
@@ -197,6 +195,7 @@ class Predictor:
         :param is_itn: 是否对文本进行反标准化
         :return: 识别的文本结果和解码的得分数
         """
+        raise Exception("暂时不支持")
         assert 'no_stream' not in self.configs.use_model, f'当前模型不是流式模型，当前模型为：{self.configs.use_model}'
         assert audio_bytes is not None or audio_ndarray is not None, \
             'audio_bytes和audio_ndarray至少有一个不为None！'
@@ -286,5 +285,11 @@ class Predictor:
 
     # 对文本进行反标准化
     def inverse_text_normalization(self, text):
+        if self.configs.decoder == 'ctc_beam_search':
+            logger.error("当解码器为ctc_beam_search时，因为包冲突，不能使用文本反标准化")
+            return text
+        if self.inv_normalizer is None:
+            from itn.chinese.inverse_normalizer import InverseNormalizer
+            self.inv_normalizer = InverseNormalizer()
         result_text = self.inv_normalizer.normalize(text)
         return result_text
