@@ -147,7 +147,7 @@ class ConformerModel(torch.nn.Module):
             )  # (B, maxlen, encoder_dim)
         return encoder_out, encoder_mask
 
-    @torch.jit.export
+    # @torch.jit.export
     def get_encoder_out(
             self,
             speech: torch.Tensor,

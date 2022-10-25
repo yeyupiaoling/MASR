@@ -115,6 +115,7 @@ class MASRTrainer(object):
                                           vocab_size=self.test_dataset.vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.configs.use_model))
+        print(self.model)
         if torch.cuda.is_available() and self.use_gpu:
             self.model.cuda(local_rank)
         else:

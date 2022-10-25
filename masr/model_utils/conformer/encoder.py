@@ -302,10 +302,8 @@ class ConformerEncoder(nn.Module):
                 output_size,
                 encoder_selfattn_layer(*encoder_selfattn_layer_args),
                 positionwise_layer(*positionwise_layer_args),
-                positionwise_layer(
-                    *positionwise_layer_args) if macaron_style else None,
-                convolution_layer(
-                    *convolution_layer_args) if use_cnn_module else None,
+                positionwise_layer(*positionwise_layer_args) if macaron_style else None,
+                convolution_layer(*convolution_layer_args) if use_cnn_module else None,
                 dropout_rate,
                 normalize_before,
                 concat_after,

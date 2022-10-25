@@ -8,7 +8,7 @@ IGNORE_ID = -1
 
 
 class Swish(torch.nn.Module):
-    """Construct an Swish object."""
+    """Construct a Swish object."""
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Return Swish activation function."""
@@ -135,13 +135,13 @@ def th_accuracy(pad_outputs: torch.Tensor, pad_targets: torch.Tensor,
     pad_pred = pad_outputs.view(pad_targets.size(0), pad_targets.size(1),
                                 pad_outputs.size(1)).argmax(2)
     mask = pad_targets != ignore_label
-    numerator = torch.sum(
-        pad_pred.masked_select(mask) == pad_targets.masked_select(mask))
+    numerator = torch.sum(pad_pred.masked_select(mask) == pad_targets.masked_select(mask))
     denominator = torch.sum(mask)
     return float(numerator) / float(denominator)
 
 
 def get_activation(act):
+
     """Return activation function."""
     activation_funcs = {
         "hardtanh": torch.nn.Hardtanh,
@@ -153,26 +153,3 @@ def get_activation(act):
     }
 
     return activation_funcs[act]()
-
-
-def remove_duplicates_and_blank(hyp: List[int]) -> List[int]:
-    new_hyp: List[int] = []
-    cur = 0
-    while cur < len(hyp):
-        if hyp[cur] != 0:
-            new_hyp.append(hyp[cur])
-        prev = cur
-        while cur < len(hyp) and hyp[cur] == hyp[prev]:
-            cur += 1
-    return new_hyp
-
-
-def log_add(args: List[int]) -> float:
-    """
-    Stable log add
-    """
-    if all(a == -float('inf') for a in args):
-        return -float('inf')
-    a_max = max(args)
-    lsp = math.log(sum(math.exp(a - a_max) for a in args))
-    return a_max + lsp
