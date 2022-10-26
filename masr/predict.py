@@ -1,6 +1,7 @@
 import os
 import platform
 
+import cn2an
 import numpy as np
 import torch
 from masr import SUPPORT_MODEL
@@ -285,6 +286,10 @@ class Predictor:
 
     # 对文本进行反标准化
     def inverse_text_normalization(self, text):
+        if self.configs.decoder == 'ctc_beam_search':
+            logger.error("当解码器为ctc_beam_search时，因为包冲突，不能itn使用文本反标准化，以改为cn2an")
+            text = cn2an.transform(text, "cn2an")
+            return text
         if self.inv_normalizer is None:
             from itn.chinese.inverse_normalizer import InverseNormalizer
             self.inv_normalizer = InverseNormalizer()
