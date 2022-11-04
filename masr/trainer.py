@@ -120,12 +120,10 @@ class MASRTrainer(object):
         elif self.configs.use_model == 'deepspeech2_online':
             self.model = DeepSpeech2ModelOnline(configs=self.configs,
                                                 input_dim=input_dim,
-                                                device=self.device,
                                                 vocab_size=vocab_size)
         elif self.configs.use_model == 'deepspeech2_offline':
             self.model = DeepSpeech2ModelOffline(configs=self.configs,
                                                  input_dim=input_dim,
-                                                 device=self.device,
                                                  vocab_size=vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.configs.use_model))

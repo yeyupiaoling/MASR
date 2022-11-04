@@ -23,12 +23,11 @@ class DeepSpeech2Model(nn.Module):
                  configs,
                  input_dim: int,
                  vocab_size: int,
-                 device=torch.device("cuda"),
                  rnn_direction='forward'):
         super().__init__()
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=configs.dataset_conf.mean_istd_path)
-        global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float().to(device),
-                                 torch.from_numpy(feature_normalizer.istd).float().to(device))
+        global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
+                                 torch.from_numpy(feature_normalizer.istd).float())
         self.encoder = CRNNEncoder(input_dim=input_dim,
                                    vocab_size=vocab_size,
                                    global_cmvn=global_cmvn,
@@ -73,23 +72,19 @@ class DeepSpeech2Model(nn.Module):
 
 def DeepSpeech2ModelOnline(configs,
                            input_dim: int,
-                           vocab_size: int,
-                           device=torch.device("cuda")):
+                           vocab_size: int):
     model = DeepSpeech2Model(configs=configs,
                              input_dim=input_dim,
                              vocab_size=vocab_size,
-                             device=device,
                              rnn_direction='forward')
     return model
 
 
 def DeepSpeech2ModelOffline(configs,
                             input_dim: int,
-                            vocab_size: int,
-                            device=torch.device("cuda")):
+                            vocab_size: int):
     model = DeepSpeech2Model(configs=configs,
                              input_dim=input_dim,
                              vocab_size=vocab_size,
-                             device=device,
                              rnn_direction='bidirect')
     return model
