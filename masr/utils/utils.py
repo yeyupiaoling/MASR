@@ -4,8 +4,8 @@ import os
 import time
 import wave
 
-import librosa
 import numpy as np
+import resampy
 import soundfile
 from tqdm import tqdm
 from zhconv import convert
@@ -21,7 +21,12 @@ def print_arguments(args, configs):
     logger.info("------------------------------------------------")
     logger.info("----------- 配置文件参数 -----------")
     for arg, value in sorted(configs.items()):
-        logger.info("%s: %s" % (arg, value))
+        if isinstance(value, dict):
+            logger.info(f"{arg}:")
+            for a, v in sorted(value.items()):
+                logger.info("\t%s: %s" % (a, v))
+        else:
+            logger.info("%s: %s" % (arg, value))
     logger.info("------------------------------------------------")
 
 
@@ -66,12 +71,14 @@ def fuzzy_delete(dir, fuzzy_str):
 
 
 # 创建数据列表
-def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is_change_frame_rate=True, max_test_manifest=10000):
+def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is_change_frame_rate=True,
+                    max_test_manifest=10000, target_sr=16000):
     data_list = []
     test_list = []
     durations = []
-    from tn.chinese.normalizer import Normalizer
-    normalizer = Normalizer()
+    # 需要安装WeTextProcessing>=0.0.4
+    # from tn.chinese.normalizer import Normalizer
+    # normalizer = Normalizer()
     for annotation_text in os.listdir(annotation_path):
         annotation_text_path = os.path.join(annotation_path, annotation_text)
         if os.path.splitext(annotation_text_path)[-1] == '.json':
@@ -87,11 +94,12 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
                 start_time, end_time, duration = d["start_time"], d["end_time"], d["duration"]
                 # 重新调整音频格式并保存
                 if is_change_frame_rate:
-                    change_rate(audio_path)
+                    change_rate(audio_path, target_sr=target_sr)
                 # 获取音频长度
                 durations.append(duration)
                 # 对文本进行标准化
-                text = normalizer.normalize(text).upper()
+                # text = normalizer.normalize(text)
+                text = text.lower().strip()
                 # 过滤非法的字符
                 text = is_ustr(text)
                 if len(text) == 0: continue
@@ -118,16 +126,17 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
                     continue
                 # 重新调整音频格式并保存
                 if is_change_frame_rate:
-                    change_rate(audio_path)
+                    change_rate(audio_path, target_sr=target_sr)
                 # 获取音频长度
                 audio_data, samplerate = soundfile.read(audio_path)
                 duration = float(len(audio_data)) / samplerate
                 durations.append(duration)
                 # 对文本进行标准化
-                text = normalizer.normalize(text).upper()
+                # text = normalizer.normalize(text)
+                text = text.lower().strip()
                 # 过滤非法的字符
                 text = is_ustr(text)
-                if len(text) == 0:continue
+                if len(text) == 0 or text == ' ':continue
                 # 保证全部都是简体
                 text = convert(text, 'zh-cn')
                 # 加入数据列表中
@@ -147,25 +156,27 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
     f_train = open(train_manifest_path, 'w', encoding='utf-8')
     f_test = open(test_manifest_path, 'w', encoding='utf-8')
     for line in test_list:
-        f_test.write('{}\n'.format(str(line).replace("'", '"')))
+        line = json.dumps(line, ensure_ascii=False)
+        f_test.write('{}\n'.format(line))
     interval = 500
     if len(data_list) / 500 > max_test_manifest:
         interval = len(data_list) // max_test_manifest
     for i, line in enumerate(data_list):
+        line = json.dumps(line, ensure_ascii=False)
         if i % interval == 0:
             if len(test_list) == 0:
-                f_test.write('{}\n'.format(str(line).replace("'", '"')))
+                f_test.write('{}\n'.format(line))
             else:
-                f_train.write('{}\n'.format(str(line).replace("'", '"')))
+                f_train.write('{}\n'.format(line))
         else:
-            f_train.write('{}\n'.format(str(line).replace("'", '"')))
+            f_train.write('{}\n'.format(line))
     f_train.close()
     f_test.close()
     logger.info("完成生成数据列表，数据集总长度为{:.2f}小时！".format(sum(durations) / 3600.))
 
 
 # 将多段短音频合并为长音频，减少文件数量
-def merge_audio(annotation_path, save_audio_path, max_duration=600):
+def merge_audio(annotation_path, save_audio_path, max_duration=600, target_sr=16000):
     # 合并数据列表
     train_list_path = os.path.join(annotation_path, 'merge_audio.json')
     if os.path.exists(train_list_path):
@@ -186,9 +197,9 @@ def merge_audio(annotation_path, save_audio_path, max_duration=600):
             # 获取音频长度
             duration = float(len(audio_data)) / samplerate
             # 重新调整音频格式并保存
-            if samplerate != 16000:
-                audio_data = librosa.resample(audio_data, samplerate, target_sr=16000)
-                soundfile.write(audio_path, audio_data, samplerate=16000)
+            if samplerate != target_sr:
+                audio_data = resampy.resample(audio_data, sr_orig=samplerate, sr_new=target_sr)
+                soundfile.write(audio_path, audio_data, samplerate=target_sr)
                 audio_data, _ = soundfile.read(audio_path)
             # 合并数据
             duration_sum.append(duration)
@@ -212,11 +223,11 @@ def merge_audio(annotation_path, save_audio_path, max_duration=600):
                     os.makedirs(save_dir, exist_ok=True)
                 save_path = os.path.join(save_dir, f'{int(time.time() * 1000)}.wav').replace('\\', '/')
                 data = np.concatenate(wav)
-                soundfile.write(save_path, data=data, samplerate=16000, format='WAV')
+                soundfile.write(save_path, data=data, samplerate=target_sr, format='WAV')
                 # 写入到列表文件
                 for list_d in list_data:
                     list_d['audio_filepath'] = save_path
-                    f_ann.write('{}\n'.format(str(list_d).replace("'", '"')))
+                    f_ann.write('{}\n'.format(json.dumps(list_d)))
                 f_ann.flush()
                 wav, duration_sum, list_data = [], [], []
         # 删除已处理的标注文件
@@ -224,12 +235,21 @@ def merge_audio(annotation_path, save_audio_path, max_duration=600):
     f_ann.close()
 
 
-# 改变音频采样率为16000Hz
-def change_rate(audio_path):
-    data, sr = soundfile.read(audio_path)
-    if sr != 16000:
-        data = librosa.resample(data, sr, target_sr=16000)
-        soundfile.write(audio_path, data, samplerate=16000)
+# 改变音频采样率
+def change_rate(audio_path, target_sr=16000):
+    is_change = False
+    wav, samplerate = soundfile.read(audio_path, dtype='float32')
+    # 多通道转单通道
+    if wav.ndim > 1:
+        wav = wav.T
+        wav = np.mean(wav, axis=tuple(range(wav.ndim - 1)))
+        is_change = True
+    # 重采样
+    if samplerate != target_sr:
+        wav = resampy.resample(wav, sr_orig=samplerate, sr_new=target_sr)
+        is_change = True
+    if is_change:
+        soundfile.write(audio_path, wav, samplerate=target_sr)
 
 
 # 过滤非法的字符
@@ -250,13 +270,15 @@ def is_uchar(uchar):
         return False
     if (u'\u0041' <= uchar <= u'\u005a') or (u'\u0061' <= uchar <= u'\u007a'):
         return True
-    if uchar in ('-', ',', '.', '>', '?'):
+    if uchar in ["'"]:
+        return True
+    if uchar in ['-', ',', '.', '>', '?']:
         return False
     return False
 
 
 # 生成噪声的数据列表
-def create_noise(path, noise_manifest_path, is_change_frame_rate=True):
+def create_noise(path, noise_manifest_path, is_change_frame_rate=True, target_sr=16000):
     if not os.path.exists(path):
         logger.info('噪声音频文件为空，已跳过！')
         return
@@ -269,7 +291,7 @@ def create_noise(path, noise_manifest_path, is_change_frame_rate=True):
             text = ""
             # 重新调整音频格式并保存
             if is_change_frame_rate:
-                change_rate(audio_path)
+                change_rate(audio_path, target_sr=target_sr)
             f_wave = wave.open(audio_path, "rb")
             duration = f_wave.getnframes() / f_wave.getframerate()
             json_lines.append(

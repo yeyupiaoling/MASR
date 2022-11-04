@@ -5,13 +5,12 @@ import wave
 
 import yaml
 
-from masr.predict import Predictor
-from masr.utils.audio_vad import crop_audio_vad
+from masr.predict import MASRPredictor
 from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,    'configs/conformer_offline_zh.yml',     "配置文件")
+add_arg('configs',          str,    'configs/conformer_online_zh.yml',     "配置文件")
 add_arg('wav_path',         str,    'dataset/test.wav',          "预测音频的路径")
 add_arg('is_long_audio',    bool,   False,                       "是否为长语音")
 add_arg('real_time_demo',   bool,   False,                       "是否使用实时语音识别演示")
@@ -28,33 +27,26 @@ with open(args.configs, 'r', encoding='utf-8') as f:
 print_arguments(args, configs)
 
 # 获取识别器
-predictor = Predictor(configs=configs,
-                      model_path=args.model_path.format(configs['use_model'], configs['preprocess_conf']['feature_method']),
-                      use_gpu=args.use_gpu,
-                      use_pun=args.use_pun,
-                      pun_model_dir=args.pun_model_dir)
+predictor = MASRPredictor(configs=configs,
+                          model_path=args.model_path.format(configs['use_model'], configs['preprocess_conf']['feature_method']),
+                          use_gpu=args.use_gpu,
+                          use_pun=args.use_pun,
+                          pun_model_dir=args.pun_model_dir)
 
 
 # 长语音识别
 def predict_long_audio():
     start = time.time()
-    # 分割长音频
-    audios_bytes = crop_audio_vad(args.wav_path)
-    texts = ''
-    scores = []
-    # 执行识别
-    for i, audio_bytes in enumerate(audios_bytes):
-        score, text = predictor.predict(audio_bytes=audio_bytes, use_pun=args.use_pun, is_itn=args.is_itn)
-        texts = texts + text if args.use_pun else texts + '，' + text
-        scores.append(score)
-        print(f"第{i}个分割音频, 得分: {int(score)}, 识别结果: {text}")
-    print(f"最终结果，消耗时间：{int(round((time.time() - start) * 1000))}, 得分: {int(sum(scores) / len(scores))}, 识别结果: {texts}")
+    result = predictor.predict_long(audio_path=args.wav_path, use_pun=args.use_pun, is_itn=args.is_itn)
+    score, text = result['score'], result['text']
+    print(f"长语音识别结果，消耗时间：{int(round((time.time() - start) * 1000))}, 得分: {score}, 识别结果: {text}")
 
 
 # 短语音识别
 def predict_audio():
     start = time.time()
-    score, text = predictor.predict(audio_path=args.wav_path, use_pun=args.use_pun, is_itn=args.is_itn)
+    result = predictor.predict(audio_path=args.wav_path, use_pun=args.use_pun, is_itn=args.is_itn)
+    score, text = result['score'], result['text']
     print(f"消耗时间：{int(round((time.time() - start) * 1000))}ms, 识别结果: {text}, 得分: {int(score)}")
 
 
@@ -70,9 +62,11 @@ def real_time_predict_demo():
     while data != b'':
         start = time.time()
         d = wf.readframes(CHUNK)
-        score, text = predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, is_itn=args.is_itn, is_end=d == b'')
-        print(f"【实时结果】：消耗时间：{int((time.time() - start) * 1000)}ms, 识别结果: {text}, 得分: {int(score)}")
+        result = predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, is_itn=args.is_itn, is_end=d == b'')
         data = d
+        if result is None:continue
+        score, text = result['score'], result['text']
+        print(f"【实时结果】：消耗时间：{int((time.time() - start) * 1000)}ms, 识别结果: {text}, 得分: {int(score)}")
     # 重置流式识别
     predictor.reset_stream()
 

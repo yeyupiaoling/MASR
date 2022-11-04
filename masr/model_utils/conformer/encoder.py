@@ -16,46 +16,45 @@ from masr.model_utils.conformer.subsampling import Conv2dSubsampling6
 from masr.model_utils.conformer.subsampling import Conv2dSubsampling8
 from masr.model_utils.conformer.subsampling import LinearNoSubsampling
 from masr.model_utils.utils.common import get_activation
-from masr.model_utils.utils.mask import add_optional_chunk_mask
-from masr.model_utils.utils.mask import make_pad_mask
+from masr.model_utils.utils.mask import add_optional_chunk_mask, make_pad_mask
 
 
 class ConformerEncoderLayer(nn.Module):
-    """Encoder layer module.
-    Args:
-        size (int): Input dimension.
-        self_attn (torch.nn.Module): Self-attention module instance.
-            `MultiHeadedAttention` or `RelPositionMultiHeadedAttention`
-            instance can be used as the argument.
-        feed_forward (torch.nn.Module): Feed-forward module instance.
-            `PositionwiseFeedForward` instance can be used as the argument.
-        feed_forward_macaron (torch.nn.Module): Additional feed-forward module
-             instance.
-            `PositionwiseFeedForward` instance can be used as the argument.
-        conv_module (torch.nn.Module): Convolution module instance.
-            `ConvlutionModule` instance can be used as the argument.
-        dropout_rate (float): Dropout rate.
-        normalize_before (bool):
-            True: use layer_norm before each sub-block.
-            False: use layer_norm after each sub-block.
-        concat_after (bool): Whether to concat attention layer's input and
-            output.
-            True: x -> x + linear(concat(x, att(x)))
-            False: x -> x + att(x)
-    """
+    """Encoder layer module."""
 
     def __init__(
             self,
             size: int,
-            self_attn: torch.nn.Module,
+            self_attn: nn.Module,
             feed_forward: Optional[nn.Module] = None,
             feed_forward_macaron: Optional[nn.Module] = None,
             conv_module: Optional[nn.Module] = None,
             dropout_rate: float = 0.1,
             normalize_before: bool = True,
-            concat_after: bool = False,
-    ):
-        """Construct an EncoderLayer object."""
+            concat_after: bool = False, ):
+        """Construct an EncoderLayer object.
+
+        Args:
+            size (int): Input dimension.
+            self_attn (nn.Module): Self-attention module instance.
+                `MultiHeadedAttention` or `RelPositionMultiHeadedAttention`
+                instance can be used as the argument.
+            feed_forward (nn.Module): Feed-forward module instance.
+                `PositionwiseFeedForward` instance can be used as the argument.
+            feed_forward_macaron (nn.Module): Additional feed-forward module
+                instance.
+                `PositionwiseFeedForward` instance can be used as the argument.
+            conv_module (nn.Module): Convolution module instance.
+                `ConvlutionModule` instance can be used as the argument.
+            dropout_rate (float): Dropout rate.
+            normalize_before (bool):
+                True: use layer_norm before each sub-block.
+                False: use layer_norm after each sub-block.
+            concat_after (bool): Whether to concat attention layer's input and
+                output.
+                True: x -> x + linear(concat(x, att(x)))
+                False: x -> x + att(x)
+        """
         super().__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
@@ -69,10 +68,8 @@ class ConformerEncoderLayer(nn.Module):
         else:
             self.ff_scale = 1.0
         if self.conv_module is not None:
-            self.norm_conv = nn.LayerNorm(size,
-                                          eps=1e-5)  # for the CNN module
-            self.norm_final = nn.LayerNorm(
-                size, eps=1e-5)  # for the final output of the block
+            self.norm_conv = nn.LayerNorm(size, eps=1e-5)  # for the CNN module
+            self.norm_final = nn.LayerNorm(size, eps=1e-5)  # for the final output of the block
         self.dropout = nn.Dropout(dropout_rate)
         self.size = size
         self.normalize_before = normalize_before
@@ -87,33 +84,31 @@ class ConformerEncoderLayer(nn.Module):
             x: torch.Tensor,
             mask: torch.Tensor,
             pos_emb: torch.Tensor,
-            mask_pad: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
-            att_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
-            cnn_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
+            mask_pad: torch.Tensor = torch.ones([0, 0, 0], dtype=torch.bool),
+            att_cache: torch.Tensor = torch.zeros([0, 0, 0, 0]),
+            cnn_cache: torch.Tensor = torch.zeros([0, 0, 0, 0])
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute encoded features.
-
         Args:
-            x (torch.Tensor): (#batch, time, size)
-            mask (torch.Tensor): Mask tensor for the input (#batch, time，time),
-                (0, 0, 0) means fake mask.
-            pos_emb (torch.Tensor): positional encoding, must not be None
-                for ConformerEncoderLayer.
+            x (torch.Tensor): Input tensor (#batch, time, size).
+            mask (torch.Tensor): Mask tensor for the input (#batch, time, time).
+                (0,0,0) means fake mask.
+            pos_emb (torch.Tensor): postional encoding, must not be None
+                for ConformerEncoderLayer
             mask_pad (torch.Tensor): batch padding mask used for conv module.
-                (#batch, 1，time), (0, 0, 0) means fake mask.
+               (#batch, 1，time), (0, 0, 0) means fake mask.
             att_cache (torch.Tensor): Cache tensor of the KEY & VALUE
                 (#batch=1, head, cache_t1, d_k * 2), head * d_k == size.
             cnn_cache (torch.Tensor): Convolution cache in conformer layer
-                (#batch=1, size, cache_t2)
+                (1, #batch=1, size, cache_t2). First dim will not be used, just
+                for dy2st.
         Returns:
-            torch.Tensor: Output tensor (#batch, time, size).
-            torch.Tensor: Mask tensor (#batch, time, time).
-            torch.Tensor: att_cache tensor,
-                (#batch=1, head, cache_t1 + time, d_k * 2).
-            torch.Tensor: cnn_cahce tensor (#batch, size, cache_t2).
+           torch.Tensor: Output tensor (#batch, time, size).
+           torch.Tensor: Mask tensor (#batch, time, time).
+           torch.Tensor: att_cache tensor (#batch=1, head, cache_t1 + time, d_k * 2).
+           torch.Tensor: cnn_cahce tensor (#batch, size, cache_t2).
         """
-
-        # whether to use macaron style
+        # whether to use macaron style FFN
         if self.feed_forward_macaron is not None:
             residual = x
             if self.normalize_before:
@@ -128,23 +123,25 @@ class ConformerEncoderLayer(nn.Module):
         if self.normalize_before:
             x = self.norm_mha(x)
 
-        x_att, new_att_cache = self.self_attn(
-            x, x, x, mask, pos_emb, att_cache)
+        x_att, new_att_cache = self.self_attn(x, x, x, mask, pos_emb, cache=att_cache)
+
         if self.concat_after:
-            x_concat = torch.cat((x, x_att), dim=-1)
+            x_concat = torch.concat((x, x_att), dim=-1)
             x = residual + self.concat_linear(x_concat)
         else:
             x = residual + self.dropout(x_att)
+
         if not self.normalize_before:
             x = self.norm_mha(x)
 
         # convolution module
         # Fake new cnn cache here, and then change it in conv_module
-        new_cnn_cache = torch.zeros((0, 0, 0), dtype=x.dtype, device=x.device)
+        new_cnn_cache = torch.zeros([0, 0, 0], dtype=x.dtype, device=x.device)
         if self.conv_module is not None:
             residual = x
             if self.normalize_before:
                 x = self.norm_conv(x)
+
             x, new_cnn_cache = self.conv_module(x, mask_pad, cnn_cache)
             x = residual + self.dropout(x)
 
@@ -157,6 +154,7 @@ class ConformerEncoderLayer(nn.Module):
             x = self.norm_ff(x)
 
         x = residual + self.ff_scale * self.dropout(self.feed_forward(x))
+
         if not self.normalize_before:
             x = self.norm_ff(x)
 
@@ -192,7 +190,8 @@ class ConformerEncoder(nn.Module):
             use_cnn_module: bool = True,
             cnn_module_kernel: int = 15,
             causal: bool = False,
-            cnn_module_norm: str = "batch_norm",
+            cnn_module_norm: str = "layer_norm",
+            max_len: int = 5000
     ):
         """Construct ConformerEncoder
 
@@ -223,7 +222,7 @@ class ConformerEncoder(nn.Module):
             use_dynamic_chunk (bool): whether use dynamic chunk size for
                 training or not, You can only use fixed chunk(chunk_size > 0)
                 or dyanmic chunk size(use_dynamic_chunk = True)
-            global_cmvn (Optional[torch.nn.Module]): Optional GlobalCMVN module
+            global_cmvn (Optional[torch.nn.Layer]): Optional GlobalCMVN module
             use_dynamic_left_chunk (bool): whether use dynamic left chunk in
                 dynamic chunk training
 
@@ -260,11 +259,13 @@ class ConformerEncoder(nn.Module):
 
         self.global_cmvn = global_cmvn
         self.embed = subsampling_class(
-            input_size,
-            output_size,
-            dropout_rate,
-            pos_enc_class(output_size, positional_dropout_rate),
-        )
+            idim=input_size,
+            odim=output_size,
+            dropout_rate=dropout_rate,
+            pos_enc_class=pos_enc_class(
+                d_model=output_size,
+                dropout_rate=positional_dropout_rate,
+                max_len=max_len), )
 
         self.normalize_before = normalize_before
         self.after_norm = torch.nn.LayerNorm(output_size, eps=1e-5)
@@ -279,35 +280,26 @@ class ConformerEncoder(nn.Module):
             encoder_selfattn_layer = MultiHeadedAttention
         else:
             encoder_selfattn_layer = RelPositionMultiHeadedAttention
-        encoder_selfattn_layer_args = (
-            attention_heads,
-            output_size,
-            attention_dropout_rate,
-        )
+        encoder_selfattn_layer_args = (attention_heads, output_size, attention_dropout_rate)
         # feed-forward module definition
         positionwise_layer = PositionwiseFeedForward
-        positionwise_layer_args = (
-            output_size,
-            linear_units,
-            dropout_rate,
-            activation,
-        )
+        positionwise_layer_args = (output_size, linear_units, dropout_rate, activation)
         # convolution module definition
         convolution_layer = ConvolutionModule
-        convolution_layer_args = (output_size, cnn_module_kernel, activation,
-                                  cnn_module_norm, causal)
+        convolution_layer_args = (output_size, cnn_module_kernel, activation, cnn_module_norm, causal)
 
-        self.encoders = torch.nn.ModuleList([
+        self.encoders = nn.ModuleList([
             ConformerEncoderLayer(
-                output_size,
-                encoder_selfattn_layer(*encoder_selfattn_layer_args),
-                positionwise_layer(*positionwise_layer_args),
-                positionwise_layer(*positionwise_layer_args) if macaron_style else None,
-                convolution_layer(*convolution_layer_args) if use_cnn_module else None,
-                dropout_rate,
-                normalize_before,
-                concat_after,
-            ) for _ in range(num_blocks)
+                size=output_size,
+                self_attn=encoder_selfattn_layer(*encoder_selfattn_layer_args),
+                feed_forward=positionwise_layer(*positionwise_layer_args),
+                feed_forward_macaron=positionwise_layer(
+                    *positionwise_layer_args) if macaron_style else None,
+                conv_module=convolution_layer(*convolution_layer_args)
+                if use_cnn_module else None,
+                dropout_rate=dropout_rate,
+                normalize_before=normalize_before,
+                concat_after=concat_after) for _ in range(num_blocks)
         ])
 
     def output_size(self) -> int:
@@ -321,23 +313,19 @@ class ConformerEncoder(nn.Module):
             num_decoding_left_chunks: int = -1,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Embed positions in tensor.
-
         Args:
-            xs: padded input tensor (B, T, D)
+            xs: padded input tensor (B, L, D)
             xs_lens: input length (B)
             decoding_chunk_size: decoding chunk size for dynamic chunk
                 0: default for training, use random dynamic chunk.
                 <0: for decoding, use full chunk.
                 >0: for decoding, use fixed chunk size as set.
             num_decoding_left_chunks: number of left chunks, this is for decoding,
-            the chunk size is decoding_chunk_size.
+                the chunk size is decoding_chunk_size.
                 >=0: use num_decoding_left_chunks
                 <0: use all left chunks
         Returns:
-            encoder output tensor xs, and subsampled masks
-            xs: padded output tensor (B, T' ~= T/subsample_rate, D)
-            masks: torch.Tensor batch padding mask after subsample
-                (B, 1, T' ~= T/subsample_rate)
+            encoder output tensor, lens and mask
         """
         T = xs.size(1)
         masks = ~make_pad_mask(xs_lens, T).unsqueeze(1)  # (B, 1, T)
@@ -365,39 +353,30 @@ class ConformerEncoder(nn.Module):
             xs: torch.Tensor,
             offset: int,
             required_cache_size: int,
-            att_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
-            cnn_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
-            att_mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
+            att_cache: torch.Tensor = torch.zeros([0, 0, 0, 0]),
+            cnn_cache: torch.Tensor = torch.zeros([0, 0, 0, 0]),
+            att_mask: torch.Tensor = torch.ones([0, 0, 0], dtype=torch.bool)
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """ Forward just one chunk
-
         Args:
-            xs (torch.Tensor): chunk input, with shape (b=1, time, mel-dim),
-                where `time == (chunk_size - 1) * subsample_rate + \
-                        subsample.right_context + 1`
+            xs (torch.Tensor): chunk audio feat input, [B=1, T, D], where
+                `T==(chunk_size-1)*subsampling_rate + subsample.right_context + 1`
             offset (int): current offset in encoder output time stamp
-            required_cache_size (int): cache size required for next chunk
-                compuation
+            required_cache_size (int): cache size required for next chunk compuation
                 >=0: actual cache size
                 <0: means all history cache is required
-            att_cache (torch.Tensor): cache tensor for KEY & VALUE in
-                transformer/conformer attention, with shape
-                (elayers, head, cache_t1, d_k * 2), where
-                `head * d_k == hidden-dim` and
-                `cache_t1 == chunk_size * num_decoding_left_chunks`.
+            att_cache(torch.Tensor): cache tensor for key & val in
+                transformer/conformer attention. Shape is
+                (elayers, head, cache_t1, d_k * 2), where`head * d_k == hidden-dim`
+                and `cache_t1 == chunk_size * num_decoding_left_chunks`.
             cnn_cache (torch.Tensor): cache tensor for cnn_module in conformer,
-                (elayers, b=1, hidden-dim, cache_t2), where
-                `cache_t2 == cnn.lorder - 1`
-
+                (elayers, B=1, hidden-dim, cache_t2), where `cache_t2 == cnn.lorder - 1`
         Returns:
-            torch.Tensor: output of current input xs,
-                with shape (b=1, chunk_size, hidden-dim).
-            torch.Tensor: new attention cache required for next chunk, with
-                dynamic shape (elayers, head, ?, d_k * 2)
-                depending on required_cache_size.
+            torch.Tensor: output of current input xs, (B=1, chunk_size, hidden-dim)
+            torch.Tensor: new attention cache required for next chunk, dyanmic shape
+                (elayers, head, T, d_k*2) depending on required_cache_size
             torch.Tensor: new conformer cnn cache required for next chunk, with
-                same shape as the original cnn_cache.
-
+                same shape as the original cnn_cache
         """
         assert xs.size(0) == 1
         # tmp_masks is just for interface compatibility
@@ -414,95 +393,32 @@ class ConformerEncoder(nn.Module):
         elayers, cache_t1 = att_cache.size(0), att_cache.size(2)
         chunk_size = xs.size(1)
         attention_key_size = cache_t1 + chunk_size
-        pos_emb = self.embed.position_encoding(
-            offset=offset - cache_t1, size=attention_key_size)
+
+        # only used when using `RelPositionMultiHeadedAttention`
+        pos_emb = self.embed.position_encoding(offset=offset - cache_t1, size=attention_key_size)
+
         if required_cache_size < 0:
             next_cache_start = 0
         elif required_cache_size == 0:
             next_cache_start = attention_key_size
         else:
             next_cache_start = max(attention_key_size - required_cache_size, 0)
+
         r_att_cache = []
         r_cnn_cache = []
         for i, layer in enumerate(self.encoders):
-            # NOTE(xcsong): Before layer.forward
-            #   shape(att_cache[i:i + 1]) is (1, head, cache_t1, d_k * 2),
-            #   shape(cnn_cache[i])       is (b=1, hidden-dim, cache_t2)
             xs, _, new_att_cache, new_cnn_cache = layer(
                 xs, att_mask, pos_emb,
                 att_cache=att_cache[i:i + 1] if elayers > 0 else att_cache,
                 cnn_cache=cnn_cache[i] if cnn_cache.size(0) > 0 else cnn_cache
             )
-            # NOTE(xcsong): After layer.forward
-            #   shape(new_att_cache) is (1, head, attention_key_size, d_k * 2),
-            #   shape(new_cnn_cache) is (b=1, hidden-dim, cache_t2)
             r_att_cache.append(new_att_cache[:, :, next_cache_start:, :])
             r_cnn_cache.append(new_cnn_cache.unsqueeze(0))
         if self.normalize_before:
             xs = self.after_norm(xs)
 
-        # NOTE(xcsong): shape(r_att_cache) is (elayers, head, ?, d_k * 2),
-        #   ? may be larger than cache_t1, it depends on required_cache_size
-        r_att_cache = torch.cat(r_att_cache, dim=0)
-        # NOTE(xcsong): shape(r_cnn_cache) is (e, b=1, hidden-dim, cache_t2)
-        r_cnn_cache = torch.cat(r_cnn_cache, dim=0)
-
-        return (xs, r_att_cache, r_cnn_cache)
-
-    def forward_chunk_by_chunk(
-            self,
-            xs: torch.Tensor,
-            decoding_chunk_size: int,
-            num_decoding_left_chunks: int = -1,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """ Forward input chunk by chunk with chunk_size like a streaming
-            fashion
-
-        Here we should pay special attention to computation cache in the
-        streaming style forward chunk by chunk. Three things should be taken
-        into account for computation in the current network:
-            1. transformer/conformer encoder layers output cache
-            2. convolution in conformer
-            3. convolution in subsampling
-
-        However, we don't implement subsampling cache for:
-            1. We can control subsampling module to output the right result by
-               overlapping input instead of cache left context, even though it
-               wastes some computation, but subsampling only takes a very
-               small fraction of computation in the whole model.
-            2. Typically, there are several covolution layers with subsampling
-               in subsampling module, it is tricky and complicated to do cache
-               with different convolution layers with different subsampling
-               rate.
-            3. Currently, nn.Sequential is used to stack all the convolution
-               layers in subsampling, we need to rewrite it to make it work
-               with cache, which is not prefered.
-        Args:
-            xs (torch.Tensor): (1, max_len, dim)
-            chunk_size (int): decoding chunk size
-        """
-        assert decoding_chunk_size > 0
-        # The model is trained by static or dynamic chunk
-        assert self.static_chunk_size > 0 or self.use_dynamic_chunk
-        subsampling = self.embed.subsampling_rate
-        context = self.embed.right_context + 1  # Add current frame
-        stride = subsampling * decoding_chunk_size
-        decoding_window = (decoding_chunk_size - 1) * subsampling + context
-        num_frames = xs.size(1)
-        att_cache: torch.Tensor = torch.zeros((0, 0, 0, 0), device=xs.device)
-        cnn_cache: torch.Tensor = torch.zeros((0, 0, 0, 0), device=xs.device)
-        outputs = []
-        offset = 0
-        required_cache_size = decoding_chunk_size * num_decoding_left_chunks
-
-        # Feed forward overlap input step by step
-        for cur in range(0, num_frames - context + 1, stride):
-            end = min(cur + decoding_window, num_frames)
-            chunk_xs = xs[:, cur:end, :]
-            (y, att_cache, cnn_cache) = self.forward_chunk(
-                chunk_xs, offset, required_cache_size, att_cache, cnn_cache)
-            outputs.append(y)
-            offset += y.size(1)
-        ys = torch.cat(outputs, 1)
-        masks = torch.ones((1, 1, ys.size(1)), device=ys.device, dtype=torch.bool)
-        return ys, masks
+        # r_att_cache (elayers, head, T, d_k*2)
+        # r_cnn_cache (elayers, B=1, hidden-dim, cache_t2)
+        r_att_cache = torch.concat(r_att_cache, dim=0)
+        r_cnn_cache = torch.stack(r_cnn_cache, dim=0)
+        return xs, r_att_cache, r_cnn_cache

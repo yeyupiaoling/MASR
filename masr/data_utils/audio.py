@@ -92,7 +92,7 @@ class AudioSegment(object):
         start = 0. if start is None else round(start, 3)
         end = duration if end is None else round(end, 3)
         # 从末尾开始计
-        if start < 0.0:  start += duration
+        if start < 0.0: start += duration
         if end < 0.0: end += duration
         # 保证数据不越界
         if start < 0.0: start = 0.0
@@ -278,7 +278,7 @@ class AudioSegment(object):
         new_length = int(old_length / speed_rate)
         old_indices = np.arange(old_length)
         new_indices = np.linspace(start=0, stop=old_length, num=new_length)
-        self._samples = np.interp(new_indices, old_indices, self._samples)
+        self._samples = np.interp(new_indices, old_indices, self._samples).astype(np.float32)
 
     def normalize(self, target_db=-20, max_gain_db=300.0):
         """将音频归一化，使其具有所需的有效值(以分贝为单位)

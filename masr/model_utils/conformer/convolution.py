@@ -5,8 +5,12 @@ from torch import nn
 from typeguard import check_argument_types
 
 
+__all__ = ['ConvolutionModule']
+
+
 class ConvolutionModule(nn.Module):
     """ConvolutionModule in Conformer model."""
+
     def __init__(self,
                  channels: int,
                  kernel_size: int = 15,
@@ -18,22 +22,25 @@ class ConvolutionModule(nn.Module):
         Args:
             channels (int): The number of channels of conv layers.
             kernel_size (int): Kernel size of conv layers.
-            causal (int): Whether use causal convolution or not
+            activation (nn.Module): Activation Layer.
+            norm (str): Normalization type, 'batch_norm' or 'layer_norm'
+            causal (bool): Whether use causal convolution or not
+            bias (bool): Whether Conv with bias or not
         """
         assert check_argument_types()
         super().__init__()
-
         self.pointwise_conv1 = nn.Conv1d(
             channels,
             2 * channels,
             kernel_size=1,
             stride=1,
             padding=0,
-            bias=bias,
-        )
+            bias=bias,)
+
         # self.lorder is used to distinguish if it's a causal convolution,
-        # if self.lorder > 0: it's a causal convolution, the input will be
-        #    padded with self.lorder frames on the left in forward.
+        # if self.lorder > 0:
+        #    it's a causal convolution, the input will be padded with
+        #    `self.lorder` frames on the left in forward (causal conv impl).
         # else: it's a symmetrical convolution
         if causal:
             padding = 0
@@ -72,10 +79,10 @@ class ConvolutionModule(nn.Module):
         self.activation = activation
 
     def forward(
-        self,
-        x: torch.Tensor,
-        mask_pad: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
-        cache: torch.Tensor = torch.zeros((0, 0, 0)),
+            self,
+            x: torch.Tensor,
+            mask_pad: torch.Tensor = torch.ones([0, 0, 0], dtype=torch.bool),
+            cache: torch.Tensor = torch.zeros([0, 0, 0, 0])
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute convolution module.
         Args:
@@ -87,6 +94,7 @@ class ConvolutionModule(nn.Module):
                 (0, 0, 0) meas fake cache.
         Returns:
             torch.Tensor: Output tensor (#batch, time, channels).
+            torch.Tensor: Output cache tensor (#batch, channels, time')
         """
         # exchange the temporal dimension and the feature dimension
         x = x.transpose(1, 2)  # (#batch, channels, time)
@@ -108,7 +116,7 @@ class ConvolutionModule(nn.Module):
             # It's better we just return None if no cache is required,
             # However, for JIT export, here we just fake one tensor instead of
             # None.
-            new_cache = torch.zeros((0, 0, 0), dtype=x.dtype, device=x.device)
+            new_cache = torch.zeros([0, 0, 0], dtype=x.dtype, device=x.device)
 
         # GLU mechanism
         x = self.pointwise_conv1(x)  # (batch, 2*channel, dim)

@@ -7,14 +7,14 @@ import sys
 import time
 import wave
 from datetime import datetime
+from typing import List
 
 import websockets
 import yaml
 from flask import request, Flask, render_template
 from flask_cors import CORS
 
-from masr.predict import Predictor
-from masr.utils.audio_vad import crop_audio_vad
+from masr.predict import MASRPredictor
 from masr.utils.utils import add_arguments, print_arguments
 from masr.utils.logger import setup_logger
 
@@ -22,7 +22,7 @@ logger = setup_logger(__name__)
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,    'configs/conformer_offline_zh.yml', "配置文件")
+add_arg('configs',          str,    'configs/conformer_online_zh.yml', "配置文件")
 add_arg("host",             str,    '0.0.0.0',            "监听主机的IP地址")
 add_arg("port_server",      int,    5000,                 "普通识别服务所使用的端口号")
 add_arg("port_stream",      int,    5001,                 "流式识别服务所使用的端口号")
@@ -47,15 +47,16 @@ CORS(app)
 
 
 # 创建多个预测器，实时语音识别所以要这样处理
-predictors = []
+predictors: List[MASRPredictor] = []
 for _ in range(args.num_predictor):
-    predictor1 = Predictor(configs=configs,
-                           model_path=args.model_path.format(configs['use_model'],
-                                                             configs['preprocess_conf']['feature_method']),
-                           use_gpu=args.use_gpu,
-                           use_pun=args.use_pun,
-                           pun_model_dir=args.pun_model_dir)
+    predictor1 = MASRPredictor(configs=configs,
+                               model_path=args.model_path.format(configs['use_model'],
+                                                                 configs['preprocess_conf']['feature_method']),
+                               use_gpu=args.use_gpu,
+                               use_pun=args.use_pun,
+                               pun_model_dir=args.pun_model_dir)
     predictors.append(predictor1)
+
 
 # 语音识别接口
 @app.route("/recognition", methods=['POST'])
@@ -68,7 +69,8 @@ def recognition():
         try:
             start = time.time()
             # 执行识别
-            score, text = predictors[0].predict(audio_path=file_path, use_pun=args.use_pun, is_itn=args.is_itn)
+            result = predictors[0].predict(audio_path=file_path, use_pun=args.use_pun, is_itn=args.is_itn)
+            score, text = result['score'], result['text']
             end = time.time()
             print("识别时间：%dms，识别结果：%s， 得分: %f" % (round((end - start) * 1000), text, score))
             result = str({"code": 0, "msg": "success", "result": text, "score": round(score, 3)}).replace("'", '"')
@@ -89,18 +91,11 @@ def recognition_long_audio():
         f.save(file_path)
         try:
             start = time.time()
-            # 分割长音频
-            audios_bytes = crop_audio_vad(file_path)
-            texts = ''
-            scores = []
-            # 执行识别
-            for i, audio_bytes in enumerate(audios_bytes):
-                score, text = predictors[0].predict(audio_bytes=audio_bytes, use_pun=args.use_pun, is_itn=args.is_itn)
-                texts = texts + text if args.use_pun else texts + '，' + text
-                scores.append(score)
+            result = predictors[0].predict_long(audio_path=file_path, use_pun=args.use_pun, is_itn=args.is_itn)
+            score, text = result['score'], result['text']
             end = time.time()
-            print("识别时间：%dms，识别结果：%s， 得分: %f" % (round((end - start) * 1000), texts, sum(scores) / len(scores)))
-            result = str({"code": 0, "msg": "success", "result": texts, "score": round(float(sum(scores) / len(scores)), 3)}).replace("'", '"')
+            print("识别时间：%dms，识别结果：%s， 得分: %f" % (round((end - start) * 1000), text, score))
+            result = str({"code": 0, "msg": "success", "result": text, "score": score}).replace("'", '"')
             return result
         except Exception as e:
             print(f'[{datetime.now()}] 长语音识别失败，错误信息：{e}', file=sys.stderr)
@@ -135,8 +130,10 @@ async def stream_server_run(websocket, path):
                     is_end = True
                     data = data[:-3]
                 # 开始预测
-                score, text = use_predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, is_itn=args.is_itn,
-                                                           is_end=is_end)
+                result = use_predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, is_itn=args.is_itn,
+                                                      is_end=is_end)
+                if result is None: continue
+                score, text = result['score'], result['text']
                 send_data = str({"code": 0, "result": text}).replace("'", '"')
                 logger.info(f'向客户端发生消息：{send_data}')
                 await websocket.send(send_data)

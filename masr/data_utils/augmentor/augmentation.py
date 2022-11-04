@@ -9,6 +9,7 @@ from masr.data_utils.augmentor.shift_perturb import ShiftPerturbAugmentor
 from masr.data_utils.augmentor.speed_perturb import SpeedPerturbAugmentor
 from masr.data_utils.augmentor.noise_perturb import NoisePerturbAugmentor
 from masr.data_utils.augmentor.spec_augment import SpecAugmentor
+from masr.data_utils.augmentor.spec_sub import SpecSubAugmentor
 from masr.data_utils.augmentor.resample import ResampleAugmentor
 from masr.utils.logger import setup_logger
 
@@ -147,5 +148,7 @@ class AugmentationPipeline(object):
             return NoisePerturbAugmentor(**params)
         elif augmentor_type == "specaug":
             return SpecAugmentor(**params)
+        elif augmentor_type == "specsub":
+            return SpecSubAugmentor(**params)
         else:
             raise ValueError("Unknown augmentor type [%s]." % augmentor_type)

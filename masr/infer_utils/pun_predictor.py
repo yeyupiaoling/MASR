@@ -3,23 +3,23 @@ import os
 import re
 
 import numpy as np
-import paddle.inference as paddle_infer
-from paddlenlp.transformers import ErnieTokenizer
+import torch.inference as torch_infer
+from torchnlp.transformers import ErnieTokenizer
 from masr.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-__all__ = ['PunctuationExecutor']
+__all__ = ['PunctuationPredictor']
 
 
-class PunctuationExecutor:
+class PunctuationPredictor:
     def __init__(self, model_dir, use_gpu=True, gpu_mem=500, num_threads=4):
         # 创建 config
         model_path = os.path.join(model_dir, 'model.pdmodel')
         params_path = os.path.join(model_dir, 'model.pdiparams')
         if not os.path.exists(model_path) or not os.path.exists(params_path):
             raise Exception("标点符号模型文件不存在，请检查{}和{}是否存在！".format(model_path, params_path))
-        self.config = paddle_infer.Config(model_path, params_path)
+        self.config = torch_infer.Config(model_path, params_path)
         # 获取预训练模型类型
         pretrained_token = 'ernie-1.0'
         if os.path.exists(os.path.join(model_dir, 'info.json')):
@@ -37,7 +37,7 @@ class PunctuationExecutor:
         self.config.disable_glog_info()
 
         # 根据 config 创建 predictor
-        self.predictor = paddle_infer.create_predictor(self.config)
+        self.predictor = torch_infer.create_predictor(self.config)
 
         # 获取输入层
         self.input_ids_handle = self.predictor.get_input_handle('input_ids')

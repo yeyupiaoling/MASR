@@ -6,7 +6,6 @@ from typeguard import check_argument_types
 
 class LabelSmoothingLoss(nn.Module):
     """Label-smoothing loss.
-
     In a standard CE loss, the label's data distribution is:
     [0,1,2] ->
     [
@@ -18,23 +17,15 @@ class LabelSmoothingLoss(nn.Module):
     In the smoothing version CE Loss,some probabilities
     are taken from the true label prob (1.0) and are divided
     among other labels.
+        e.g.
+        smoothing=0.1
+        [0,1,2] ->
+        [
+            [0.9, 0.05, 0.05],
+            [0.05, 0.9, 0.05],
+            [0.05, 0.05, 0.9],
+        ]
 
-    e.g.
-    smoothing=0.1
-    [0,1,2] ->
-    [
-        [0.9, 0.05, 0.05],
-        [0.05, 0.9, 0.05],
-        [0.05, 0.05, 0.9],
-    ]
-
-    Args:
-        size (int): the number of class
-        padding_idx (int): padding class id which will be ignored for loss
-        smoothing (float): smoothing rate (0.0 means the conventional CE)
-        normalize_length (bool):
-            normalize loss by sequence length if True
-            normalize loss by batch size if False
     """
 
     def __init__(self,
@@ -42,7 +33,17 @@ class LabelSmoothingLoss(nn.Module):
                  padding_idx: int,
                  smoothing: float,
                  normalize_length: bool = False):
-        """Construct an LabelSmoothingLoss object."""
+        """Label-smoothing loss.
+
+        Args:
+            size (int): the number of class
+            padding_idx (int): padding class id which will be ignored for loss
+            smoothing (float): smoothing rate (0.0 means the conventional CE)
+            normalize_length (bool):
+                True, normalize loss by sequence length;
+                False, normalize loss by batch size.
+                Defaults to False.
+        """
         super(LabelSmoothingLoss, self).__init__()
         self.criterion = nn.KLDivLoss(reduction="none")
         self.padding_idx = padding_idx
@@ -53,7 +54,6 @@ class LabelSmoothingLoss(nn.Module):
 
     def forward(self, x: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """Compute loss between x and target.
-
         The model outputs and data labels tensors are flatten to
         (batch*seqlen, class) shape and a mask is applied to the
         padding part which should not be calculated for loss.
@@ -125,7 +125,7 @@ class CTCLoss(torch.nn.Module):
         ys_hat = ys_hat.log_softmax(2)
         loss = self.ctc_loss(ys_hat, ys_pad, hlens, ys_lens)
         # Batch-size average
-        loss = loss / ys_hat.size(1)
+        loss = loss / ys_hat.shape[0]
         return loss
 
     def log_softmax(self, hs_pad: torch.Tensor) -> torch.Tensor:

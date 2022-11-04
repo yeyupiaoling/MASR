@@ -26,7 +26,7 @@ class GlobalCMVN(torch.nn.Module):
         Returns:
             (torch.Tensor): normalized feature
         """
-        x = x - self.mean
+        x = x - self.mean.to(x.device)
         if self.norm_var:
-            x = x * self.istd
+            x = x * self.istd.to(x.device)
         return x

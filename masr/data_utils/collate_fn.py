@@ -1,10 +1,8 @@
 import numpy as np
-
-
-# 对一个batch的数据处理
 import torch
 
 
+# 对一个batch的数据处理
 def collate_fn(batch):
     # 找出音频长度最长的
     batch = sorted(batch, key=lambda sample: sample[0].shape[0], reverse=True)

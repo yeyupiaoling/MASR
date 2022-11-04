@@ -21,9 +21,8 @@ from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.data_utils.normalizer import FeatureNormalizer
 from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
+from masr.data_utils.utils import create_manifest_binary
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
-from masr.model_utils.conformer.model import ConformerModel
-from masr.model_utils.deepspeech2.model import DeepSpeech2Model
 from masr.utils.logger import setup_logger
 from masr.utils.metrics import cer, wer
 from masr.utils.scheduler import WarmupLR
@@ -49,14 +48,14 @@ class MASRTrainer(object):
         self.use_gpu = use_gpu
         self.configs = dict_to_object(configs)
         assert self.configs.use_model in SUPPORT_MODEL, f'没有该模型：{self.configs.use_model}'
-        self.model: ConformerModel = None
+        self.model = None
         self.test_loader = None
         self.beam_search_decoder = None
         if platform.system().lower() == 'windows':
             self.configs.dataset_conf.num_workers = 0
             logger.warning('Windows系统不支持多线程读取数据，已自动关闭！')
 
-    def __setup_dataloader(self, augment_conf_path=None, is_train=False, nranks=1):
+    def __setup_dataloader(self, augment_conf_path=None, is_train=False):
         # 获取训练数据
         if augment_conf_path is not None and os.path.exists(augment_conf_path) and is_train:
             augmentation_config = io.open(augment_conf_path, mode='r', encoding='utf8').read()
@@ -73,9 +72,10 @@ class MASRTrainer(object):
                                              min_duration=self.configs.dataset_conf.min_duration,
                                              max_duration=self.configs.dataset_conf.max_duration,
                                              augmentation_config=augmentation_config,
+                                             manifest_type=self.configs.dataset_conf.get('manifest_type', 'txt'),
                                              train=is_train)
             # 设置支持多卡训练
-            if nranks > 1:
+            if torch.cuda.device_count() > 1:
                 self.train_batch_sampler = DSElasticDistributedSampler(self.train_dataset,
                                                                        batch_size=self.configs.dataset_conf.batch_size,
                                                                        sortagrad=True,
@@ -95,6 +95,7 @@ class MASRTrainer(object):
         self.test_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
                                         data_manifest=self.configs.dataset_conf.test_manifest,
                                         vocab_filepath=self.configs.dataset_conf.dataset_vocab,
+                                        manifest_type=self.configs.dataset_conf.get('manifest_type', 'txt'),
                                         min_duration=self.configs.dataset_conf.min_duration,
                                         max_duration=self.configs.dataset_conf.max_duration)
         self.test_loader = DataLoader(dataset=self.test_dataset,
@@ -102,24 +103,34 @@ class MASRTrainer(object):
                                       collate_fn=collate_fn,
                                       num_workers=self.configs.dataset_conf.num_workers)
 
-    def __setup_model(self, is_train=False, local_rank=0):
+    def __setup_model(self, input_dim, vocab_size, is_train=False):
+        from masr.model_utils.conformer.model import ConformerModelOnline, ConformerModelOffline
+        from masr.model_utils.deepspeech2.model import DeepSpeech2ModelOnline, DeepSpeech2ModelOffline
         # 获取模型
-        if self.configs.use_model == 'conformer':
-            self.model = ConformerModel(configs=self.configs,
-                                        input_dim=self.test_dataset.feature_dim,
-                                        vocab_size=self.test_dataset.vocab_size,
-                                        **self.configs.model_conf)
-        elif self.configs.use_model == 'deepspeech2':
-            self.model = DeepSpeech2Model(configs=self.configs,
-                                          input_dim=self.test_dataset.feature_dim,
-                                          vocab_size=self.test_dataset.vocab_size)
+        if self.configs.use_model == 'conformer_online':
+            self.model = ConformerModelOnline(configs=self.configs,
+                                              input_dim=input_dim,
+                                              vocab_size=vocab_size,
+                                              **self.configs.model_conf)
+        elif self.configs.use_model == 'conformer_offline':
+            self.model = ConformerModelOffline(configs=self.configs,
+                                               input_dim=input_dim,
+                                               vocab_size=vocab_size,
+                                               **self.configs.model_conf)
+        elif self.configs.use_model == 'deepspeech2_online':
+            self.model = DeepSpeech2ModelOnline(configs=self.configs,
+                                                input_dim=input_dim,
+                                                device=self.device,
+                                                vocab_size=vocab_size)
+        elif self.configs.use_model == 'deepspeech2_offline':
+            self.model = DeepSpeech2ModelOffline(configs=self.configs,
+                                                 input_dim=input_dim,
+                                                 device=self.device,
+                                                 vocab_size=vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.configs.use_model))
-        print(self.model)
-        if torch.cuda.is_available() and self.use_gpu:
-            self.model.cuda(local_rank)
-        else:
-            self.model.to(self.device)
+        self.model.to(self.device)
+        # print(self.model)
         if is_train:
             # 设置优化方法
             self.optimizer = torch.optim.Adam(params=self.model.parameters(),
@@ -241,7 +252,9 @@ class MASRTrainer(object):
             result = self.beam_search_decoder.decode_batch_beam_search_offline(probs_split=outs)
         return result
 
-    def __train_epoch(self, epoch_id, save_model_path, local_rank, writer, accum_grad, grad_clip, nranks):
+    def __train_epoch(self, epoch_id, save_model_path, local_rank, writer):
+        accum_grad = self.configs.train_conf.accum_grad
+        grad_clip = self.configs.train_conf.grad_clip
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
             model_context = self.model.join
         else:
@@ -259,7 +272,7 @@ class MASRTrainer(object):
                 num_utts = label_lens.size(0)
                 if num_utts == 0:
                     continue
-                if nranks > 1 and batch_id % accum_grad != 0:
+                if torch.cuda.device_count() > 1 and batch_id % accum_grad != 0:
                     context = self.model.no_sync
                 else:
                     context = nullcontext
@@ -281,13 +294,16 @@ class MASRTrainer(object):
                 # 多卡训练只使用一个进程打印
                 train_times.append((time.time() - start) * 1000)
                 if batch_id % self.configs.train_conf.log_interval == 0 and local_rank == 0:
+                    # 计算每秒训练数据量
+                    train_speed = self.configs.dataset_conf.batch_size / (sum(train_times) / len(train_times) / 1000)
+                    # 计算剩余时间
                     eta_sec = (sum(train_times) / len(train_times)) * (
                             sum_batch - (epoch_id - 1) * len(self.train_loader) - batch_id)
                     eta_str = str(timedelta(seconds=int(eta_sec / 1000)))
-                    logger.info('Train epoch: [{}/{}], batch: [{}/{}], loss: {:.5f}, learning rate: {:>.8f}, '
-                                'eta: {}'.format(epoch_id, self.configs.train_conf.max_epoch, batch_id,
-                                                 len(self.train_loader),
-                                                 loss.cpu().detach().numpy(), self.scheduler.get_last_lr()[0], eta_str))
+                    logger.info(f'Train epoch: [{epoch_id}/{self.configs.train_conf.max_epoch}], '
+                                f'batch: [{batch_id}/{len(self.train_loader)}], loss: {loss.cpu().detach().numpy():.5f},'
+                                f' learning rate: {self.scheduler.get_last_lr()[0]:>.8f}, '
+                                f'speed: {train_speed:.2f} data/sec, eta: {eta_str}')
                     writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
                     train_times = []
                 # 固定步数也要保存一次模型
@@ -311,7 +327,7 @@ class MASRTrainer(object):
         :param noise_path: 噪声音频存放的文件夹路径
         :param num_samples: 用于计算均值和标准值得音频数量，当为-1使用全部数据
         :param count_threshold: 字符计数的截断阈值，0为不做限制
-        :param is_change_frame_rate: 是否统一改变音频为16000Hz，这会消耗大量的时间
+        :param is_change_frame_rate: 是否统一改变音频的采样率
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
         :param is_merge_audio: 是否将多个短音频合并成长音频，以减少音频文件数量，注意自动删除原始音频文件
         :param save_audio_path: 合并音频的保存路径
@@ -319,7 +335,8 @@ class MASRTrainer(object):
         """
         if is_merge_audio:
             logger.info('开始合并音频...')
-            merge_audio(annotation_path=annotation_path, save_audio_path=save_audio_path, max_duration=max_duration)
+            merge_audio(annotation_path=annotation_path, save_audio_path=save_audio_path, max_duration=max_duration,
+                        target_sr=self.configs.preprocess_conf.sample_rate)
             logger.info('合并音频已完成，原始音频文件和标注文件已自动删除，其他原始文件可手动删除！')
 
         logger.info('开始生成数据列表...')
@@ -327,12 +344,14 @@ class MASRTrainer(object):
                         train_manifest_path=self.configs.dataset_conf.train_manifest,
                         test_manifest_path=self.configs.dataset_conf.test_manifest,
                         is_change_frame_rate=is_change_frame_rate,
-                        max_test_manifest=max_test_manifest)
+                        max_test_manifest=max_test_manifest,
+                        target_sr=self.configs.preprocess_conf.sample_rate)
         logger.info('=' * 70)
         logger.info('开始生成噪声数据列表...')
         create_noise(path=noise_path,
                      noise_manifest_path=self.configs.dataset_conf.noise_manifest_path,
-                     is_change_frame_rate=is_change_frame_rate)
+                     is_change_frame_rate=is_change_frame_rate,
+                     target_sr=self.configs.preprocess_conf.sample_rate)
         logger.info('=' * 70)
 
         logger.info('开始生成数据字典...')
@@ -358,6 +377,13 @@ class MASRTrainer(object):
                                      preprocess_configs=self.configs.preprocess_conf,
                                      num_samples=num_samples)
         print('计算的均值和标准值已保存在 %s！' % self.configs.dataset_conf.mean_istd_path)
+
+        if self.configs.dataset_conf.get('manifest_type', 'txt') == 'binary':
+            logger.info('=' * 70)
+            logger.info('正在生成数据列表的二进制文件...')
+            create_manifest_binary(train_manifest_path=self.configs.dataset_conf.train_manifest,
+                                   test_manifest_path=self.configs.dataset_conf.test_manifest)
+            logger.info('数据列表的二进制文件生成完成！')
 
     def train(self,
               save_model_path='models/',
@@ -385,8 +411,14 @@ class MASRTrainer(object):
             # 日志记录器
             writer = LogWriter(logdir='log')
 
-        self.__setup_dataloader(augment_conf_path=augment_conf_path, is_train=True, nranks=nranks)
-        self.__setup_model(is_train=True, local_rank=local_rank)
+        # 获取数据
+        self.__setup_dataloader(augment_conf_path=augment_conf_path, is_train=True)
+        # 获取模型
+        self.__setup_model(input_dim=self.test_dataset.feature_dim,
+                           vocab_size=self.test_dataset.vocab_size,
+                           is_train=True)
+
+        # 支持多卡训练
         if nranks > 1:
             self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[local_rank])
         logger.info('训练数据：{}'.format(len(self.train_dataset)))
@@ -405,9 +437,7 @@ class MASRTrainer(object):
             epoch_id += 1
             start_epoch = time.time()
             # 训练一个epoch
-            self.__train_epoch(epoch_id=epoch_id, save_model_path=save_model_path, local_rank=local_rank,
-                               writer=writer, accum_grad=self.configs.train_conf.accum_grad,
-                               grad_clip=self.configs.train_conf.grad_clip, nranks=nranks)
+            self.__train_epoch(epoch_id=epoch_id, save_model_path=save_model_path, local_rank=local_rank, writer=writer)
             # 多卡训练只使用一个进程执行评估和保存模型
             if local_rank == 0:
                 logger.info('=' * 70)
@@ -431,16 +461,18 @@ class MASRTrainer(object):
                 self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id, error_rate=error_result,
                                        test_loss=loss)
 
-    def evaluate(self, resume_model='models/conformer_fbank/best_model/'):
+    def evaluate(self, resume_model='models/conformer_online_fbank/best_model/', display_result=False):
         """
         评估模型
         :param resume_model: 所使用的模型
+        :param display_result: 是否打印识别结果
         :return: 评估结果
         """
         if self.test_loader is None:
             self.__setup_dataloader()
         if self.model is None:
-            self.__setup_model()
+            self.__setup_model(input_dim=self.test_dataset.feature_dim,
+                               vocab_size=self.test_dataset.vocab_size)
         if resume_model is not None:
             if os.path.isdir(resume_model):
                 resume_model = os.path.join(resume_model, 'model.pt')
@@ -456,6 +488,7 @@ class MASRTrainer(object):
             eval_model = self.model.module
         else:
             eval_model = self.model
+
         error_results, losses = [], []
         eos = self.test_dataset.vocab_size - 1
         with torch.no_grad():
@@ -465,7 +498,7 @@ class MASRTrainer(object):
                 labels = labels.to(self.device)
                 input_lens = input_lens.to(self.device)
                 loss_dict = eval_model(inputs, input_lens, labels, label_lens)
-                losses.append(loss_dict['loss'])
+                losses.append(loss_dict['loss'].cpu().detach().numpy())
                 # 获取模型编码器输出
                 outputs = eval_model.get_encoder_out(inputs, input_lens).cpu().detach().numpy()
                 out_strings = self.__decoder_result(outs=outputs, vocabulary=self.test_dataset.vocab_list)
@@ -476,12 +509,17 @@ class MASRTrainer(object):
                         error_results.append(wer(out_string, label))
                     else:
                         error_results.append(cer(out_string, label))
+                    if display_result:
+                        logger.info(f'预测结果为：{out_string}')
+                        logger.info(f'实际标签为：{label}')
+                        logger.info(f'当前{self.configs.metrics_type}：{sum(error_results) / len(error_results)}')
+                        logger.info('-'*70)
         loss = float(sum(losses) / len(losses))
         error_result = float(sum(error_results) / len(error_results))
         self.model.train()
         return loss, error_result
 
-    def export(self, save_model_path='models/', resume_model='models/conformer_fbank/best_model/'):
+    def export(self, save_model_path='models/', resume_model='models/conformer_online_fbank/best_model/'):
         """
         导出预测模型
         :param save_model_path: 模型保存的路径
@@ -494,18 +532,8 @@ class MASRTrainer(object):
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
         # 获取模型
-        if self.configs.use_model == 'conformer':
-            model = ConformerModel(configs=self.configs,
-                                   input_dim=audio_featurizer.feature_dim,
-                                   vocab_size=text_featurizer.vocab_size,
-                                   **self.configs.model_conf)
-        elif self.configs.use_model == 'deepspeech2':
-            model = DeepSpeech2Model(configs=self.configs,
-                                     input_dim=audio_featurizer.feature_dim,
-                                     vocab_size=text_featurizer.vocab_size)
-        else:
-            raise Exception('没有该模型：{}'.format(self.configs.use_model))
-        model.to(self.device)
+        self.__setup_model(input_dim=audio_featurizer.feature_dim,
+                           vocab_size=text_featurizer.vocab_size)
         # 加载预训练模型
         if os.path.isdir(resume_model):
             resume_model = os.path.join(resume_model, 'model.pt')
@@ -514,14 +542,14 @@ class MASRTrainer(object):
             model_state_dict = torch.load(resume_model)
         else:
             model_state_dict = torch.load(resume_model, map_location='cpu')
-        # model.load_state_dict(model_state_dict)
+        # self.model.load_state_dict(model_state_dict)
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
-        model.eval()
-
-        infer_model_dir = os.path.join(save_model_path,
-                                       f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}')
-        os.makedirs(infer_model_dir, exist_ok=True)
-        infer_model_path = os.path.join(infer_model_dir, 'inference.pt')
-        script_model = torch.jit.script(model)
-        script_model.save(infer_model_path)
+        self.model.eval()
+        # 获取静态模型
+        infer_model = self.model.export()
+        infer_model_path = os.path.join(save_model_path,
+                                       f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
+                                       'inference.pt')
+        os.makedirs(os.path.dirname(infer_model_path), exist_ok=True)
+        torch.jit.save(infer_model, infer_model_path)
         logger.info("预测模型已保存：{}".format(infer_model_path))

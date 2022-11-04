@@ -28,10 +28,11 @@ class BeamSearchDecoder:
         lm_char_based = self._ext_scorer.is_character_based()
         lm_max_order = self._ext_scorer.get_max_order()
         lm_dict_size = self._ext_scorer.get_dict_size()
-        print("language model: "
-              "is_character_based = %d," % lm_char_based +
-              " max_order = %d," % lm_max_order +
-              " dict_size = %d" % lm_dict_size)
+        print(f"language model: "
+              f"model path = {language_model_path}, "
+              f"is_character_based = {lm_char_based}, "
+              f"max_order = {lm_max_order}, "
+              f"dict_size = {lm_dict_size}")
         batch_size = 1
         self.beam_search_decoder = CTCBeamSearchDecoder(vocab_list, batch_size, beam_size, num_processes, cutoff_prob,
                                                         cutoff_top_n, self._ext_scorer, self.blank_id)
@@ -77,15 +78,13 @@ class BeamSearchDecoder:
             logits_lens (list(int)): 一个batch模型输出的长度
         """
         has_value = (logits_lens > 0).tolist()
-        has_value = ["true" if has_value[i] is True else "false"
-                     for i in range(len(has_value))]
+        has_value = ["true" if has_value[i] is True else "false" for i in range(len(has_value))]
         probs_split = [probs[i, :l, :].tolist() if has_value[i] else probs[i].tolist()
                        for i, l in enumerate(logits_lens)]
         self.beam_search_decoder.next(probs_split, has_value)
 
         batch_beam_results = self.beam_search_decoder.decode()
-        batch_beam_results = [[(res[0], res[1]) for res in beam_results]
-                              for beam_results in batch_beam_results]
+        batch_beam_results = [[(res[0], res[1]) for res in beam_results] for beam_results in batch_beam_results]
         results_best = [result for result in batch_beam_results]
         return results_best[0][0]
 

@@ -14,13 +14,12 @@ conda install pytorch torchvision torchaudio cudatoolkit=11.6 -c pytorch -c cond
 python -m pip install masr -U -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-源码安装，源码安装能保证使用最新代码。
+**建议源码安装**，源码安装能保证使用最新代码。
 ```shell
 git clone https://github.com/yeyupiaoling/MASR.git
 cd MASR
 python setup.py install
 ```
-
 
 **常见安装问题：** 
 
@@ -51,7 +50,12 @@ export LLVM_CONFIG=/usr/local/llvm/bin/llvm-config
 sudo apt-get install libsndfile1
 ```
 
-3. 安装pynini出错，可以执行下面命令安装。
+3. 如果提示缺少`it`依赖库，请安装。
+```shell
+python -m pip install WeTextProcessing>=0.0.4
+```
+
+5. 安装pynini出错，可以执行下面命令安装。
 ```shell
 conda install -c conda-forge pynini
 ```

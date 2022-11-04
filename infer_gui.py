@@ -15,8 +15,7 @@ import requests
 import websockets
 import yaml
 
-from masr.predict import Predictor
-from masr.utils.audio_vad import crop_audio_vad
+from masr.predict import MASRPredictor
 from masr.utils.logger import setup_logger
 from masr.utils.utils import add_arguments, print_arguments
 
@@ -24,7 +23,7 @@ logger = setup_logger(__name__)
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,   'configs/conformer_offline_zh.yml',       "配置文件")
+add_arg('configs',          str,   'configs/conformer_online_zh.yml',       "配置文件")
 add_arg('use_server',       bool,   False,         "是否使用服务器服务进行识别，否则使用本地识别")
 add_arg("host",             str,    "127.0.0.1",   "服务器IP地址")
 add_arg("port_server",      int,    5000,          "普通识别服务端口号")
@@ -92,13 +91,14 @@ class SpeechRecognitionApp:
         self.an_frame.grid(row=1)
         self.an_frame.place(x=700, y=10)
 
-        # 获取识别器中文数字转阿拉伯数字
-        self.predictor = Predictor(configs=configs,
-                                   model_path=args.model_path.format(configs['use_model'],
-                                                                     configs['preprocess_conf']['feature_method']),
-                                   use_gpu=args.use_gpu,
-                                   use_pun=args.use_pun,
-                                   pun_model_dir=args.pun_model_dir)
+        if not self.use_server:
+            # 获取识别器
+            self.predictor = MASRPredictor(configs=configs,
+                                           model_path=args.model_path.format(configs['use_model'],
+                                                                             configs['preprocess_conf']['feature_method']),
+                                           use_gpu=args.use_gpu,
+                                           use_pun=args.use_pun,
+                                           pun_model_dir=args.pun_model_dir)
 
     # 是否对文本进行反标准化
     def is_itn_state(self):
@@ -123,7 +123,8 @@ class SpeechRecognitionApp:
             start = time.time()
             # 判断使用本地识别还是调用服务接口
             if not self.use_server:
-                score, text = self.predictor.predict(audio_path=wav_file, use_pun=args.use_pun, is_itn=self.is_itn)
+                result = self.predictor.predict(audio_path=wav_file, use_pun=args.use_pun, is_itn=self.is_itn)
+                score, text = result['score'], result['text']
             else:
                 # 调用用服务接口识别
                 url = f"http://{args.host}:{args.port_server}/recognition"
@@ -159,17 +160,8 @@ class SpeechRecognitionApp:
             start = time.time()
             # 判断使用本地识别还是调用服务接口
             if not self.use_server:
-                # 分割长音频
-                audios_bytes = crop_audio_vad(wav_path)
-                texts = ''
-                scores = []
-                # 执行识别
-                for i, audio_bytes in enumerate(audios_bytes):
-                    score, text = self.predictor.predict(audio_bytes=audio_bytes, use_pun=args.use_pun, is_itn=self.is_itn)
-                    texts = texts + text if args.use_pun else texts + '，' + text
-                    scores.append(score)
-                    self.result_text.insert(END, "第%d个分割音频, 得分: %d, 识别结果: %s\n" % (i, score, text))
-                text, score = texts, sum(scores) / len(scores)
+                result = self.predictor.predict_long(audio_path=wav_path, use_pun=args.use_pun, is_itn=self.is_itn)
+                score, text = result['score'], result['text']
             else:
                 # 调用用服务接口识别
                 url = f"http://{args.host}:{args.port_server}/recognition_long_audio"
@@ -238,7 +230,9 @@ class SpeechRecognitionApp:
             while True:
                 data = self.stream.read(self.CHUNK)
                 self.frames.append(data)
-                score, text = self.predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, is_itn=self.is_itn, is_end=not self.recording)
+                result = self.predictor.predict_stream(audio_bytes=data, use_pun=args.use_pun, is_itn=self.is_itn, is_end=not self.recording)
+                if result is None:continue
+                score, text = result['score'], result['text']
                 self.result_text.delete('1.0', 'end')
                 self.result_text.insert(END, f"{text}\n")
                 if not self.recording:break
