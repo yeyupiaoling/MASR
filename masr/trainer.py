@@ -475,7 +475,7 @@ class MASRTrainer(object):
         if self.configs.decoder == "ctc_beam_search" and self.beam_search_decoder is None:
             if platform.system() != 'Windows':
                 try:
-                    from ppasr.decoders.beam_search_decoder import BeamSearchDecoder
+                    from masr.decoders.beam_search_decoder import BeamSearchDecoder
                     self.beam_search_decoder = BeamSearchDecoder(vocab_list=vocabulary,
                                                                  **self.configs.ctc_beam_search_decoder)
                 except ModuleNotFoundError:
