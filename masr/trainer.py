@@ -143,10 +143,7 @@ class MASRTrainer(object):
                 pretrained_model = os.path.join(pretrained_model, 'model.pt')
             assert os.path.exists(pretrained_model), f"{pretrained_model} 模型不存在！"
             model_dict = self.model.state_dict()
-            if torch.cuda.is_available() and self.use_gpu:
-                model_state_dict = torch.load(pretrained_model)
-            else:
-                model_state_dict = torch.load(pretrained_model, map_location='cpu')
+            model_state_dict = torch.load(pretrained_model)
             # 特征层
             for name, weight in model_dict.items():
                 if name in model_state_dict.keys():
@@ -156,7 +153,10 @@ class MASRTrainer(object):
                         model_state_dict.pop(name, None)
                 else:
                     logger.warning('Lack weight: {}'.format(name))
-            self.model.load_state_dict(model_state_dict, strict=False)
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
+                self.model.module.load_state_dict(model_state_dict, strict=False)
+            else:
+                self.model.load_state_dict(model_state_dict, strict=False)
             logger.info('成功加载预训练模型：{}'.format(pretrained_model))
 
     def __load_checkpoint(self, save_model_path, resume_model):
