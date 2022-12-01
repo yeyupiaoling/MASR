@@ -1,11 +1,9 @@
 import torch
-
 import torch.nn.functional as F
-
 from typeguard import check_argument_types
 
 
-class CTCDecoder(torch.nn.Module):
+class CTCLoss(torch.nn.Module):
     """CTC module"""
 
     def __init__(

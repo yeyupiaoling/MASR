@@ -53,6 +53,7 @@ class MASRTrainer(object):
         self.beam_search_decoder = None
         if platform.system().lower() == 'windows':
             self.configs.dataset_conf.num_workers = 0
+            self.configs.dataset_conf.prefetch_factor = 2
             logger.warning('Windows系统不支持多线程读取数据，已自动关闭！')
 
     def __setup_dataloader(self, augment_conf_path=None, is_train=False):
@@ -90,6 +91,7 @@ class MASRTrainer(object):
             self.train_loader = DataLoader(dataset=self.train_dataset,
                                            collate_fn=collate_fn,
                                            batch_sampler=self.train_batch_sampler,
+                                           prefetch_factor=self.configs.dataset_conf.get('prefetch_factor', 2),
                                            num_workers=self.configs.dataset_conf.num_workers)
         # 获取测试数据
         self.test_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
@@ -101,13 +103,25 @@ class MASRTrainer(object):
         self.test_loader = DataLoader(dataset=self.test_dataset,
                                       batch_size=self.configs.dataset_conf.batch_size,
                                       collate_fn=collate_fn,
+                                      prefetch_factor=self.configs.dataset_conf.get('prefetch_factor', 2),
                                       num_workers=self.configs.dataset_conf.num_workers)
 
     def __setup_model(self, input_dim, vocab_size, is_train=False):
+        from masr.model_utils.squeezeformer.model import SqueezeformerModelOnline, SqueezeformerModelOffline
         from masr.model_utils.conformer.model import ConformerModelOnline, ConformerModelOffline
         from masr.model_utils.deepspeech2.model import DeepSpeech2ModelOnline, DeepSpeech2ModelOffline
         # 获取模型
-        if self.configs.use_model == 'conformer_online':
+        if self.configs.use_model == 'squeezeformer_online':
+            self.model = SqueezeformerModelOnline(configs=self.configs,
+                                                  input_dim=input_dim,
+                                                  vocab_size=vocab_size,
+                                                  **self.configs.model_conf)
+        elif self.configs.use_model == 'squeezeformer_offline':
+            self.model = SqueezeformerModelOffline(configs=self.configs,
+                                                   input_dim=input_dim,
+                                                   vocab_size=vocab_size,
+                                                   **self.configs.model_conf)
+        elif self.configs.use_model == 'conformer_online':
             self.model = ConformerModelOnline(configs=self.configs,
                                               input_dim=input_dim,
                                               vocab_size=vocab_size,
@@ -130,11 +144,21 @@ class MASRTrainer(object):
         self.model.to(self.device)
         # print(self.model)
         if is_train:
-            # 设置优化方法
-            self.optimizer = torch.optim.Adam(params=self.model.parameters(),
-                                              lr=float(self.configs.optimizer_conf.learning_rate),
-                                              weight_decay=float(self.configs.optimizer_conf.weight_decay))
-            self.scheduler = WarmupLR(self.optimizer, warmup_steps=self.configs.optimizer_conf.warmup_steps)
+            # 获取优化方法
+            optimizer = self.configs.optimizer_conf.get('optimizer', 'Adam')
+            if optimizer == 'Adam':
+                self.optimizer = torch.optim.Adam(params=self.model.parameters(),
+                                                  lr=float(self.configs.optimizer_conf.learning_rate),
+                                                  weight_decay=float(self.configs.optimizer_conf.weight_decay))
+            elif optimizer == 'AdamW':
+                self.optimizer = torch.optim.AdamW(params=self.model.parameters(),
+                                                   lr=float(self.configs.optimizer_conf.learning_rate),
+                                                   weight_decay=float(self.configs.optimizer_conf.weight_decay))
+            else:
+                raise Exception(f'不支持优化方法：{optimizer}')
+            self.scheduler = WarmupLR(optimizer=self.optimizer,
+                                      warmup_steps=self.configs.optimizer_conf.warmup_steps,
+                                      min_lr=float(self.configs.optimizer_conf.get('min_lr', 1e-5)))
 
     def __load_pretrained(self, pretrained_model):
         # 加载预训练模型
@@ -257,12 +281,14 @@ class MASRTrainer(object):
             model_context = self.model.join
         else:
             model_context = nullcontext
-        train_times = []
+        train_times, reader_times, batch_times = [], [], []
         start = time.time()
         sum_batch = len(self.train_loader) * self.configs.train_conf.max_epoch
         with model_context():
             for batch_id, batch in enumerate(self.train_loader):
                 inputs, labels, input_lens, label_lens = batch
+                reader_times.append((time.time() - start) * 1000)
+                start_step = time.time()
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
                 input_lens = input_lens.to(self.device)
@@ -288,6 +314,7 @@ class MASRTrainer(object):
                     self.optimizer.zero_grad()
                     self.scheduler.step()
                     self.train_step += 1
+                batch_times.append((time.time() - start_step) * 1000)
 
                 # 多卡训练只使用一个进程打印
                 train_times.append((time.time() - start) * 1000)
@@ -299,9 +326,13 @@ class MASRTrainer(object):
                             sum_batch - (epoch_id - 1) * len(self.train_loader) - batch_id)
                     eta_str = str(timedelta(seconds=int(eta_sec / 1000)))
                     logger.info(f'Train epoch: [{epoch_id}/{self.configs.train_conf.max_epoch}], '
-                                f'batch: [{batch_id}/{len(self.train_loader)}], loss: {loss.cpu().detach().numpy():.5f},'
-                                f' learning rate: {self.scheduler.get_last_lr()[0]:>.8f}, '
-                                f'speed: {train_speed:.2f} data/sec, eta: {eta_str}')
+                                f'batch: [{batch_id}/{len(self.train_loader)}], '
+                                f'loss: {loss.cpu().detach().numpy():.5f}, '
+                                f'learning_rate: {self.scheduler.get_last_lr()[0]:>.8f}, '
+                                f'reader_cost: {(sum(reader_times) / len(reader_times) / 1000):.4f}, '
+                                f'batch_cost: {(sum(batch_times) / len(batch_times) / 1000):.4f}, '
+                                f'ips: {train_speed:.4f} speech/sec, '
+                                f'eta: {eta_str}')
                     writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
                     train_times = []
                 # 固定步数也要保存一次模型
@@ -511,7 +542,7 @@ class MASRTrainer(object):
                         logger.info(f'预测结果为：{out_string}')
                         logger.info(f'实际标签为：{label}')
                         logger.info(f'当前{self.configs.metrics_type}：{sum(error_results) / len(error_results)}')
-                        logger.info('-'*70)
+                        logger.info('-' * 70)
         loss = float(sum(losses) / len(losses))
         error_result = float(sum(error_results) / len(error_results))
         self.model.train()
@@ -540,14 +571,14 @@ class MASRTrainer(object):
             model_state_dict = torch.load(resume_model)
         else:
             model_state_dict = torch.load(resume_model, map_location='cpu')
-        # self.model.load_state_dict(model_state_dict)
+        self.model.load_state_dict(model_state_dict)
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
         self.model.eval()
         # 获取静态模型
         infer_model = self.model.export()
         infer_model_path = os.path.join(save_model_path,
-                                       f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
-                                       'inference.pt')
+                                        f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
+                                        'inference.pt')
         os.makedirs(os.path.dirname(infer_model_path), exist_ok=True)
         torch.jit.save(infer_model, infer_model_path)
         logger.info("预测模型已保存：{}".format(infer_model_path))

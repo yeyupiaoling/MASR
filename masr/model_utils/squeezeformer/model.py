@@ -3,15 +3,15 @@ from typing import Tuple
 import torch
 
 from masr.data_utils.normalizer import FeatureNormalizer
+from masr.model_utils.transformer.decoder import BiTransformerDecoder
 from masr.model_utils.loss.ctc import CTCLoss
 from masr.model_utils.loss.label_smoothing_loss import LabelSmoothingLoss
-from masr.model_utils.transformer.decoder import BiTransformerDecoder
-from masr.model_utils.conformer.encoder import ConformerEncoder
+from masr.model_utils.squeezeformer.encoder import SqueezeformerEncoder
 from masr.model_utils.utils.cmvn import GlobalCMVN
 from masr.model_utils.utils.common import (IGNORE_ID, add_sos_eos, th_accuracy, reverse_pad_list)
 
 
-class ConformerModel(torch.nn.Module):
+class SqueezeformerModel(torch.nn.Module):
     def __init__(
             self,
             configs,
@@ -31,12 +31,12 @@ class ConformerModel(torch.nn.Module):
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=configs.dataset_conf.mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
-        self.encoder = ConformerEncoder(input_dim,
-                                        global_cmvn=global_cmvn,
-                                        use_dynamic_chunk=use_dynamic_chunk,
-                                        use_dynamic_left_chunk=use_dynamic_left_chunk,
-                                        causal=causal,
-                                        **configs.encoder_conf)
+        self.encoder = SqueezeformerEncoder(input_dim,
+                                            global_cmvn=global_cmvn,
+                                            use_dynamic_chunk=use_dynamic_chunk,
+                                            use_dynamic_left_chunk=use_dynamic_left_chunk,
+                                            causal=causal,
+                                            **configs.encoder_conf)
         self.decoder = BiTransformerDecoder(vocab_size, self.encoder.output_size(), **configs.decoder_conf)
 
         self.ctc = CTCLoss(vocab_size, self.encoder.output_size())
@@ -165,7 +165,7 @@ class ConformerModel(torch.nn.Module):
                               offset: int,
                               required_cache_size: int,
                               att_cache: torch.Tensor = torch.zeros([0, 0, 0, 0]),
-                              cnn_cache: torch.Tensor = torch.zeros([0, 0, 0, 0])) ->\
+                              cnn_cache: torch.Tensor = torch.zeros([0, 0, 0, 0])) -> \
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """ Get encoder output
 
@@ -188,42 +188,42 @@ class ConformerModel(torch.nn.Module):
         return static_model
 
 
-def ConformerModelOnline(configs,
-                         input_dim: int,
-                         vocab_size: int,
-                         ctc_weight: float = 0.5,
-                         ignore_id: int = IGNORE_ID,
-                         reverse_weight: float = 0.0,
-                         lsm_weight: float = 0.0,
-                         length_normalized_loss: bool = False):
-    model = ConformerModel(configs=configs,
-                           input_dim=input_dim,
-                           vocab_size=vocab_size,
-                           ctc_weight=ctc_weight,
-                           ignore_id=ignore_id,
-                           reverse_weight=reverse_weight,
-                           lsm_weight=lsm_weight,
-                           length_normalized_loss=length_normalized_loss,
-                           use_dynamic_chunk=True,
-                           use_dynamic_left_chunk=False,
-                           causal=True)
+def SqueezeformerModelOnline(configs,
+                             input_dim: int,
+                             vocab_size: int,
+                             ctc_weight: float = 0.5,
+                             ignore_id: int = IGNORE_ID,
+                             reverse_weight: float = 0.0,
+                             lsm_weight: float = 0.0,
+                             length_normalized_loss: bool = False):
+    model = SqueezeformerModel(configs=configs,
+                               input_dim=input_dim,
+                               vocab_size=vocab_size,
+                               ctc_weight=ctc_weight,
+                               ignore_id=ignore_id,
+                               reverse_weight=reverse_weight,
+                               lsm_weight=lsm_weight,
+                               length_normalized_loss=length_normalized_loss,
+                               use_dynamic_chunk=True,
+                               use_dynamic_left_chunk=False,
+                               causal=True)
     return model
 
 
-def ConformerModelOffline(configs,
-                          input_dim: int,
-                          vocab_size: int,
-                          ctc_weight: float = 0.5,
-                          ignore_id: int = IGNORE_ID,
-                          reverse_weight: float = 0.0,
-                          lsm_weight: float = 0.0,
-                          length_normalized_loss: bool = False):
-    model = ConformerModel(configs=configs,
-                           input_dim=input_dim,
-                           vocab_size=vocab_size,
-                           ctc_weight=ctc_weight,
-                           ignore_id=ignore_id,
-                           reverse_weight=reverse_weight,
-                           lsm_weight=lsm_weight,
-                           length_normalized_loss=length_normalized_loss)
+def SqueezeformerModelOffline(configs,
+                              input_dim: int,
+                              vocab_size: int,
+                              ctc_weight: float = 0.5,
+                              ignore_id: int = IGNORE_ID,
+                              reverse_weight: float = 0.0,
+                              lsm_weight: float = 0.0,
+                              length_normalized_loss: bool = False):
+    model = SqueezeformerModel(configs=configs,
+                               input_dim=input_dim,
+                               vocab_size=vocab_size,
+                               ctc_weight=ctc_weight,
+                               ignore_id=ignore_id,
+                               reverse_weight=reverse_weight,
+                               lsm_weight=lsm_weight,
+                               length_normalized_loss=length_normalized_loss)
     return model

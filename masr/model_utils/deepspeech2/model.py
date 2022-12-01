@@ -2,8 +2,8 @@ import torch
 from torch import nn
 
 from masr.data_utils.normalizer import FeatureNormalizer
-from masr.model_utils.deepspeech2.decoder import CTCDecoder
 from masr.model_utils.deepspeech2.encoder import CRNNEncoder
+from masr.model_utils.loss.ctc import CTCLoss
 from masr.model_utils.utils.cmvn import GlobalCMVN
 
 
@@ -33,7 +33,7 @@ class DeepSpeech2Model(nn.Module):
                                    global_cmvn=global_cmvn,
                                    rnn_direction=rnn_direction,
                                    **configs.encoder_conf)
-        self.decoder = CTCDecoder(vocab_size, self.encoder.output_size, **configs.decoder_conf)
+        self.decoder = CTCLoss(vocab_size, self.encoder.output_size, **configs.decoder_conf)
 
     def forward(self, speech, speech_lengths, text, text_lengths):
         """Compute Model loss
