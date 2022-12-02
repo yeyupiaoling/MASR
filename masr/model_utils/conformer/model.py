@@ -184,7 +184,7 @@ class ConformerModel(torch.nn.Module):
 
     @torch.no_grad()
     def export(self):
-        static_model = torch.jit.script(self)
+        static_model = torch.jit.script(self.eval())
         return static_model
 
 

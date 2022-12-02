@@ -410,10 +410,9 @@ class ConformerEncoder(nn.Module):
             xs, _, new_att_cache, new_cnn_cache = layer(
                 xs, att_mask, pos_emb,
                 att_cache=att_cache[i:i + 1] if elayers > 0 else att_cache,
-                cnn_cache=cnn_cache[i] if cnn_cache.size(0) > 0 else cnn_cache
-            )
+                cnn_cache=cnn_cache[i] if cnn_cache.size(0) > 0 else cnn_cache)
             r_att_cache.append(new_att_cache[:, :, next_cache_start:, :])
-            r_cnn_cache.append(new_cnn_cache.unsqueeze(0))
+            r_cnn_cache.append(new_cnn_cache)
         if self.normalize_before:
             xs = self.after_norm(xs)
 

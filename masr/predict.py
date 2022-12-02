@@ -56,11 +56,15 @@ class MASRPredictor:
         # 获取预测器
         self.predictor = InferencePredictor(configs=self.configs,
                                             use_model=self.configs.use_model,
-                                            model_dir=model_path,
+                                            model_path=model_path,
                                             use_gpu=self.use_gpu)
         # 预热
-        warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
-        self.predict(audio_ndarray=warmup_audio, is_itn=False)
+        for _ in range(5):
+            warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
+            self.predict(audio_data=warmup_audio, is_itn=False)
+            if 'online' in self.configs.use_model:
+                self.predict_stream(audio_data=warmup_audio[:8000], is_itn=False)
+        self.reset_stream()
 
     # 初始化解码器
     def __init_decoder(self):
@@ -114,37 +118,33 @@ class MASRPredictor:
 
     # 预测音频
     def predict(self,
-                audio_path=None,
-                audio_bytes=None,
-                audio_ndarray=None,
+                audio_data,
                 use_pun=False,
                 is_itn=True,
                 sample_rate=16000):
         """
         预测函数，只预测完整的一句话。
-        :param audio_path: 需要预测音频的路径
-        :param audio_bytes: 需要预测的音频wave读取的字节流
-        :param audio_ndarray: 需要预测的音频未预处理的numpy值
+        :param audio_data: 需要识别的数据，支持文件路径，字节，numpy。如果是字节的话，必须是完整的字节文件
         :param use_pun: 是否使用加标点符号的模型
         :param is_itn: 是否对文本进行反标准化
         :param sample_rate: 如果传入的事numpy数据，需要指定采样率
         :return: 识别的文本结果和解码的得分数
         """
-        assert audio_path is not None or audio_bytes is not None or audio_ndarray is not None, \
-            'audio_path，audio_bytes和audio_ndarray至少有一个不为None！'
         # 加载音频文件，并进行预处理
-        if audio_path is not None:
-            audio_data = AudioSegment.from_file(audio_path)
-        elif audio_ndarray is not None:
-            audio_data = AudioSegment.from_ndarray(audio_ndarray, sample_rate)
+        if isinstance(audio_data, str):
+            audio_segment = AudioSegment.from_file(audio_data)
+        elif isinstance(audio_data, np.ndarray):
+            audio_segment = AudioSegment.from_ndarray(audio_data, sample_rate)
+        elif isinstance(audio_data, bytes):
+            audio_segment = AudioSegment.from_bytes(audio_data)
         else:
-            audio_data = AudioSegment.from_bytes(audio_bytes)
-        audio_feature = self._audio_featurizer.featurize(audio_data)
-        audio_data = np.array(audio_feature).astype(np.float32)[np.newaxis, :]
-        audio_len = np.array([audio_data.shape[1]]).astype(np.int64)
+            raise Exception(f'不支持该数据类型，当前数据类型为：{type(audio_data)}')
+        audio_feature = self._audio_featurizer.featurize(audio_segment)
+        input_data = np.array(audio_feature).astype(np.float32)[np.newaxis, :]
+        audio_len = np.array([input_data.shape[1]]).astype(np.int64)
 
         # 运行predictor
-        output_data = self.predictor.predict(audio_data, audio_len)[0]
+        output_data = self.predictor.predict(input_data, audio_len)[0]
 
         # 解码
         score, text = self.decode(output_data=output_data, use_pun=use_pun, is_itn=is_itn)
@@ -153,17 +153,13 @@ class MASRPredictor:
 
     # 长语音预测
     def predict_long(self,
-                     audio_path=None,
-                     audio_bytes=None,
-                     audio_ndarray=None,
+                     audio_data,
                      use_pun=False,
                      is_itn=True,
                      sample_rate=16000):
         """
         预测函数，只预测完整的一句话。
-        :param audio_path: 需要预测音频的路径
-        :param audio_bytes: 需要预测的音频wave读取的字节流
-        :param audio_ndarray: 需要预测的音频未预处理的numpy值
+        :param audio_data: 需要识别的数据，支持文件路径，字节，numpy。如果是字节的话，必须是完整的字节文件
         :param use_pun: 是否使用加标点符号的模型
         :param is_itn: 是否对文本进行反标准化
         :param sample_rate: 如果传入的事numpy数据，需要指定采样率
@@ -172,16 +168,15 @@ class MASRPredictor:
         if self.vad_predictor is None:
             from masr.infer_utils.vad_predictor import VADPredictor
             self.vad_predictor = VADPredictor()
-
-        assert audio_path is not None or audio_bytes is not None or audio_ndarray is not None, \
-            'audio_path，audio_bytes和audio_ndarray至少有一个不为None！'
         # 加载音频文件，并进行预处理
-        if audio_path is not None:
-            audio_segment = AudioSegment.from_file(audio_path)
-        elif audio_ndarray is not None:
-            audio_segment = AudioSegment.from_ndarray(audio_ndarray, sample_rate)
+        if isinstance(audio_data, str):
+            audio_segment = AudioSegment.from_file(audio_data)
+        elif isinstance(audio_data, np.ndarray):
+            audio_segment = AudioSegment.from_ndarray(audio_data, sample_rate)
+        elif isinstance(audio_data, bytes):
+            audio_segment = AudioSegment.from_bytes(audio_data)
         else:
-            audio_segment = AudioSegment.from_bytes(audio_bytes)
+            raise Exception(f'不支持该数据类型，当前数据类型为：{type(audio_data)}')
         # 重采样，方便进行语音活动检测
         if audio_segment.sample_rate != self.configs.preprocess_conf.sample_rate:
             audio_segment.resample(self.configs.preprocess_conf.sample_rate)
@@ -191,7 +186,7 @@ class MASRPredictor:
         for t in speech_timestamps:
             audio_ndarray = audio_segment.samples[t['start']: t['end']]
             # 执行识别
-            result = self.predict(audio_ndarray=audio_ndarray, use_pun=use_pun, is_itn=is_itn)
+            result = self.predict(audio_data=audio_ndarray, use_pun=use_pun, is_itn=is_itn)
             score, text = result['score'], result['text']
             texts = texts + text if use_pun else texts + '，' + text
             scores.append(score)
@@ -201,16 +196,14 @@ class MASRPredictor:
 
     # 预测音频
     def predict_stream(self,
-                       audio_bytes=None,
-                       audio_ndarray=None,
+                       audio_data,
                        is_end=False,
                        use_pun=False,
                        is_itn=True,
                        sample_rate=16000):
         """
         预测函数，流式预测，通过一直输入音频数据，实现实时识别。
-        :param audio_bytes: 需要预测的音频wave读取的字节流
-        :param audio_ndarray: 需要预测的音频未预处理的numpy值
+        :param audio_data: 需要预测的音频wave读取的字节流或者未预处理的numpy值
         :param is_end: 是否结束语音识别
         :param use_pun: 是否使用加标点符号的模型
         :param is_itn: 是否对文本进行反标准化
@@ -219,14 +212,13 @@ class MASRPredictor:
         """
         if 'online' not in self.configs.use_model:
             raise Exception(f"不支持改该模型流式识别，当前模型：{self.configs.use_model}")
-        assert audio_bytes is not None or audio_ndarray is not None, \
-            'audio_bytes和audio_ndarray至少有一个不为None！'
         # 加载音频文件，并进行预处理
-        if audio_ndarray is not None:
-            audio_data = AudioSegment.from_ndarray(audio_ndarray, sample_rate)
+        if isinstance(audio_data, np.ndarray):
+            audio_data = AudioSegment.from_ndarray(audio_data, sample_rate)
+        elif isinstance(audio_data, bytes):
+            audio_data = AudioSegment.from_wave_bytes(audio_data)
         else:
-            audio_data = AudioSegment.from_wave_bytes(audio_bytes)
-
+            raise Exception(f'不支持该数据类型，当前数据类型为：{type(audio_data)}')
         if self.remained_wav is None:
             self.remained_wav = audio_data
         else:
@@ -271,7 +263,7 @@ class MASRPredictor:
             # 执行识别
             if self.configs.use_model == 'deepspeech2_online':
                 output_chunk_probs, output_lens = self.predictor.predict_chunk_deepspeech(x_chunk=x_chunk)
-            elif self.configs.use_model == 'conformer_online':
+            elif self.configs.use_model == 'conformer_online' or self.configs.use_model == 'squeezeformer_online':
                 num_decoding_left_chunks = -1
                 required_cache_size = decoding_chunk_size * num_decoding_left_chunks
                 output_chunk_probs = self.predictor.predict_chunk_conformer(x_chunk=x_chunk,

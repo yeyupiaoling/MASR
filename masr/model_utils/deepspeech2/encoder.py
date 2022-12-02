@@ -9,7 +9,7 @@ class CRNNEncoder(nn.Module):
                  input_dim,
                  vocab_size,
                  global_cmvn=None,
-                 num_rnn_layers=4,
+                 num_rnn_layers=5,
                  rnn_size=1024,
                  rnn_direction='forward',
                  use_gru=False):
@@ -98,7 +98,7 @@ class CRNNEncoder(nn.Module):
             final_chunk_state_list.append(final_state)
             # x = self.layernorm_list[i](x)
 
-        if self.use_gru is True:
+        if self.use_gru:
             final_chunk_state_h_box = torch.concat(final_chunk_state_list, dim=0)
             final_chunk_state_c_box = init_state_c_box
         else:
