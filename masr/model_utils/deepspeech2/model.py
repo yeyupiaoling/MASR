@@ -47,23 +47,21 @@ class DeepSpeech2Model(nn.Module):
         Returns:
             loss (Tensor): [1]
         """
-        eouts, eouts_len, final_state_h_box, final_state_c_box = self.encoder(speech, speech_lengths, None, None)
+        eouts, eouts_len, final_state = self.encoder(speech, speech_lengths)
         loss = self.decoder(eouts, eouts_len, text, text_lengths)
         return {'loss': loss}
 
     @torch.jit.export
     def get_encoder_out(self, speech, speech_lengths):
-        eouts, _, _, _ = self.encoder(speech, speech_lengths, None, None)
+        eouts, _, _ = self.encoder(speech, speech_lengths)
         ctc_probs = self.decoder.softmax(eouts)
         return ctc_probs
 
     @torch.jit.export
-    def get_encoder_out_chunk(self, speech, speech_lengths, init_state_h_box=None, init_state_c_box=None):
-        eouts, eouts_len, final_chunk_state_h_box, final_chunk_state_c_box = self.encoder(speech, speech_lengths,
-                                                                                          init_state_h_box,
-                                                                                          init_state_c_box)
+    def get_encoder_out_chunk(self, speech, speech_lengths, init_state: torch.Tensor = torch.zeros([0, 0, 0])):
+        eouts, eouts_len, final_chunk_state = self.encoder(speech, speech_lengths, init_state)
         ctc_probs = self.decoder.softmax(eouts)
-        return ctc_probs, eouts_len, final_chunk_state_h_box, final_chunk_state_c_box
+        return ctc_probs, eouts_len, final_chunk_state
 
     def export(self):
         static_model = torch.jit.script(self)
