@@ -40,7 +40,8 @@ class InferencePredictor:
         logger.info(f'已加载模型：{model_path}')
 
         # 流式参数
-        self.output_state = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
+        self.output_state_h= torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
+        self.output_state_c = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.cnn_cache = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.att_cache = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.offset = torch.tensor([0], dtype=torch.int32, device=self.device)
@@ -67,10 +68,11 @@ class InferencePredictor:
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)
         audio_len = torch.tensor([x_chunk.shape[1]], dtype=torch.int64, device=self.device)
 
-        output_chunk_probs, output_lens, self.output_state = \
+        output_chunk_probs, output_lens, self.output_state_h, self.output_state_c = \
             self.predictor.get_encoder_out_chunk(speech=x_chunk,
                                                  speech_lengths=audio_len,
-                                                 init_state=self.output_state)
+                                                 init_state_h=self.output_state_h,
+                                                 init_state_c=self.output_state_c)
         return output_chunk_probs.cpu().detach().numpy(), output_lens.cpu().detach().numpy()
 
     def predict_chunk_conformer(self, x_chunk, required_cache_size):
@@ -91,7 +93,8 @@ class InferencePredictor:
 
     # 重置流式识别，每次流式识别完成之后都要执行
     def reset_stream(self):
-        self.output_state = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
+        self.output_state_h = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
+        self.output_state_c = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.cnn_cache = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.att_cache = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.offset = torch.tensor([0], dtype=torch.int32, device=self.device)
