@@ -4,7 +4,7 @@
 ![GitHub](https://img.shields.io/github/license/yeyupiaoling/MASR)
 ![支持系统](https://img.shields.io/badge/支持系统-Win/Linux/MAC-9cf)
 
-# MASR流式与非流式语音识别项目 (此分支未完成，请勿使用)
+# MASR流式与非流式语音识别项目
 
 MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神奇的自动语音识别框架（Magical Automatic Speech Recognition），当前为V2版本，如果想使用V1版本，请在这个分支[r1.x](https://github.com/yeyupiaoling/MASR/tree/r1.x)。MASR致力于简单，实用的语音识别项目。可部署在服务器，Nvidia Jetson设备，未来还计划支持Android等移动设备。
 
