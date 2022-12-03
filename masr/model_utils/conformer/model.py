@@ -126,8 +126,7 @@ class ConformerModel(torch.nn.Module):
         r_ys_in_pad, r_ys_out_pad = add_sos_eos(r_ys_pad, self.sos, self.eos, self.ignore_id)
         # 1. Forward decoder
         decoder_out, r_decoder_out, _ = self.decoder(
-            encoder_out, encoder_mask, ys_in_pad, ys_in_lens, r_ys_in_pad,
-            self.reverse_weight)
+            encoder_out, encoder_mask, ys_in_pad, ys_in_lens, r_ys_in_pad, self.reverse_weight)
 
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)
@@ -135,11 +134,9 @@ class ConformerModel(torch.nn.Module):
         if self.reverse_weight > 0.0:
             r_loss_att = self.criterion_att(r_decoder_out, r_ys_out_pad)
         loss_att = loss_att * (1 - self.reverse_weight) + r_loss_att * self.reverse_weight
-        acc_att = th_accuracy(
-            decoder_out.view(-1, self.vocab_size),
-            ys_out_pad,
-            ignore_label=self.ignore_id,
-        )
+        acc_att = th_accuracy(decoder_out.view(-1, self.vocab_size),
+                              ys_out_pad,
+                              ignore_label=self.ignore_id)
         return loss_att, acc_att
 
     @torch.jit.export
@@ -165,7 +162,7 @@ class ConformerModel(torch.nn.Module):
                               offset: int,
                               required_cache_size: int,
                               att_cache: torch.Tensor = torch.zeros([0, 0, 0, 0]),
-                              cnn_cache: torch.Tensor = torch.zeros([0, 0, 0, 0])) ->\
+                              cnn_cache: torch.Tensor = torch.zeros([0, 0, 0, 0])) -> \
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """ Get encoder output
 

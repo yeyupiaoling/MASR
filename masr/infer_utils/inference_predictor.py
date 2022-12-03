@@ -1,7 +1,4 @@
 import os
-import time
-
-import numpy as np
 import torch
 
 from masr.utils.logger import setup_logger
@@ -79,7 +76,7 @@ class InferencePredictor:
         return output_chunk_probs, output_lens
 
     def predict_chunk_conformer(self, x_chunk, required_cache_size):
-        if self.use_model != 'conformer_online':
+        if not (self.use_model == 'conformer_online' or self.use_model == 'squeezeformer_online'):
             raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}')
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)
         required_cache_size = torch.tensor([required_cache_size], dtype=torch.int32, device=self.device)

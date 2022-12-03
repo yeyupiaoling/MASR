@@ -4,7 +4,6 @@ import torch
 from torch import nn
 from typeguard import check_argument_types
 
-
 __all__ = ['ConvolutionModule']
 
 
@@ -35,7 +34,7 @@ class ConvolutionModule(nn.Module):
             kernel_size=1,
             stride=1,
             padding=0,
-            bias=bias,)
+            bias=bias)
 
         # self.lorder is used to distinguish if it's a causal convolution,
         # if self.lorder > 0:
@@ -50,15 +49,13 @@ class ConvolutionModule(nn.Module):
             assert (kernel_size - 1) % 2 == 0
             padding = (kernel_size - 1) // 2
             self.lorder = 0
-        self.depthwise_conv = nn.Conv1d(
-            channels,
-            channels,
-            kernel_size,
-            stride=1,
-            padding=padding,
-            groups=channels,
-            bias=bias,
-        )
+        self.depthwise_conv = nn.Conv1d(channels,
+                                        channels,
+                                        kernel_size,
+                                        stride=1,
+                                        padding=padding,
+                                        groups=channels,
+                                        bias=bias)
 
         assert norm in ['batch_norm', 'layer_norm']
         if norm == "batch_norm":
@@ -68,14 +65,12 @@ class ConvolutionModule(nn.Module):
             self.use_layer_norm = True
             self.norm = nn.LayerNorm(channels)
 
-        self.pointwise_conv2 = nn.Conv1d(
-            channels,
-            channels,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-            bias=bias,
-        )
+        self.pointwise_conv2 = nn.Conv1d(channels,
+                                         channels,
+                                         kernel_size=1,
+                                         stride=1,
+                                         padding=0,
+                                         bias=bias)
         self.activation = activation
 
     def forward(

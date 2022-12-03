@@ -356,12 +356,13 @@ class SqueezeformerEncoder(nn.Module):
             #   shape(new_att_cache) is (1, head, attention_key_size, d_k * 2),
             #   shape(new_cnn_cache) is (b=1, hidden-dim, cache_t2)
             cached_att = new_att_cache[:, :, next_cache_start // factor:, :]
+            cached_cnn = new_cnn_cache.unsqueeze(0)
             cached_att = cached_att.repeat_interleave(repeats=factor, dim=2)
             if i == 0:
                 # record length for the first block as max length
                 max_att_len = cached_att.size(2)
             r_att_cache.append(cached_att[:, :, :max_att_len, :])
-            r_cnn_cache.append(new_cnn_cache)
+            r_cnn_cache.append(cached_cnn)
         # NOTE(xcsong): shape(r_att_cache) is (elayers, head, ?, d_k * 2),
         #   ? may be larger than cache_t1, it depends on required_cache_size
         r_att_cache = torch.cat(r_att_cache, dim=0)
