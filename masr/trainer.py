@@ -144,6 +144,7 @@ class MASRTrainer(object):
         self.model.to(self.device)
         # print(self.model)
         if is_train:
+            self.amp_scaler = torch.cuda.amp.GradScaler(init_scale=1024)
             # 获取优化方法
             optimizer = self.configs.optimizer_conf.get('optimizer', 'Adam')
             if optimizer == 'Adam':
@@ -296,21 +297,35 @@ class MASRTrainer(object):
                 num_utts = label_lens.size(0)
                 if num_utts == 0:
                     continue
+                # 执行模型计算，是否开启自动混合精度
+                with torch.cuda.amp.autocast(enabled=self.configs.train_conf.get('enable_amp', False)):
+                    loss_dict = self.model(inputs, input_lens, labels, label_lens)
                 if torch.cuda.device_count() > 1 and batch_id % accum_grad != 0:
                     context = self.model.no_sync
                 else:
                     context = nullcontext
                 with context():
-                    loss_dict = self.model(inputs, input_lens, labels, label_lens)
                     loss = loss_dict['loss'] / accum_grad
-                    loss.backward()
+                    # 是否开启自动混合精度
+                    if self.configs.train_conf.get('enable_amp', False):
+                        # loss缩放，乘以系数loss_scaling
+                        scaled = self.amp_scaler.scale(loss)
+                        scaled.backward()
+                    else:
+                        loss.backward()
                 # 执行一次梯度计算
                 if batch_id % accum_grad == 0:
                     if local_rank == 0 and writer is not None:
                         writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
-                    grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
-                    if torch.isfinite(grad_norm):
-                        self.optimizer.step()
+                    # 是否开启自动混合精度
+                    if self.configs.train_conf.get('enable_amp', False):
+                        self.amp_scaler.unscale_(self.optimizer)
+                        self.amp_scaler.step(self.optimizer)
+                        self.amp_scaler.update()
+                    else:
+                        grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+                        if torch.isfinite(grad_norm):
+                            self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.scheduler.step()
                     self.train_step += 1
@@ -548,11 +563,13 @@ class MASRTrainer(object):
         self.model.train()
         return loss, error_result
 
-    def export(self, save_model_path='models/', resume_model='models/conformer_online_fbank/best_model/'):
+    def export(self, save_model_path='models/', resume_model='models/conformer_online_fbank/best_model/',
+               save_quant=False):
         """
         导出预测模型
         :param save_model_path: 模型保存的路径
         :param resume_model: 准备转换的模型路径
+        :param save_quant: 是否保存量化模型
         :return:
         """
         # 获取训练数据
@@ -582,3 +599,10 @@ class MASRTrainer(object):
         os.makedirs(os.path.dirname(infer_model_path), exist_ok=True)
         torch.jit.save(infer_model, infer_model_path)
         logger.info("预测模型已保存：{}".format(infer_model_path))
+        # 保存量化模型
+        if save_quant:
+            quant_model_path = os.path.join(os.path.dirname(infer_model_path), 'inference_quant.pt')
+            quantized_model = torch.quantization.quantize_dynamic(self.model)
+            script_quant_model = torch.jit.script(quantized_model)
+            torch.jit.save(script_quant_model, quant_model_path)
+            logger.info("量化模型已保存：{}".format(quant_model_path))

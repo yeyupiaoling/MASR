@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-MASR_VERSION = "2.0.0"
+MASR_VERSION = "2.0.1"
 
 
 def readme():
@@ -19,6 +19,7 @@ if __name__ == "__main__":
     setup(
         name='masr',
         packages=find_packages(exclude='download_data/'),
+        package_data={'': ['infer_utils/silero_vad.onnx']},
         author='yeyupiaoling',
         version=MASR_VERSION,
         install_requires=parse_requirements('./requirements.txt'),
