@@ -4,7 +4,7 @@
 ![GitHub](https://img.shields.io/github/license/yeyupiaoling/MASR)
 ![支持系统](https://img.shields.io/badge/支持系统-Win/Linux/MAC-9cf)
 
-# MASR流式与非流式语音识别项目 (此分支未完成，请勿使用)
+# MASR流式与非流式语音识别项目
 
 MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神奇的自动语音识别框架（Magical Automatic Speech Recognition），当前为V2版本，如果想使用V1版本，请在这个分支[r1.x](https://github.com/yeyupiaoling/MASR/tree/r1.x)。MASR致力于简单，实用的语音识别项目。可部署在服务器，Nvidia Jetson设备，未来还计划支持Android等移动设备。
 
@@ -26,7 +26,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 ## 项目快速了解
 
- 1. 本项目支持流式识别模型`deepspeech2`、`conformer`，每个模型又分online(在线)和offline(离线)，对应的是流式识别和非流式识别。
+ 1. 本项目支持流式识别模型`deepspeech2`、`conformer`、`squeezeformer`，每个模型又分online(在线)和offline(离线)，对应的是流式识别和非流式识别。
  2. 本项目支持两种解码器，分别是集束搜索解码器`ctc_beam_search`和贪心解码器`ctc_greedy`，集束搜索解码器`ctc_beam_search`准确率更高，但不支持Windows。
  3. 下面提供了一系列预训练模型的下载，下载预训练模型之后，需要把全部文件复制到项目根目录，并执行导出模型才可以使用语音识别。
 
@@ -58,7 +58,17 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 | conformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
 
 
-2. `deepspeech2`预训练模型列表：
+2. `squeezeformer`预训练模型列表：
+
+|         使用模型          |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） | 下载地址 |
+|:---------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----:|
+| squeezeformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
+| squeezeformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
+| squeezeformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
+| squeezeformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
+
+
+3. `deepspeech2`预训练模型列表：
 
 |        使用模型         |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） | 下载地址 |
 |:-------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----:|
