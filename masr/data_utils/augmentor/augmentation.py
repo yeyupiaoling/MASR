@@ -124,9 +124,11 @@ class AugmentationPipeline(object):
             for config in configs_temp:
                 if config['aug_type'] != aug_type: continue
                 if config['type'] == 'noise' and not os.path.exists(config['params']['noise_manifest_path']):
-                    logger.warning('%s不存在，已经忽略噪声增强操作！' % config['params']['noise_manifest_path'])
+                    if int(os.environ.get('LOCAL_RANK', 0)) == 0:
+                        logger.warning('%s不存在，已经忽略噪声增强操作！' % config['params']['noise_manifest_path'])
                     continue
-                logger.info('数据增强配置：%s' % config)
+                if int(os.environ.get('LOCAL_RANK', 0)) == 0:
+                    logger.info('数据增强配置：%s' % config)
                 configs.append(config)
             augmentors = [self._get_augmentor(config["type"], config["params"]) for config in configs]
             rates = [config["prob"] for config in configs]

@@ -45,6 +45,7 @@ class MASRTrainer(object):
         else:
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
             self.device = torch.device("cpu")
+        self.local_rank = 0
         self.use_gpu = use_gpu
         self.configs = dict_to_object(configs)
         assert self.configs.use_model in SUPPORT_MODEL, f'没有该模型：{self.configs.use_model}'
@@ -141,7 +142,10 @@ class MASRTrainer(object):
                                                  vocab_size=vocab_size)
         else:
             raise Exception('没有该模型：{}'.format(self.configs.use_model))
-        self.model.to(self.device)
+        if torch.cuda.device_count() > 1:
+            self.model.to(self.local_rank)
+        else:
+            self.model.to(self.device)
         # print(self.model)
         if is_train:
             self.amp_scaler = torch.cuda.amp.GradScaler(init_scale=1024)
@@ -182,7 +186,7 @@ class MASRTrainer(object):
                 self.model.module.load_state_dict(model_state_dict, strict=False)
             else:
                 self.model.load_state_dict(model_state_dict, strict=False)
-            logger.info('成功加载预训练模型：{}'.format(pretrained_model))
+            logger.info(f'[GPU:{self.local_rank}] 成功加载预训练模型：{pretrained_model}')
 
     def __load_checkpoint(self, save_model_path, resume_model):
         last_epoch = -1
@@ -209,7 +213,7 @@ class MASRTrainer(object):
                     best_error_rate = abs(json_data['test_cer'])
                 if 'test_wer' in json_data.keys():
                     best_error_rate = abs(json_data['test_wer'])
-            logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
+            logger.info(f'[GPU:{self.local_rank}] 成功恢复模型参数和优化方法参数：{resume_model}')
         return last_epoch, best_error_rate
 
     # 保存模型
@@ -275,7 +279,7 @@ class MASRTrainer(object):
             result = self.beam_search_decoder.decode_batch_beam_search_offline(probs_split=outs)
         return result
 
-    def __train_epoch(self, epoch_id, save_model_path, local_rank, writer):
+    def __train_epoch(self, epoch_id, save_model_path, writer):
         accum_grad = self.configs.train_conf.accum_grad
         grad_clip = self.configs.train_conf.grad_clip
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
@@ -315,7 +319,7 @@ class MASRTrainer(object):
                         loss.backward()
                 # 执行一次梯度计算
                 if batch_id % accum_grad == 0:
-                    if local_rank == 0 and writer is not None:
+                    if self.local_rank == 0 and writer is not None:
                         writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
                     # 是否开启自动混合精度
                     if self.configs.train_conf.get('enable_amp', False):
@@ -333,7 +337,7 @@ class MASRTrainer(object):
 
                 # 多卡训练只使用一个进程打印
                 train_times.append((time.time() - start) * 1000)
-                if batch_id % self.configs.train_conf.log_interval == 0 and local_rank == 0:
+                if batch_id % self.configs.train_conf.log_interval == 0 and self.local_rank == 0:
                     # 计算每秒训练数据量
                     train_speed = self.configs.dataset_conf.batch_size / (sum(train_times) / len(train_times) / 1000)
                     # 计算剩余时间
@@ -351,7 +355,7 @@ class MASRTrainer(object):
                     writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
                     train_times = []
                 # 固定步数也要保存一次模型
-                if batch_id % 10000 == 0 and batch_id != 0 and local_rank == 0:
+                if batch_id % 10000 == 0 and batch_id != 0 and self.local_rank == 0:
                     self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id)
                 start = time.time()
 
@@ -445,13 +449,12 @@ class MASRTrainer(object):
         self.configs.decoder = 'ctc_greedy'
         # 获取有多少张显卡训练
         nranks = torch.cuda.device_count()
-        local_rank = 0
         if nranks > 1:
             # 初始化NCCL环境
             dist.init_process_group(backend='nccl')
-            local_rank = dist.get_rank()
+            self.local_rank = int(os.environ["LOCAL_RANK"])
         writer = None
-        if local_rank == 0:
+        if self.local_rank == 0:
             # 日志记录器
             writer = LogWriter(logdir='log')
 
@@ -464,8 +467,9 @@ class MASRTrainer(object):
 
         # 支持多卡训练
         if nranks > 1:
-            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[local_rank])
-        logger.info('训练数据：{}'.format(len(self.train_dataset)))
+            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.local_rank])
+        if self.local_rank == 0:
+            logger.info('训练数据：{}'.format(len(self.train_dataset)))
 
         self.__load_pretrained(pretrained_model=pretrained_model)
         # 加载恢复模型
@@ -474,16 +478,16 @@ class MASRTrainer(object):
         test_step, self.train_step = 0, 0
         last_epoch += 1
         self.train_batch_sampler.epoch = last_epoch
-        if local_rank == 0:
+        if self.local_rank == 0:
             writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], last_epoch)
         # 开始训练
         for epoch_id in range(last_epoch, self.configs.train_conf.max_epoch):
             epoch_id += 1
             start_epoch = time.time()
             # 训练一个epoch
-            self.__train_epoch(epoch_id=epoch_id, save_model_path=save_model_path, local_rank=local_rank, writer=writer)
+            self.__train_epoch(epoch_id=epoch_id, save_model_path=save_model_path, writer=writer)
             # 多卡训练只使用一个进程执行评估和保存模型
-            if local_rank == 0:
+            if self.local_rank == 0:
                 logger.info('=' * 70)
                 loss, error_result = self.evaluate(resume_model=None)
                 logger.info('Test epoch: {}, time/epoch: {}, loss: {:.5f}, {}: {:.5f}'.format(

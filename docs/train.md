@@ -4,10 +4,25 @@
 
  - 执行训练脚本，开始训练语音识别模型，详细参数请查看`configs`下的配置文件。每训练一轮和每10000个batch都会保存一次模型，模型保存在`models/<use_model>_<feature_method>/epoch_*/`目录下，默认会使用数据增强训练，如何不想使用数据增强，只需要将参数`augment_conf_path`设置为`None`即可。关于数据增强，请查看[数据增强](./augment.md)部分。如果没有关闭测试，在每一轮训练结果之后，都会执行一次测试计算模型在测试集的准确率，注意为了加快训练速度，训练只能用贪心解码。如果模型文件夹下包含`last_model`文件夹，在训练的时候会自动加载里面的模型，这是为了方便中断训练的之后继续训练，无需手动指定，如果手动指定了`resume_model`参数，则以`resume_model`指定的路径优先加载。如果不是原来的数据集或者模型结构，需要删除`last_model`这个文件夹。
 ```shell
-# 单卡训练
+# 单机单卡训练
 CUDA_VISIBLE_DEVICES=0 python train.py
-# 多卡训练
-CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 train.py
+# 单机多卡训练
+CUDA_VISIBLE_DEVICES=0,1 torchrun --standalone --nnodes=1 --nproc_per_node=2 train.py
+```
+
+多机多卡的启动方式：
+ - `--nproc_per_node=2`：表示在一个node上启动2个进程
+ - `--nnodes=2`：表示一共有2个node进行分布式训练
+ - `--node_rank=0`：当前node的id为0
+ - `--master_addr="192.168.4.7"`：主节点的地址
+ - `--master_port=8081`：主节点的port
+ - `train.py`：训练代码
+```shell
+# 第一台服务器
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.4.7" --master_port=8081 train.py
+
+# 第二台服务器
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr="192.168.4.7" --master_port=8081 train.py
 ```
 
 训练输出结果如下：

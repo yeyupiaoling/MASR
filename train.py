@@ -1,5 +1,6 @@
 import argparse
 import functools
+import os
 
 import yaml
 
@@ -20,7 +21,8 @@ args = parser.parse_args()
 # 读取配置文件
 with open(args.configs, 'r', encoding='utf-8') as f:
     configs = yaml.load(f.read(), Loader=yaml.FullLoader)
-print_arguments(args, configs)
+if int(os.environ.get('LOCAL_RANK', 0)) == 0:
+    print_arguments(args, configs)
 
 # 获取训练器
 trainer = MASRTrainer(configs=configs, use_gpu=args.use_gpu)
