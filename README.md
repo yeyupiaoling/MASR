@@ -49,34 +49,33 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 1. `conformer`预训练模型列表：
 
-|       使用模型        |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） | 下载地址 |
-|:-----------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----:|
-| conformer_online  |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank | 中文  |             |      |
-| conformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
-| conformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
-| conformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
-| conformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
+|       使用模型        |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
+|:-----------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+| conformer_online  |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank | 中文  |             |                                                                  |
+| conformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04491   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| conformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04342   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| conformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+| conformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 
 
 2. `squeezeformer`预训练模型列表：
 
-|         使用模型          |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） | 下载地址 |
-|:---------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----:|
-| squeezeformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
-| squeezeformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
-| squeezeformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
-| squeezeformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
+|         使用模型          |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
+|:---------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+| squeezeformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| squeezeformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| squeezeformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+| squeezeformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 
 
 3. `deepspeech2`预训练模型列表：
 
-|        使用模型         |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） | 下载地址 |
-|:-------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----:|
-| deepspeech2_online  |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank | 中文  |             |      |
-| deepspeech2_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
-| deepspeech2_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             |      |
-| deepspeech2_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
-| deepspeech2_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             |      | 
+|        使用模型         |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
+|:-------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+| deepspeech2_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| deepspeech2_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |             | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| deepspeech2_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+| deepspeech2_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 
 
 **说明：** 
