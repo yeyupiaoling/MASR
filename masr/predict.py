@@ -322,7 +322,7 @@ class MASRPredictor:
             text = cn2an.transform(text, "cn2an")
             return text
         if self.inv_normalizer is None:
-            # 需要安装WeTextProcessing>=0.0.4
+            # 需要安装WeTextProcessing>=0.1.0
             from itn.chinese.inverse_normalizer import InverseNormalizer
             self.inv_normalizer = InverseNormalizer()
         result_text = self.inv_normalizer.normalize(text)
