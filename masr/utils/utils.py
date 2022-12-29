@@ -2,7 +2,9 @@ import distutils.util
 import json
 import os
 import time
+import urllib
 import wave
+import zipfile
 
 import numpy as np
 import resampy
@@ -14,20 +16,22 @@ from masr.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
-def print_arguments(args, configs):
-    logger.info("----------- 额外配置参数 -----------")
-    for arg, value in sorted(vars(args).items()):
-        logger.info("%s: %s" % (arg, value))
-    logger.info("------------------------------------------------")
-    logger.info("----------- 配置文件参数 -----------")
-    for arg, value in sorted(configs.items()):
-        if isinstance(value, dict):
-            logger.info(f"{arg}:")
-            for a, v in sorted(value.items()):
-                logger.info("\t%s: %s" % (a, v))
-        else:
+def print_arguments(args=None, configs=None):
+    if args:
+        logger.info("----------- 额外配置参数 -----------")
+        for arg, value in sorted(vars(args).items()):
             logger.info("%s: %s" % (arg, value))
-    logger.info("------------------------------------------------")
+        logger.info("------------------------------------------------")
+    if configs:
+        logger.info("----------- 配置文件参数 -----------")
+        for arg, value in sorted(configs.items()):
+            if isinstance(value, dict):
+                logger.info(f"{arg}:")
+                for a, v in sorted(value.items()):
+                    logger.info("\t%s: %s" % (a, v))
+            else:
+                logger.info("%s: %s" % (arg, value))
+        logger.info("------------------------------------------------")
 
 
 def add_arguments(argname, type, default, help, argparser, **kwargs):
@@ -322,3 +326,42 @@ def count_manifest(counter, manifest_path):
                 line = json.loads(line)
                 for char in line["text"].replace('\n', ''):
                     counter.update(char)
+
+
+# 解压ZIP文件
+def unzip_file(zip_src, dst_dir):
+    r = zipfile.is_zipfile(zip_src)
+    if r:
+        fz = zipfile.ZipFile(zip_src, 'r')
+        for file in fz.namelist():
+            fz.extract(file, dst_dir)
+    else:
+        logger.error('This is not zip')
+
+
+# 下载模型文件
+def download(url: str, root: str):
+    os.makedirs(root, exist_ok=True)
+    filename = os.path.basename(url)
+
+    download_target = os.path.join(root, filename)
+    unzip_path = download_target[:-4]
+
+    if os.path.exists(unzip_path) and not os.path.isdir(unzip_path):
+        raise RuntimeError(f"{unzip_path} exists and is not a regular dir")
+
+    if os.path.isdir(unzip_path):
+        return unzip_path
+
+    with urllib.request.urlopen(url) as source, open(download_target, "wb") as output:
+        with tqdm(total=int(source.info().get("Content-Length")), ncols=80, unit='iB', unit_scale=True,
+                  unit_divisor=1024) as loop:
+            while True:
+                buffer = source.read(8192)
+                if not buffer:
+                    break
+
+                output.write(buffer)
+                loop.update(len(buffer))
+    unzip_file(download_target, os.path.dirname(download_target))
+    return unzip_path

@@ -18,14 +18,11 @@ add_arg('resume_model',     str,    None,                       '恢复训练，
 add_arg('pretrained_model', str,    None,                       '预训练模型的路径，当为None则不使用预训练模型')
 args = parser.parse_args()
 
-# 读取配置文件
-with open(args.configs, 'r', encoding='utf-8') as f:
-    configs = yaml.load(f.read(), Loader=yaml.FullLoader)
 if int(os.environ.get('LOCAL_RANK', 0)) == 0:
-    print_arguments(args, configs)
+    print_arguments(args=args)
 
 # 获取训练器
-trainer = MASRTrainer(configs=configs, use_gpu=args.use_gpu)
+trainer = MASRTrainer(configs=args.configs, use_gpu=args.use_gpu)
 
 trainer.train(save_model_path=args.save_model_path,
               resume_model=args.resume_model,

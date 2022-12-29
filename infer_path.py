@@ -3,8 +3,6 @@ import functools
 import time
 import wave
 
-import yaml
-
 from masr.predict import MASRPredictor
 from masr.utils.utils import add_arguments, print_arguments
 
@@ -17,18 +15,15 @@ add_arg('real_time_demo',   bool,   False,                       "是否使用�
 add_arg('use_gpu',          bool,   True,                        "是否使用GPU预测")
 add_arg('use_pun',          bool,   False,                       "是否给识别结果加标点符号")
 add_arg('is_itn',           bool,   False,                       "是否对文本进行反标准化")
-add_arg('model_path',       str,    'models/{}_{}/inference.pt', "导出的预测模型文件路径")
+add_arg('model_path',       str,    'models/conformer_online_fbank/inference.pt', "导出的预测模型文件路径")
 add_arg('pun_model_dir',    str,    'models/pun_models/',        "加标点符号的模型文件夹路径")
 args = parser.parse_args()
+print_arguments(args=args)
 
-# 读取配置文件
-with open(args.configs, 'r', encoding='utf-8') as f:
-    configs = yaml.load(f.read(), Loader=yaml.FullLoader)
-print_arguments(args, configs)
 
 # 获取识别器
-predictor = MASRPredictor(configs=configs,
-                          model_path=args.model_path.format(configs['use_model'], configs['preprocess_conf']['feature_method']),
+predictor = MASRPredictor(configs=args.configs,
+                          model_path=args.model_path,
                           use_gpu=args.use_gpu,
                           use_pun=args.use_pun,
                           pun_model_dir=args.pun_model_dir)

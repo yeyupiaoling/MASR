@@ -3,6 +3,7 @@ import platform
 
 import cn2an
 import numpy as np
+import yaml
 
 from masr import SUPPORT_MODEL
 from masr.data_utils.audio import AudioSegment
@@ -11,26 +12,50 @@ from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder, greedy_decoder_chunk
 from masr.infer_utils.inference_predictor import InferencePredictor
 from masr.utils.logger import setup_logger
-from masr.utils.utils import dict_to_object
+from masr.utils.utils import dict_to_object, print_arguments, download
 
 logger = setup_logger(__name__)
 
 
 class MASRPredictor:
     def __init__(self,
-                 configs,
+                 configs=None,
+                 model_tag='conformer_online_fbank_aishell',
                  model_path='models/conformer_online_fbank/inference.pt',
                  use_pun=False,
                  pun_model_dir='models/pun_models/',
                  use_gpu=True):
         """
         语音识别预测工具
-        :param configs: 配置参数
+        :param configs: 配置文件路径或者是yaml读取到的配置参数
+        :param model_tag: 如果configs为None，则使用项目提供的模型预测
         :param model_path: 导出的预测模型文件夹路径
         :param use_pun: 是否使用加标点符号的模型
         :param pun_model_dir: 给识别结果加标点符号的模型文件夹路径
         :param use_gpu: 是否使用GPU预测
         """
+        if configs:
+            if isinstance(configs, str):
+                # 读取配置文件
+                with open(configs, 'r', encoding='utf-8') as f:
+                    configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+                print_arguments(configs=configs)
+        else:
+            # 使用下载的模型
+            cache_dir = os.path.expanduser("~/.cache/masr")
+            model_url_dict = {
+                'conformer_online_fbank_aishell': 'https://masr.yeyupiaoling.cn/models/conformer_online_fbank_aishell.zip'}
+            model_url = model_url_dict[model_tag]
+            _ = download(model_url, cache_dir)
+            model_path = os.path.join(cache_dir, model_tag, 'models', model_tag[:model_tag.rfind('_')], 'inference.pt')
+            pun_model_dir = os.path.join(cache_dir, model_tag, 'models/pun_models/')
+            configs = os.path.join(cache_dir, model_tag, 'configs',
+                                   os.listdir(os.path.join(cache_dir, model_tag, 'configs'))[0])
+            # 读取配置文件
+            with open(configs, 'r', encoding='utf-8') as f:
+                configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+            print_arguments(configs=configs)
+
         self.configs = dict_to_object(configs)
         assert self.configs.use_model in SUPPORT_MODEL, f'没有该模型：{self.configs.use_model}'
         self.running = False
@@ -120,7 +145,7 @@ class MASRPredictor:
     def predict(self,
                 audio_data,
                 use_pun=False,
-                is_itn=True,
+                is_itn=False,
                 sample_rate=16000):
         """
         预测函数，只预测完整的一句话。
@@ -155,7 +180,7 @@ class MASRPredictor:
     def predict_long(self,
                      audio_data,
                      use_pun=False,
-                     is_itn=True,
+                     is_itn=False,
                      sample_rate=16000):
         """
         预测函数，只预测完整的一句话。
@@ -207,7 +232,7 @@ class MASRPredictor:
                        audio_data,
                        is_end=False,
                        use_pun=False,
-                       is_itn=True,
+                       is_itn=False,
                        sample_rate=16000):
         """
         预测函数，流式预测，通过一直输入音频数据，实现实时识别。
