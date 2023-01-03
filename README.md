@@ -44,58 +44,9 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - [流式识别的使用讲解（哔哩哔哩）](https://www.bilibili.com/video/BV1Te4y1h7KK)
 
 
-## 模型下载
-
-
-1. `conformer`预训练模型列表：
-
-|       使用模型        |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
-|:-----------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
-| conformer_online  |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank | 中文  |             |                                                                  |
-| conformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04491   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| conformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04342   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| conformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-| conformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-
-
-2. `squeezeformer`预训练模型列表：
-
-|         使用模型          |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
-|:---------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
-| squeezeformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04137   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| squeezeformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04074   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| squeezeformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-| squeezeformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-
-
-3. `deepspeech2`预训练模型列表：
-
-|        使用模型         |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
-|:-------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
-| deepspeech2_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.06907   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| deepspeech2_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.07600   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| deepspeech2_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-| deepspeech2_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-
-
-**说明：** 
-1. 这里字错率或者词错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。
-2. 没有提供预测模型，需要把全部文件复制到项目的根目录下，执行`export_model.py`导出预测模型。
-
->有问题欢迎提 [issue](https://github.com/yeyupiaoling/MASR/issues) 交流
-
-# 语言模型
-
-|                                          语言模型                                          |                                                      训练数据                                                       |  数据量  |  文件大小   |                 说明                  |
-|:--------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------:|:-----:|:-------:|:-----------------------------------:|
-|         [自定义中文语言模型](https://pan.baidu.com/s/1vdQsqnoKHO9jdFU_1If49g?pwd=ea09)          |                       [自定义中文语料](https://download.csdn.net/download/qq_33200967/87002687)                        | 约2千万  | 572 MB  |           训练参数`-o 5`，无剪枝            |
-|  [英文语言模型](https://deepspeech.bj.bcebos.com/en_lm/common_crawl_00.prune01111.trie.klm)  | [CommonCrawl](http://web-language-models.s3-website-us-east-1.amazonaws.com/ngrams/en/deduped/en.00.deduped.xz) | 18.5亿 | 8.3 GB  | 训练参数`-o 5`，剪枝参数`'--prune 0 1 1 1 1` |
-| [中文语言模型（剪枝）](https://deepspeech.bj.bcebos.com/zh_lm/zh_giga.no_cna_cmn.prune01244.klm) |                                                     百度内部语料库                                                     | 1.3亿  | 2.8 GB  | 训练参数`-o 5`，剪枝参数`'--prune 0 1 1 1 1` |                                     |
-|            [中文语言模型](https://deepspeech.bj.bcebos.com/zh_lm/zhidao_giga.klm)            |                                                     百度内部语料库                                                     |  37亿  | 70.4 GB |           训练参数`-o 5`，无剪枝            |                                     
-
-
-
 # 快速使用
+
+这里介绍如何使用MASR快速进行语音识别，前提是要安装MASR，文档请看[快速安装](./docs/install.md)。执行过程不需要手动下载模型，全部自动完成。
 
 1. 短语音识别
 ```python
@@ -149,6 +100,57 @@ while data != b'':
 # 重置流式识别
 predictor.reset_stream()
 ```
+
+
+## 模型下载
+
+
+1. `conformer`预训练模型列表：
+
+|       使用模型        |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
+|:-----------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+| conformer_online  |            [WenetSpeech](./docs/wenetspeech.md) (10000小时)             | fbank | 中文  |             |                                                                  |
+| conformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04491   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| conformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04342   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| conformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+| conformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+
+
+2. `squeezeformer`预训练模型列表：
+
+|         使用模型          |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
+|:---------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+| squeezeformer_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04137   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| squeezeformer_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.04074   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| squeezeformer_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+| squeezeformer_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+
+
+3. `deepspeech2`预训练模型列表：
+
+|        使用模型         |                                  数据集                                  | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
+|:-------------------:|:---------------------------------------------------------------------:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+| deepspeech2_online  |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.06907   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| deepspeech2_offline |   [aishell](https://openslr.magicdatatech.com/resources/33) (179小时)   | fbank | 中文  |   0.07600   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| deepspeech2_online  | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+| deepspeech2_offline | [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+
+
+**说明：** 
+1. 这里字错率或者词错率是使用`eval.py`程序并使用集束搜索解码`ctc_beam_search`方法计算得到的。
+2. 没有提供预测模型，需要把全部文件复制到项目的根目录下，执行`export_model.py`导出预测模型。
+
+>有问题欢迎提 [issue](https://github.com/yeyupiaoling/MASR/issues) 交流
+
+# 语言模型
+
+|                                          语言模型                                          |                                                      训练数据                                                       |  数据量  |  文件大小   |                 说明                  |
+|:--------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------:|:-----:|:-------:|:-----------------------------------:|
+|         [自定义中文语言模型](https://pan.baidu.com/s/1vdQsqnoKHO9jdFU_1If49g?pwd=ea09)          |                       [自定义中文语料](https://download.csdn.net/download/qq_33200967/87002687)                        | 约2千万  | 572 MB  |           训练参数`-o 5`，无剪枝            |
+|  [英文语言模型](https://deepspeech.bj.bcebos.com/en_lm/common_crawl_00.prune01111.trie.klm)  | [CommonCrawl](http://web-language-models.s3-website-us-east-1.amazonaws.com/ngrams/en/deduped/en.00.deduped.xz) | 18.5亿 | 8.3 GB  | 训练参数`-o 5`，剪枝参数`'--prune 0 1 1 1 1` |
+| [中文语言模型（剪枝）](https://deepspeech.bj.bcebos.com/zh_lm/zh_giga.no_cna_cmn.prune01244.klm) |                                                     百度内部语料库                                                     | 1.3亿  | 2.8 GB  | 训练参数`-o 5`，剪枝参数`'--prune 0 1 1 1 1` |                                     |
+|            [中文语言模型](https://deepspeech.bj.bcebos.com/zh_lm/zhidao_giga.klm)            |                                                     百度内部语料库                                                     |  37亿  | 70.4 GB |           训练参数`-o 5`，无剪枝            |                                     
+
 
 ## 文档教程
 
