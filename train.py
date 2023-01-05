@@ -2,8 +2,6 @@ import argparse
 import functools
 import os
 
-import yaml
-
 from masr.trainer import MASRTrainer
 from masr.utils.utils import add_arguments, print_arguments
 
