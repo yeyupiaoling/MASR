@@ -29,6 +29,27 @@ class MultiHeadedAttention(nn.Module):
         self.linear_out = nn.Linear(n_feat, n_feat)
         self.dropout = nn.Dropout(p=dropout_rate)
 
+    def rel_shift(self, x, zero_triu: bool = False):
+        """Compute relative positinal encoding.
+        Args:
+            x (torch.Tensor): Input tensor (batch, head, time1, time1).
+            zero_triu (bool): If true, return the lower triangular part of
+                the matrix.
+        Returns:
+            torch.Tensor: Output tensor. (batch, head, time1, time1)
+        """
+        zero_pad = torch.zeros((x.shape[0], x.shape[1], x.shape[2], 1), device=x.device, dtype=x.dtype)
+        x_padded = torch.concat([zero_pad, x], dim=-1)
+
+        x_padded = x_padded.view(x.shape[0], x.shape[1], x.shape[3] + 1, x.shape[2])
+        x = x_padded[:, :, 1:].view_as(x)  # [B, H, T1, T1]
+
+        if zero_triu:
+            ones = torch.ones((x.shape[2], x.shape[3]))
+            x = x * torch.tril(ones, x.shape[3] - x.shape[2])[None, None, :, :]
+
+        return x
+
     def forward_qkv(self,
                     query: torch.Tensor,
                     key: torch.Tensor,
@@ -166,29 +187,6 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         torch.nn.init.xavier_uniform_(self.pos_bias_u)
         torch.nn.init.xavier_uniform_(self.pos_bias_v)
 
-    def rel_shift(self, x, zero_triu: bool = False):
-        """Compute relative positinal encoding.
-        Args:
-            x (torch.Tensor): Input tensor (batch, head, time1, time1).
-            zero_triu (bool): If true, return the lower triangular part of
-                the matrix.
-        Returns:
-            torch.Tensor: Output tensor. (batch, head, time1, time1)
-        """
-        zero_pad = torch.zeros((x.shape[0], x.shape[1], x.shape[2], 1),
-                               device=x.device,
-                               dtype=x.dtype)
-        x_padded = torch.concat([zero_pad, x], dim=-1)
-
-        x_padded = x_padded.view(x.shape[0], x.shape[1], x.shape[3] + 1, x.shape[2])
-        x = x_padded[:, :, 1:].view_as(x)  # [B, H, T1, T1]
-
-        if zero_triu:
-            ones = torch.ones((x.shape[2], x.shape[3]))
-            x = x * torch.tril(ones, x.shape[3] - x.shape[2])[None, None, :, :]
-
-        return x
-
     def forward(self,
                 query: torch.Tensor,
                 key: torch.Tensor,
@@ -219,7 +217,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         q = q.transpose(1, 2)  # (batch, time1, head, d_k)
         if cache.shape[0] > 0:
             # last dim `d_k * 2` for (key, val)
-            key_cache, value_cache = torch.split(cache, cache.shape[-1] // 2, dim=-1) # TODO
+            key_cache, value_cache = torch.split(cache, cache.shape[-1] // 2, dim=-1)  # TODO
             k = torch.concat([key_cache, k], dim=2)
             v = torch.concat([value_cache, v], dim=2)
         # We do cache slicing in encoder.forward_chunk, since it's

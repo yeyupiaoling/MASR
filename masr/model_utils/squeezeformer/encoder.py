@@ -8,8 +8,9 @@ from masr.model_utils.conformer.embedding import RelPositionalEncoding
 from masr.model_utils.squeezeformer.attention import RelPositionMultiHeadedAttention
 from masr.model_utils.squeezeformer.convolution import ConvolutionModule
 from masr.model_utils.squeezeformer.positionwise import PositionwiseFeedForward
-from masr.model_utils.squeezeformer.subsampling import TimeReductionLayer1D, TimeReductionLayerStream, \
-    TimeReductionLayer2D, DepthwiseConv2DSubsampling4
+from masr.model_utils.squeezeformer.subsampling import DepthwiseConv2DSubsampling4
+from masr.model_utils.squeezeformer.time_reduction import TimeReductionLayer1D, TimeReductionLayerStream, \
+    TimeReductionLayer2D
 from masr.model_utils.utils.common import get_activation
 from masr.model_utils.utils.mask import add_optional_chunk_mask, make_pad_mask
 
@@ -24,7 +25,7 @@ class SqueezeformerEncoder(nn.Module):
             num_blocks: int = 12,
             reduce_idx: Optional[Union[int, List[int]]] = 5,
             recover_idx: Optional[Union[int, List[int]]] = 11,
-            feed_forward_expansion_factor: int = 4,
+            feed_forward_expansion_factor: int = 8,
             dw_stride: bool = False,
             input_dropout_rate: float = 0.1,
             pos_enc_layer_type: str = "rel_pos",
@@ -68,7 +69,6 @@ class SqueezeformerEncoder(nn.Module):
                                  operation on rel-attention module.
             cnn_module_kernel (int): Kernel size of CNN module.
             activation_type (str): Encoder activation function type.
-            use_cnn_module (bool): Whether to use convolution module.
             cnn_module_kernel (int): Kernel size of convolution module.
             adaptive_scale (bool): Whether to use adaptive scale.
             init_weights (bool): Whether to initialize weights.

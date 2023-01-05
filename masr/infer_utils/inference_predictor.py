@@ -76,7 +76,8 @@ class InferencePredictor:
         return output_chunk_probs.cpu().detach().numpy(), output_lens.cpu().detach().numpy()
 
     def predict_chunk_conformer(self, x_chunk, required_cache_size):
-        if not (self.use_model == 'conformer_online' or self.use_model == 'squeezeformer_online'):
+        if not (self.use_model == 'conformer_online' or self.use_model == 'squeezeformer_online'
+                or self.use_model == 'efficient_conformer_online'):
             raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}')
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)
         required_cache_size = torch.tensor([required_cache_size], dtype=torch.int32, device=self.device)

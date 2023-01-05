@@ -24,6 +24,7 @@ from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.data_utils.utils import create_manifest_binary
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
+from masr.model_utils.efficient_conformer.model import EfficientConformerModelOnline, EfficientConformerModelOffline
 from masr.utils.logger import setup_logger
 from masr.utils.metrics import cer, wer
 from masr.utils.scheduler import WarmupLR
@@ -128,6 +129,16 @@ class MASRTrainer(object):
                                                    input_dim=input_dim,
                                                    vocab_size=vocab_size,
                                                    **self.configs.model_conf)
+        elif self.configs.use_model == 'efficient_conformer_online':
+            self.model = EfficientConformerModelOnline(configs=self.configs,
+                                                       input_dim=input_dim,
+                                                       vocab_size=vocab_size,
+                                                       **self.configs.model_conf)
+        elif self.configs.use_model == 'efficient_conformer_offline':
+            self.model = EfficientConformerModelOffline(configs=self.configs,
+                                                        input_dim=input_dim,
+                                                        vocab_size=vocab_size,
+                                                        **self.configs.model_conf)
         elif self.configs.use_model == 'conformer_online':
             self.model = ConformerModelOnline(configs=self.configs,
                                               input_dim=input_dim,
