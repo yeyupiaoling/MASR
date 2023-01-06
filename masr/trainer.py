@@ -27,7 +27,7 @@ from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.model_utils.efficient_conformer.model import EfficientConformerModelOnline, EfficientConformerModelOffline
 from masr.utils.logger import setup_logger
 from masr.utils.metrics import cer, wer
-from masr.utils.scheduler import WarmupLR
+from masr.optimizer.scheduler import WarmupLR, NoamHoldAnnealing
 from masr.utils.utils import create_manifest, create_noise, count_manifest, dict_to_object, merge_audio, print_arguments
 from masr.utils.utils import labels_to_string
 
@@ -178,9 +178,21 @@ class MASRTrainer(object):
                                                    weight_decay=float(self.configs.optimizer_conf.weight_decay))
             else:
                 raise Exception(f'不支持优化方法：{optimizer}')
-            self.scheduler = WarmupLR(optimizer=self.optimizer,
-                                      warmup_steps=self.configs.optimizer_conf.warmup_steps,
-                                      min_lr=float(self.configs.optimizer_conf.get('min_lr', 1e-5)))
+            # 兼容旧的配置文件
+            scheduler_conf = self.configs.optimizer_conf.get('scheduler_conf', None)
+            if scheduler_conf:
+                scheduler = self.configs.optimizer_conf.get('scheduler', 'WarmupLR')
+            else:
+                scheduler = 'WarmupLR'
+                scheduler_conf = dict_to_object({'warmup_steps': self.configs.optimizer_conf.warmup_steps,
+                                                 'min_lr': float(self.configs.optimizer_conf.get('min_lr', 1.e-5))})
+            # 学习率衰减
+            if scheduler == 'WarmupLR':
+                self.scheduler = WarmupLR(optimizer=self.optimizer, **scheduler_conf)
+            elif scheduler == 'NoamHoldAnnealing':
+                self.scheduler = NoamHoldAnnealing(optimizer=self.optimizer, **scheduler_conf)
+            else:
+                raise Exception(f'不支持学习率衰减方法：{scheduler}')
 
     def __load_pretrained(self, pretrained_model):
         # 加载预训练模型
