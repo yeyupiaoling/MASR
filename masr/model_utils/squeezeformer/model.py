@@ -22,6 +22,7 @@ class SqueezeformerModel(torch.nn.Module):
             reverse_weight: float = 0.0,
             lsm_weight: float = 0.0,
             length_normalized_loss: bool = False,
+            time_reduction_layer_type: str = 'conv1d',
             use_dynamic_chunk: bool = False,
             use_dynamic_left_chunk: bool = False,
             causal: bool = False):
@@ -33,6 +34,7 @@ class SqueezeformerModel(torch.nn.Module):
                                  torch.from_numpy(feature_normalizer.istd).float())
         self.encoder = SqueezeformerEncoder(input_dim,
                                             global_cmvn=global_cmvn,
+                                            time_reduction_layer_type=time_reduction_layer_type,
                                             use_dynamic_chunk=use_dynamic_chunk,
                                             use_dynamic_left_chunk=use_dynamic_left_chunk,
                                             causal=causal,
@@ -204,6 +206,7 @@ def SqueezeformerModelOnline(configs,
                                reverse_weight=reverse_weight,
                                lsm_weight=lsm_weight,
                                length_normalized_loss=length_normalized_loss,
+                               time_reduction_layer_type='stream',
                                use_dynamic_chunk=True,
                                use_dynamic_left_chunk=False,
                                causal=True)

@@ -30,7 +30,6 @@ class SqueezeformerEncoder(nn.Module):
             input_dropout_rate: float = 0.1,
             pos_enc_layer_type: str = "rel_pos",
             time_reduction_layer_type: str = "conv1d",
-            do_rel_shift: bool = True,
             feed_forward_dropout_rate: float = 0.1,
             attention_dropout_rate: float = 0.1,
             cnn_module_kernel: int = 31,
@@ -65,8 +64,6 @@ class SqueezeformerEncoder(nn.Module):
             input_dropout_rate (float): Dropout rate of input projection layer.
             pos_enc_layer_type (str): Self attention type.
             time_reduction_layer_type (str): Conv1d or Conv2d reduction layer.
-            do_rel_shift (bool): Whether to do relative shift
-                                 operation on rel-attention module.
             cnn_module_kernel (int): Kernel size of CNN module.
             activation_type (str): Encoder activation function type.
             cnn_module_kernel (int): Kernel size of convolution module.
@@ -100,47 +97,37 @@ class SqueezeformerEncoder(nn.Module):
         # self-attention module definition
         if pos_enc_layer_type != "rel_pos":
             encoder_selfattn_layer = MultiHeadedAttention
-            encoder_selfattn_layer_args = (
-                attention_heads,
-                output_size,
-                attention_dropout_rate,
-            )
+            encoder_selfattn_layer_args = (attention_heads,
+                                           output_size,
+                                           attention_dropout_rate)
         else:
             encoder_selfattn_layer = RelPositionMultiHeadedAttention
-            encoder_selfattn_layer_args = (
-                attention_heads,
-                encoder_dim,
-                attention_dropout_rate,
-                do_rel_shift,
-                adaptive_scale,
-                init_weights
-            )
+            encoder_selfattn_layer_args = (attention_heads,
+                                           encoder_dim,
+                                           attention_dropout_rate,
+                                           adaptive_scale,
+                                           init_weights)
 
         # feed-forward module definition
         positionwise_layer = PositionwiseFeedForward
-        positionwise_layer_args = (
-            encoder_dim,
-            encoder_dim * feed_forward_expansion_factor,
-            feed_forward_dropout_rate,
-            activation,
-            adaptive_scale,
-            init_weights
-        )
+        positionwise_layer_args = (encoder_dim,
+                                   encoder_dim * feed_forward_expansion_factor,
+                                   feed_forward_dropout_rate,
+                                   activation,
+                                   adaptive_scale,
+                                   init_weights)
 
         # convolution module definition
         convolution_layer = ConvolutionModule
-        convolution_layer_args = (
-            encoder_dim, cnn_module_kernel, activation,
-            cnn_norm_type, causal, True, adaptive_scale, init_weights)
+        convolution_layer_args = (encoder_dim, cnn_module_kernel, activation,
+                                  cnn_norm_type, causal, True, adaptive_scale, init_weights)
 
-        self.embed = DepthwiseConv2DSubsampling4(
-            1, encoder_dim,
-            RelPositionalEncoding(encoder_dim, dropout_rate=0.1),
-            dw_stride,
-            input_size,
-            input_dropout_rate,
-            init_weights
-        )
+        self.embed = DepthwiseConv2DSubsampling4(1, encoder_dim,
+                                                 RelPositionalEncoding(encoder_dim, dropout_rate=0.1),
+                                                 dw_stride,
+                                                 input_size,
+                                                 input_dropout_rate,
+                                                 init_weights)
 
         self.preln = nn.LayerNorm(encoder_dim)
         self.encoders = torch.nn.ModuleList([SqueezeformerEncoderLayer(

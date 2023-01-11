@@ -27,8 +27,6 @@ class GroupedRelPositionMultiHeadedAttention(MultiHeadedAttention):
         self.group_size = group_size
         self.d_k = n_feat // n_head  # for GroupedAttention
         self.n_feat = n_feat
-        # these two learnable bias are used in matrix c and matrix d
-        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
         self.pos_bias_u = nn.Parameter(torch.Tensor(self.h, self.d_k * self.group_size))
         self.pos_bias_v = nn.Parameter(torch.Tensor(self.h, self.d_k * self.group_size))
         torch.nn.init.xavier_uniform_(self.pos_bias_u)
