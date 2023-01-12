@@ -56,7 +56,7 @@ class AudioSegment(object):
     @classmethod
     def from_file(cls, file):
         """从音频文件创建音频段
-        
+
         :param file: 文件路径
         :type file: str
         :return: 音频片段实例
@@ -158,7 +158,7 @@ class AudioSegment(object):
         :type *segments: tuple of AudioSegment
         :return: Audio segment instance as concatenating results.
         :rtype: AudioSegment
-        :raises ValueError: If the number of segments is zero, or if the 
+        :raises ValueError: If the number of segments is zero, or if the
                             sample_rate of any segments does not match.
         :raises TypeError: If any segment is not AudioSegment instance.
         """
@@ -190,7 +190,7 @@ class AudioSegment(object):
 
     def to_wav_file(self, filepath, dtype='float32'):
         """保存音频段到磁盘为wav文件
-        
+
         :param filepath: WAV文件路径或文件对象，以保存音频段
         :type filepath: str|file
         :param dtype: Subtype for audio file. Options: 'int16', 'int32',
@@ -230,7 +230,7 @@ class AudioSegment(object):
 
     def to_bytes(self, dtype='float32'):
         """创建包含音频内容的字节字符串
-        
+
         :param dtype: Data type for export samples. Options: 'int16', 'int32',
                       'float32', 'float64'. Default is 'float32'.
         :type dtype: str
@@ -256,11 +256,11 @@ class AudioSegment(object):
         """对音频施加分贝增益。
 
         Note that this is an in-place transformation.
-        
+
         :param gain: Gain in decibels to apply to samples. 
         :type gain: float|1darray
         """
-        self._samples *= 10.**(gain / 20.)
+        self._samples *= 10. ** (gain / 20.)
 
     def change_speed(self, speed_rate):
         """通过线性插值改变音频速度
@@ -297,10 +297,10 @@ class AudioSegment(object):
         :raises ValueError: If the required gain to normalize the segment to
                             the target_db value exceeds max_gain_db.
         """
+        if -np.inf == self.rms_db: return
         gain = target_db - self.rms_db
         if gain > max_gain_db:
-            raise ValueError(
-                "无法将段规范化到 %f dB，因为可能的增益已经超过max_gain_db (%f dB)" % (target_db, max_gain_db))
+            raise ValueError(f"无法将段规范化到{target_db}dB，音频增益{gain}增益已经超过max_gain_db ({max_gain_db}dB)")
         self.gain_db(min(max_gain_db, target_db - self.rms_db))
 
     def resample(self, target_sample_rate, filter='kaiser_best'):
