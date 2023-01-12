@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict
 
 import torch
 
@@ -10,32 +10,44 @@ from masr.model_utils.efficient_conformer.encoder import EfficientConformerEncod
 from masr.model_utils.utils.cmvn import GlobalCMVN
 from masr.model_utils.utils.common import (IGNORE_ID, add_sos_eos, th_accuracy, reverse_pad_list)
 
+__all__ = ["EfficientConformerModel"]
+
 
 class EfficientConformerModel(torch.nn.Module):
     def __init__(
             self,
-            configs,
             input_dim: int,
             vocab_size: int,
+            mean_istd_path: str,
+            streaming: bool = True,
+            encoder_conf: Dict = None,
+            decoder_conf: Dict = None,
             ctc_weight: float = 0.5,
             ignore_id: int = IGNORE_ID,
             reverse_weight: float = 0.0,
             lsm_weight: float = 0.0,
-            length_normalized_loss: bool = False,
-            use_dynamic_chunk: bool = False,
-            causal: bool = False):
+            length_normalized_loss: bool = False):
         assert 0.0 <= ctc_weight <= 1.0, ctc_weight
         super().__init__()
         self.input_dim = input_dim
-        feature_normalizer = FeatureNormalizer(mean_istd_filepath=configs.dataset_conf.mean_istd_path)
+        # 设置是否为流式模型
+        self.streaming = streaming
+        use_dynamic_chunk = False
+        causal = False
+        if self.streaming:
+            use_dynamic_chunk = True
+            causal = True
+        feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
-        self.encoder = EfficientConformerEncoder(input_dim,
+        self.encoder = EfficientConformerEncoder(input_size=input_dim,
                                                  global_cmvn=global_cmvn,
                                                  use_dynamic_chunk=use_dynamic_chunk,
                                                  causal=causal,
-                                                 **configs.encoder_conf)
-        self.decoder = BiTransformerDecoder(vocab_size, self.encoder.output_size(), **configs.decoder_conf)
+                                                 **encoder_conf if encoder_conf is not None else {})
+        self.decoder = BiTransformerDecoder(vocab_size=vocab_size,
+                                            encoder_output_size=self.encoder.output_size(),
+                                            **decoder_conf if decoder_conf is not None else {})
 
         self.ctc = CTCLoss(vocab_size, self.encoder.output_size())
         # note that eos is the same as sos (equivalent ID)
@@ -181,43 +193,3 @@ class EfficientConformerModel(torch.nn.Module):
     def export(self):
         static_model = torch.jit.script(self.eval())
         return static_model
-
-
-def EfficientConformerModelOnline(configs,
-                                  input_dim: int,
-                                  vocab_size: int,
-                                  ctc_weight: float = 0.5,
-                                  ignore_id: int = IGNORE_ID,
-                                  reverse_weight: float = 0.0,
-                                  lsm_weight: float = 0.0,
-                                  length_normalized_loss: bool = False):
-    model = EfficientConformerModel(configs=configs,
-                                    input_dim=input_dim,
-                                    vocab_size=vocab_size,
-                                    ctc_weight=ctc_weight,
-                                    ignore_id=ignore_id,
-                                    reverse_weight=reverse_weight,
-                                    lsm_weight=lsm_weight,
-                                    length_normalized_loss=length_normalized_loss,
-                                    use_dynamic_chunk=True,
-                                    causal=True)
-    return model
-
-
-def EfficientConformerModelOffline(configs,
-                                   input_dim: int,
-                                   vocab_size: int,
-                                   ctc_weight: float = 0.5,
-                                   ignore_id: int = IGNORE_ID,
-                                   reverse_weight: float = 0.0,
-                                   lsm_weight: float = 0.0,
-                                   length_normalized_loss: bool = False):
-    model = EfficientConformerModel(configs=configs,
-                                    input_dim=input_dim,
-                                    vocab_size=vocab_size,
-                                    ctc_weight=ctc_weight,
-                                    ignore_id=ignore_id,
-                                    reverse_weight=reverse_weight,
-                                    lsm_weight=lsm_weight,
-                                    length_normalized_loss=length_normalized_loss)
-    return model

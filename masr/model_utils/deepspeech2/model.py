@@ -1,3 +1,5 @@
+from typing import Dict
+
 import torch
 from torch import nn
 
@@ -5,6 +7,8 @@ from masr.data_utils.normalizer import FeatureNormalizer
 from masr.model_utils.deepspeech2.encoder import CRNNEncoder
 from masr.model_utils.loss.ctc import CTCLoss
 from masr.model_utils.utils.cmvn import GlobalCMVN
+
+__all__ = ["DeepSpeech2Model"]
 
 
 class DeepSpeech2Model(nn.Module):
@@ -20,20 +24,26 @@ class DeepSpeech2Model(nn.Module):
     """
 
     def __init__(self,
-                 configs,
                  input_dim: int,
                  vocab_size: int,
-                 rnn_direction='forward'):
+                 mean_istd_path: str,
+                 streaming: bool = True,
+                 encoder_conf: Dict = None,
+                 decoder_conf: Dict = None):
         super().__init__()
-        feature_normalizer = FeatureNormalizer(mean_istd_filepath=configs.dataset_conf.mean_istd_path)
+        self.input_dim = input_dim
+        self.streaming = streaming
+        feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
         self.encoder = CRNNEncoder(input_dim=input_dim,
                                    vocab_size=vocab_size,
                                    global_cmvn=global_cmvn,
-                                   rnn_direction=rnn_direction,
-                                   **configs.encoder_conf)
-        self.decoder = CTCLoss(vocab_size, self.encoder.output_size, **configs.decoder_conf)
+                                   rnn_direction='forward' if streaming else 'bidirect',
+                                   **encoder_conf if encoder_conf is not None else {})
+        self.decoder = CTCLoss(odim=vocab_size,
+                               encoder_output_size=self.encoder.output_size,
+                               **decoder_conf if decoder_conf is not None else {})
 
     def forward(self, speech, speech_lengths, text, text_lengths):
         """Compute Model loss
