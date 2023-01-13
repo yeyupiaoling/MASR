@@ -80,7 +80,7 @@ class MASRTrainer(object):
                                              min_duration=self.configs.dataset_conf.min_duration,
                                              max_duration=self.configs.dataset_conf.max_duration,
                                              augmentation_config=augmentation_config,
-                                             manifest_type=self.configs.dataset_conf.get('manifest_type', 'txt'),
+                                             manifest_type=self.configs.dataset_conf.manifest_type,
                                              train=is_train)
             # 设置支持多卡训练
             if torch.cuda.device_count() > 1:
@@ -98,19 +98,19 @@ class MASRTrainer(object):
             self.train_loader = DataLoader(dataset=self.train_dataset,
                                            collate_fn=collate_fn,
                                            batch_sampler=self.train_batch_sampler,
-                                           prefetch_factor=self.configs.dataset_conf.get('prefetch_factor', 2),
+                                           prefetch_factor=self.configs.dataset_conf.prefetch_factor,
                                            num_workers=self.configs.dataset_conf.num_workers)
         # 获取测试数据
         self.test_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
                                         data_manifest=self.configs.dataset_conf.test_manifest,
                                         vocab_filepath=self.configs.dataset_conf.dataset_vocab,
-                                        manifest_type=self.configs.dataset_conf.get('manifest_type', 'txt'),
+                                        manifest_type=self.configs.dataset_conf.manifest_type,
                                         min_duration=self.configs.dataset_conf.min_duration,
                                         max_duration=self.configs.dataset_conf.max_duration)
         self.test_loader = DataLoader(dataset=self.test_dataset,
                                       batch_size=self.configs.dataset_conf.batch_size,
                                       collate_fn=collate_fn,
-                                      prefetch_factor=self.configs.dataset_conf.get('prefetch_factor', 2),
+                                      prefetch_factor=self.configs.dataset_conf.prefetch_factor,
                                       num_workers=self.configs.dataset_conf.num_workers)
 
     def __setup_model(self, input_dim, vocab_size, is_train=False):
@@ -160,7 +160,7 @@ class MASRTrainer(object):
         if is_train:
             self.amp_scaler = torch.cuda.amp.GradScaler(init_scale=1024)
             # 获取优化方法
-            optimizer = self.configs.optimizer_conf.get('optimizer', 'Adam')
+            optimizer = self.configs.optimizer_conf.optimizer
             if optimizer == 'Adam':
                 self.optimizer = torch.optim.Adam(params=self.model.parameters(),
                                                   lr=float(self.configs.optimizer_conf.learning_rate),
@@ -171,15 +171,9 @@ class MASRTrainer(object):
                                                    weight_decay=float(self.configs.optimizer_conf.weight_decay))
             else:
                 raise Exception(f'不支持优化方法：{optimizer}')
-            # 兼容旧的配置文件
-            scheduler_conf = self.configs.optimizer_conf.get('scheduler_conf', None)
-            if scheduler_conf:
-                scheduler = self.configs.optimizer_conf.get('scheduler', 'WarmupLR')
-            else:
-                scheduler = 'WarmupLR'
-                scheduler_conf = dict_to_object({'warmup_steps': self.configs.optimizer_conf.warmup_steps,
-                                                 'min_lr': float(self.configs.optimizer_conf.get('min_lr', 1.e-5))})
             # 学习率衰减
+            scheduler_conf = self.configs.optimizer_conf.scheduler_conf
+            scheduler = self.configs.optimizer_conf.scheduler
             if scheduler == 'WarmupLR':
                 self.scheduler = WarmupLR(optimizer=self.optimizer, **scheduler_conf)
             elif scheduler == 'NoamHoldAnnealing':
@@ -324,7 +318,7 @@ class MASRTrainer(object):
                 if num_utts == 0:
                     continue
                 # 执行模型计算，是否开启自动混合精度
-                with torch.cuda.amp.autocast(enabled=self.configs.train_conf.get('enable_amp', False)):
+                with torch.cuda.amp.autocast(enabled=self.configs.train_conf.enable_amp):
                     loss_dict = self.model(inputs, input_lens, labels, label_lens)
                 if torch.cuda.device_count() > 1 and batch_id % accum_grad != 0:
                     context = self.model.no_sync
@@ -333,7 +327,7 @@ class MASRTrainer(object):
                 with context():
                     loss = loss_dict['loss'] / accum_grad
                     # 是否开启自动混合精度
-                    if self.configs.train_conf.get('enable_amp', False):
+                    if self.configs.train_conf.enable_amp:
                         # loss缩放，乘以系数loss_scaling
                         scaled = self.amp_scaler.scale(loss)
                         scaled.backward()
@@ -344,7 +338,7 @@ class MASRTrainer(object):
                     if self.local_rank == 0 and writer is not None:
                         writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
                     # 是否开启自动混合精度
-                    if self.configs.train_conf.get('enable_amp', False):
+                    if self.configs.train_conf.enable_amp:
                         self.amp_scaler.unscale_(self.optimizer)
                         self.amp_scaler.step(self.optimizer)
                         self.amp_scaler.update()
@@ -448,7 +442,7 @@ class MASRTrainer(object):
                                      num_samples=num_samples)
         print('计算的均值和标准值已保存在 %s！' % self.configs.dataset_conf.mean_istd_path)
 
-        if self.configs.dataset_conf.get('manifest_type', 'txt') == 'binary':
+        if self.configs.dataset_conf.manifest_type == 'binary':
             logger.info('=' * 70)
             logger.info('正在生成数据列表的二进制文件...')
             create_manifest_binary(train_manifest_path=self.configs.dataset_conf.train_manifest,
