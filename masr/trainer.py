@@ -26,7 +26,7 @@ from masr.data_utils.utils import create_manifest_binary
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.utils.logger import setup_logger
 from masr.utils.metrics import cer, wer
-from masr.optimizer.scheduler import WarmupLR, NoamHoldAnnealing
+from masr.optimizer.scheduler import WarmupLR, NoamHoldAnnealing, CosineWithWarmup
 from masr.utils.utils import create_manifest, create_noise, count_manifest, dict_to_object, merge_audio, print_arguments
 from masr.utils.utils import labels_to_string
 
@@ -169,6 +169,11 @@ class MASRTrainer(object):
                 self.optimizer = torch.optim.AdamW(params=self.model.parameters(),
                                                    lr=float(self.configs.optimizer_conf.learning_rate),
                                                    weight_decay=float(self.configs.optimizer_conf.weight_decay))
+            elif optimizer == 'SGD':
+                self.optimizer = torch.optim.SGD(params=self.model.parameters(),
+                                                 momentum=self.configs.optimizer_conf.momentum,
+                                                 lr=float(self.configs.optimizer_conf.learning_rate),
+                                                 weight_decay=float(self.configs.optimizer_conf.weight_decay))
             else:
                 raise Exception(f'不支持优化方法：{optimizer}')
             # 学习率衰减
@@ -178,6 +183,8 @@ class MASRTrainer(object):
                 self.scheduler = WarmupLR(optimizer=self.optimizer, **scheduler_conf)
             elif scheduler == 'NoamHoldAnnealing':
                 self.scheduler = NoamHoldAnnealing(optimizer=self.optimizer, **scheduler_conf)
+            elif scheduler == 'CosineWithWarmup':
+                self.scheduler = CosineWithWarmup(optimizer=self.optimizer, **scheduler_conf)
             else:
                 raise Exception(f'不支持学习率衰减方法：{scheduler}')
 

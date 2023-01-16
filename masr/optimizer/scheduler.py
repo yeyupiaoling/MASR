@@ -1,3 +1,4 @@
+import math
 from typing import Union
 
 import torch
@@ -182,6 +183,65 @@ class NoamHoldAnnealing(_LRScheduler):
             for initial_lr in self.base_lrs
         ]
         return new_lrs
+
+    def set_step(self, step: int):
+        self.last_epoch = step
+
+
+class CosineWithWarmup(_LRScheduler):
+    def __init__(self, optimizer: torch.optim.Optimizer, T_max, eta_min=0, warmup_steps=None, warmup_ratio=0.2,
+                 last_epoch=-1):
+        """
+        Set the learning rate using a cosine annealing schedule, where :math:`\eta_{max}` is set to
+        the initial learning_rate.
+
+        Args:
+            optimizer: Pytorch compatible Optimizer object.
+            T_max (int): Maximum number of iterations. It is half of the decay cycle of learning rate. It must be a positive integer.
+            eta_min (float|int, optional): Minimum learning rate. Default: 0.
+            warmup_steps (int): Number of training steps in warmup stage
+            warmup_ratio (float): Ratio of warmup steps to total steps
+            last_epoch (int, optional):  The index of last epoch. Can be set to restart training. Default: -1, means initial learning rate.
+        Returns:
+            ``CosineWithWarmup`` instance to schedule learning rate.
+        """
+        if not isinstance(T_max, int):
+            raise TypeError("The type of 'T_max' must be 'int', but received %s." % type(T_max))
+        if not isinstance(eta_min, (float, int)):
+            raise TypeError("The type of 'eta_min' must be 'float, int', but received %s." % type(eta_min))
+        assert T_max > 0 and isinstance(T_max, int), " 'T_max' must be a positive integer."
+        if warmup_steps is not None:
+            self.warmup_steps = warmup_steps
+        elif warmup_ratio is not None:
+            self.warmup_steps = int(warmup_ratio * T_max)
+        else:
+            self.warmup_steps = 0
+        self.T_max = T_max - self.warmup_steps
+        self.eta_min = float(eta_min)
+        super(CosineWithWarmup, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        step = self.last_epoch
+
+        # Warmup phase
+        if step <= self.warmup_steps and self.warmup_steps > 0:
+            return self._get_warmup_lr(step)
+
+        return self._get_lr(step - self.warmup_steps)
+
+    def _get_warmup_lr(self, step):
+        lr_val = (step + 1) / (self.warmup_steps + 1)
+        return [initial_lr * lr_val for initial_lr in self.base_lrs]
+
+    def _get_lr(self, step):
+        if (step - 1 - self.T_max) % (2 * self.T_max) == 0:
+            return [group['lr'] + (base_lr - self.eta_min) *
+                    (1 - math.cos(math.pi / self.T_max)) / 2
+                    for base_lr, group in zip(self.base_lrs, self.optimizer.param_groups)]
+
+        return [(1 + math.cos(math.pi * step / self.T_max)) /
+                (1 + math.cos(math.pi * (step - 1) / self.T_max)) *
+                (group['lr'] - self.eta_min) + self.eta_min for group in self.optimizer.param_groups]
 
     def set_step(self, step: int):
         self.last_epoch = step
