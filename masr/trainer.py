@@ -158,7 +158,8 @@ class MASRTrainer(object):
             self.model.to(self.device)
         # print(self.model)
         if is_train:
-            self.amp_scaler = torch.cuda.amp.GradScaler(init_scale=1024)
+            if self.configs.train_conf.enable_amp:
+                self.amp_scaler = torch.cuda.amp.GradScaler(init_scale=1024)
             # 获取优化方法
             optimizer = self.configs.optimizer_conf.optimizer
             if optimizer == 'Adam':
