@@ -10,7 +10,8 @@ class InferencePredictor:
     def __init__(self,
                  configs,
                  use_model,
-                 model_path='models/conformer_online_fbank/inference.pt',
+                 streaming=True,
+                 model_path='models/conformer_streaming_fbank/inference.pt',
                  use_gpu=True):
         """
         语音识别预测工具
@@ -22,6 +23,7 @@ class InferencePredictor:
         self.configs = configs
         self.use_gpu = use_gpu
         self.use_model = use_model
+        self.streaming = streaming
         # 创建模型
         if not os.path.exists(model_path):
             raise Exception(f"模型文件不存在，请检查{model_path}是否存在！")
@@ -40,7 +42,7 @@ class InferencePredictor:
         logger.info(f'已加载模型：{model_path}')
 
         # 流式参数
-        self.output_state_h= torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
+        self.output_state_h = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.output_state_c = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.cnn_cache = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
         self.att_cache = torch.zeros([0, 0, 0, 0], dtype=torch.float32, device=self.device)
@@ -62,8 +64,8 @@ class InferencePredictor:
         return output_data.cpu().detach().numpy()
 
     def predict_chunk_deepspeech(self, x_chunk):
-        if self.use_model != 'deepspeech2_online':
-            raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}')
+        if not (self.use_model == 'deepspeech2' and self.streaming):
+            raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}，参数streaming为：{self.streaming}')
 
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)
         audio_len = torch.tensor([x_chunk.shape[1]], dtype=torch.int64, device=self.device)
@@ -76,8 +78,8 @@ class InferencePredictor:
         return output_chunk_probs.cpu().detach().numpy(), output_lens.cpu().detach().numpy()
 
     def predict_chunk_conformer(self, x_chunk, required_cache_size):
-        if not ('former' in self.use_model and 'online' in self.use_model):
-            raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}')
+        if not ('former' in self.use_model and self.streaming):
+            raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}，参数streaming为：{self.streaming}')
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)
         required_cache_size = torch.tensor([required_cache_size], dtype=torch.int32, device=self.device)
 

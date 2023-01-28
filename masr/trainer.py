@@ -119,35 +119,35 @@ class MASRTrainer(object):
         from masr.model_utils.efficient_conformer.model import EfficientConformerModel
         from masr.model_utils.deepspeech2.model import DeepSpeech2Model
         # 获取模型
-        if 'squeezeformer' in self.configs.use_model:
+        if self.configs.use_model == 'squeezeformer':
             self.model = SqueezeformerModel(input_dim=input_dim,
                                             vocab_size=vocab_size,
                                             mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                            streaming='online' in self.configs.use_model,
+                                            streaming=self.configs.streaming,
                                             encoder_conf=self.configs.encoder_conf,
                                             decoder_conf=self.configs.decoder_conf,
                                             **self.configs.model_conf)
-        elif 'efficient_conformer' in self.configs.use_model:
+        elif self.configs.use_model == 'efficient_conformer':
             self.model = EfficientConformerModel(input_dim=input_dim,
                                                  vocab_size=vocab_size,
                                                  mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                                 streaming='online' in self.configs.use_model,
+                                                 streaming=self.configs.streaming,
                                                  encoder_conf=self.configs.encoder_conf,
                                                  decoder_conf=self.configs.decoder_conf,
                                                  **self.configs.model_conf)
-        elif 'conformer' in self.configs.use_model:
+        elif self.configs.use_model == 'conformer':
             self.model = ConformerModel(input_dim=input_dim,
                                         vocab_size=vocab_size,
                                         mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                        streaming='online' in self.configs.use_model,
+                                        streaming=self.configs.streaming,
                                         encoder_conf=self.configs.encoder_conf,
                                         decoder_conf=self.configs.decoder_conf,
                                         **self.configs.model_conf)
-        elif 'deepspeech2' in self.configs.use_model:
+        elif self.configs.use_model == 'deepspeech2':
             self.model = DeepSpeech2Model(input_dim=input_dim,
                                           vocab_size=vocab_size,
                                           mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                          streaming='online' in self.configs.use_model,
+                                          streaming=self.configs.streaming,
                                           encoder_conf=self.configs.encoder_conf,
                                           decoder_conf=self.configs.decoder_conf)
         else:
@@ -215,9 +215,9 @@ class MASRTrainer(object):
     def __load_checkpoint(self, save_model_path, resume_model):
         last_epoch = -1
         best_error_rate = 1.0
-        last_model_dir = os.path.join(save_model_path,
-                                      f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
-                                      'last_model')
+        save_model_name = f'{self.configs.use_model}_{"streaming" if self.configs.streaming else "non-streaming"}' \
+                          f'_{self.configs.preprocess_conf.feature_method}'
+        last_model_dir = os.path.join(save_model_path, save_model_name, 'last_model')
         if resume_model is not None or (os.path.exists(os.path.join(last_model_dir, 'model.pt'))
                                         and os.path.exists(os.path.join(last_model_dir, 'optimizer.pt'))):
             # 自动获取最新保存的模型
@@ -246,14 +246,12 @@ class MASRTrainer(object):
             state_dict = self.model.module.state_dict()
         else:
             state_dict = self.model.state_dict()
+        save_model_name = f'{self.configs.use_model}_{"streaming" if self.configs.streaming else "non-streaming"}' \
+                          f'_{self.configs.preprocess_conf.feature_method}'
         if best_model:
-            model_path = os.path.join(save_model_path,
-                                      f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
-                                      'best_model')
+            model_path = os.path.join(save_model_path, save_model_name, 'best_model')
         else:
-            model_path = os.path.join(save_model_path,
-                                      f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
-                                      'epoch_{}'.format(epoch_id))
+            model_path = os.path.join(save_model_path, save_model_name, 'epoch_{}'.format(epoch_id))
         os.makedirs(model_path, exist_ok=True)
         torch.save(self.optimizer.state_dict(), os.path.join(model_path, 'optimizer.pt'))
         torch.save(state_dict, os.path.join(model_path, 'model.pt'))
@@ -261,15 +259,11 @@ class MASRTrainer(object):
             f.write('{"last_epoch": %d, "test_%s": %f, "test_loss": %f}' % (
                 epoch_id, self.configs.metrics_type, error_rate, test_loss))
         if not best_model:
-            last_model_path = os.path.join(save_model_path,
-                                           f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
-                                           'last_model')
+            last_model_path = os.path.join(save_model_path, save_model_name, 'last_model')
             shutil.rmtree(last_model_path, ignore_errors=True)
             shutil.copytree(model_path, last_model_path)
             # 删除旧的模型
-            old_model_path = os.path.join(save_model_path,
-                                          f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
-                                          'epoch_{}'.format(epoch_id - 3))
+            old_model_path = os.path.join(save_model_path, save_model_name, 'epoch_{}'.format(epoch_id - 3))
             if os.path.exists(old_model_path):
                 shutil.rmtree(old_model_path)
         logger.info('已保存模型：{}'.format(model_path))
@@ -345,6 +339,8 @@ class MASRTrainer(object):
                 if batch_id % accum_grad == 0:
                     if self.local_rank == 0 and writer is not None:
                         writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
+                        # 记录学习率
+                        writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], self.train_step)
                     # 是否开启自动混合精度
                     if self.configs.train_conf.enable_amp:
                         self.amp_scaler.unscale_(self.optimizer)
@@ -390,6 +386,7 @@ class MASRTrainer(object):
                     count_threshold=2,
                     is_change_frame_rate=True,
                     max_test_manifest=10000,
+                    only_keep_zh_en=True,
                     is_merge_audio=False,
                     save_audio_path='dataset/audio/merge_audio',
                     max_duration=600):
@@ -401,6 +398,7 @@ class MASRTrainer(object):
         :param count_threshold: 字符计数的截断阈值，0为不做限制
         :param is_change_frame_rate: 是否统一改变音频的采样率
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
+        :param only_keep_zh_en: 是否只保留中文和英文字符，训练其他语言可以设置为False
         :param is_merge_audio: 是否将多个短音频合并成长音频，以减少音频文件数量，注意自动删除原始音频文件
         :param save_audio_path: 合并音频的保存路径
         :param max_duration: 合并音频的最大长度，单位秒
@@ -415,6 +413,7 @@ class MASRTrainer(object):
         create_manifest(annotation_path=annotation_path,
                         train_manifest_path=self.configs.dataset_conf.train_manifest,
                         test_manifest_path=self.configs.dataset_conf.test_manifest,
+                        only_keep_zh_en=only_keep_zh_en,
                         is_change_frame_rate=is_change_frame_rate,
                         max_test_manifest=max_test_manifest,
                         target_sr=self.configs.preprocess_conf.sample_rate)
@@ -515,16 +514,14 @@ class MASRTrainer(object):
             if self.local_rank == 0:
                 logger.info('=' * 70)
                 loss, error_result = self.evaluate(resume_model=None)
-                logger.info('Test epoch: {}, time/epoch: {}, loss: {:.5f}, {}: {:.5f}'.format(
+                logger.info('Test epoch: {}, time/epoch: {}, loss: {:.5f}, {}: {:.5f}, best {}: {:.5f}'.format(
                     epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), loss, self.configs.metrics_type,
-                    error_result))
+                    error_result, self.configs.metrics_type, best_error_rate))
                 logger.info('=' * 70)
                 writer.add_scalar('Test/{}'.format(self.configs.metrics_type), error_result, test_step)
                 writer.add_scalar('Test/Loss', loss, test_step)
                 test_step += 1
                 self.model.train()
-                # 记录学习率
-                writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], epoch_id)
                 # 保存最优模型
                 if error_result <= best_error_rate:
                     best_error_rate = error_result
@@ -534,7 +531,7 @@ class MASRTrainer(object):
                 self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id, error_rate=error_result,
                                        test_loss=loss)
 
-    def evaluate(self, resume_model='models/conformer_online_fbank/best_model/', display_result=False):
+    def evaluate(self, resume_model='models/conformer_streaming_fbank/best_model/', display_result=False):
         """
         评估模型
         :param resume_model: 所使用的模型
@@ -596,7 +593,7 @@ class MASRTrainer(object):
 
     def export(self,
                save_model_path='models/',
-               resume_model='models/conformer_online_fbank/best_model/',
+               resume_model='models/conformer_streaming_fbank/best_model/',
                save_quant=False):
         """
         导出预测模型
@@ -626,9 +623,9 @@ class MASRTrainer(object):
         self.model.eval()
         # 获取静态模型
         infer_model = self.model.export()
-        infer_model_path = os.path.join(save_model_path,
-                                        f'{self.configs.use_model}_{self.configs.preprocess_conf.feature_method}',
-                                        'inference.pt')
+        save_model_name = f'{self.configs.use_model}_{"streaming" if self.configs.streaming else "non-streaming"}' \
+                          f'_{self.configs.preprocess_conf.feature_method}'
+        infer_model_path = os.path.join(save_model_path, save_model_name, 'inference.pt')
         os.makedirs(os.path.dirname(infer_model_path), exist_ok=True)
         torch.jit.save(infer_model, infer_model_path)
         logger.info("预测模型已保存：{}".format(infer_model_path))
