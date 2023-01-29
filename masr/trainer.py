@@ -491,7 +491,8 @@ class MASRTrainer(object):
 
         # 支持多卡训练
         if nranks > 1:
-            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.local_rank])
+            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.local_rank],
+                                                                   find_unused_parameters=self.configs.use_model == 'efficient_conformer')
         if self.local_rank == 0:
             logger.info('训练数据：{}'.format(len(self.train_dataset)))
 
@@ -516,7 +517,7 @@ class MASRTrainer(object):
                 loss, error_result = self.evaluate(resume_model=None)
                 logger.info('Test epoch: {}, time/epoch: {}, loss: {:.5f}, {}: {:.5f}, best {}: {:.5f}'.format(
                     epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), loss, self.configs.metrics_type,
-                    error_result, self.configs.metrics_type, best_error_rate))
+                    error_result, self.configs.metrics_type, error_result if error_result <= best_error_rate else best_error_rate))
                 logger.info('=' * 70)
                 writer.add_scalar('Test/{}'.format(self.configs.metrics_type), error_result, test_step)
                 writer.add_scalar('Test/Loss', loss, test_step)
