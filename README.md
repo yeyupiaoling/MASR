@@ -135,7 +135,7 @@ predictor.reset_stream()
 |        使用模型         | 是否为流式 | 预处理方式 | 语言  | 测试集字错率（词错率） |                               下载地址                               |
 |:-------------------:|:-----:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
 |    squeezeformer    | True  | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-|      conformer      | True  | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+|      conformer      | True  | fbank | 英文  |   0.09265   | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 | efficient_conformer | True  | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 |     deepspeech2     | True  | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 
