@@ -27,7 +27,8 @@ from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.utils.logger import setup_logger
 from masr.utils.metrics import cer, wer
 from masr.optimizer.scheduler import WarmupLR, NoamHoldAnnealing, CosineWithWarmup
-from masr.utils.utils import create_manifest, create_noise, count_manifest, dict_to_object, merge_audio, print_arguments
+from masr.utils.utils import dict_to_object, print_arguments
+from masr.data_utils.utils import create_manifest, create_noise, count_manifest, merge_audio
 from masr.utils.utils import labels_to_string
 
 logger = setup_logger(__name__)

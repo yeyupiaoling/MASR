@@ -12,7 +12,7 @@ from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder, greedy_decoder_chunk
 from masr.infer_utils.inference_predictor import InferencePredictor
 from masr.utils.logger import setup_logger
-from masr.utils.utils import dict_to_object, print_arguments, download
+from masr.utils.utils import dict_to_object, print_arguments, download_model
 
 logger = setup_logger(__name__)
 
@@ -46,7 +46,7 @@ class MASRPredictor:
             model_url_dict = {
                 'conformer_streaming_fbank_aishell': 'https://masr.yeyupiaoling.cn/models/conformer_streaming_fbank_aishell.zip'}
             model_url = model_url_dict[model_tag]
-            _ = download(model_url, cache_dir)
+            _ = download_model(model_url, cache_dir)
             model_path = os.path.join(cache_dir, model_tag, 'models', model_tag[:model_tag.rfind('_')], 'inference.pt')
             pun_model_dir = os.path.join(cache_dir, model_tag, 'models/pun_models/')
             configs = os.path.join(cache_dir, model_tag, 'configs',
