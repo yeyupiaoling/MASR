@@ -297,20 +297,14 @@ def create_manifest_binary(train_manifest_path, test_manifest_path):
     :param test_manifest_path: 测试列表的路径
     :return:
     """
-    dataset_writer = DatasetWriter(train_manifest_path)
-    with open(train_manifest_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    for line in tqdm(lines):
-        line = line.replace('\n', '')
-        dataset_writer.add_data(line)
-    dataset_writer.close()
-    dataset_writer = DatasetWriter(test_manifest_path)
-    with open(test_manifest_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    for line in tqdm(lines):
-        line = line.replace('\n', '')
-        dataset_writer.add_data(line)
-    dataset_writer.close()
+    for manifest_path in [train_manifest_path, test_manifest_path]:
+        dataset_writer = DatasetWriter(manifest_path)
+        with open(train_manifest_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        for line in tqdm(lines):
+            line = line.replace('\n', '')
+            dataset_writer.add_data(line)
+        dataset_writer.close()
 
 
 # 将音频流转换为numpy
