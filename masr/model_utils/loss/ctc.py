@@ -46,7 +46,7 @@ class CTCLoss(torch.nn.Module):
         ys_hat = ys_hat.log_softmax(2)
         loss = self.ctc_loss(ys_hat, ys_pad, hlens, ys_lens)
         # Batch-size average
-        loss = loss / ys_hat.shape[0]
+        loss = loss / ys_hat.shape[1]
         return loss
 
     def log_softmax(self, hs_pad: torch.Tensor) -> torch.Tensor:

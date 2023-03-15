@@ -42,8 +42,8 @@ class GroupedRelPositionMultiHeadedAttention(MultiHeadedAttention):
         overflow_Q = Q.size(2) % group_size
         overflow_KV = K.size(2) % group_size
 
-        padding_Q = (group_size - overflow_Q) * int(overflow_Q // (overflow_Q + 0.00000000000000001))
-        padding_KV = (group_size - overflow_KV) * int(overflow_KV // (overflow_KV + 0.00000000000000001))
+        padding_Q = (group_size - overflow_Q) * int(overflow_Q // (overflow_Q + 1e-17))
+        padding_KV = (group_size - overflow_KV) * int(overflow_KV // (overflow_KV + 1e-17))
 
         batch_size, _, seq_len_KV, _ = K.size()
 
