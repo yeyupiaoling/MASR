@@ -43,7 +43,7 @@
 
     // 开始录音
     function startRecording() {
-        url = 'ws://' + location.hostname + ':5001'
+        let url = 'ws://' + location.hostname + ':5001'
         MASRRecorder.get(function (record) {
             recorder = record;
         }, url, textarea);

@@ -87,11 +87,10 @@ class MASRPredictor:
                                             model_path=model_path,
                                             use_gpu=self.use_gpu)
         # 预热
-        for _ in range(5):
-            warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
-            self.predict(audio_data=warmup_audio, is_itn=False)
-            if 'online' in self.configs.use_model:
-                self.predict_stream(audio_data=warmup_audio[:8000], is_itn=False)
+        warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
+        self.predict(audio_data=warmup_audio, is_itn=False)
+        if 'online' in self.configs.use_model:
+            self.predict_stream(audio_data=warmup_audio[:8000], is_itn=False)
         self.reset_stream()
 
     # 初始化解码器
