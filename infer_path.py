@@ -20,7 +20,6 @@ add_arg('pun_model_dir',    str,    'models/pun_models/',        "加标点符�
 args = parser.parse_args()
 print_arguments(args=args)
 
-
 # 获取识别器
 predictor = MASRPredictor(configs=args.configs,
                           model_path=args.model_path,
@@ -52,14 +51,18 @@ def real_time_predict_demo():
     CHUNK = int(16000 * interval_time)
     # 读取数据
     wf = wave.open(args.wav_path, 'rb')
+    channels = wf.getnchannels()
+    samp_width = wf.getsampwidth()
+    sample_rate = wf.getframerate()
     data = wf.readframes(CHUNK)
     # 播放
     while data != b'':
         start = time.time()
         d = wf.readframes(CHUNK)
-        result = predictor.predict_stream(audio_data=data, use_pun=args.use_pun, is_itn=args.is_itn, is_end=d == b'')
+        result = predictor.predict_stream(audio_data=data, use_pun=args.use_pun, is_itn=args.is_itn, is_end=d == b'',
+                                          channels=channels, samp_width=samp_width, sample_rate=sample_rate)
         data = d
-        if result is None:continue
+        if result is None: continue
         score, text = result['score'], result['text']
         print(f"【实时结果】：消耗时间：{int((time.time() - start) * 1000)}ms, 识别结果: {text}, 得分: {int(score)}")
     # 重置流式识别
