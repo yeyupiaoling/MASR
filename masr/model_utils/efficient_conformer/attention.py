@@ -141,17 +141,8 @@ class GroupedRelPositionMultiHeadedAttention(MultiHeadedAttention):
                 where `cache_t == chunk_size * num_decoding_left_chunks`
                 and `head * d_k == size`
         """
-        q = self.linear_q(query)
-        k = self.linear_k(key)  # (#batch, time2, size)
-        v = self.linear_v(value)
+        q, k, v = self.forward_qkv(query, key, value)
         p = self.linear_pos(pos_emb)  # (#batch, time2, size)
-
-        batch_size, seq_len_KV, _ = k.size()  # seq_len_KV = time2
-
-        # (#batch, time2, size) -> (#batch, head, time2, size/head)
-        q = q.view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
-        k = k.view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
-        v = v.view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
         if cache.size(0) > 0:
             # use attention cache
             key_cache, value_cache = torch.split(cache, cache.size(-1) // 2, dim=-1)
