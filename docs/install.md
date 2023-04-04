@@ -52,7 +52,7 @@ sudo apt-get install libsndfile1
 
 3. 如果提示缺少`it`依赖库，请安装。
 ```shell
-python -m pip install WeTextProcessing>=0.0.4
+python -m pip install WeTextProcessing>=0.1.0
 ```
 
 5. 安装pynini出错，可以执行下面命令安装。

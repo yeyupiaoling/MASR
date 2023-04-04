@@ -1,5 +1,4 @@
 import os
-import platform
 from io import BufferedReader
 
 import numpy as np
@@ -104,7 +103,7 @@ class MASRPredictor:
             except ModuleNotFoundError:
                 logger.warning('==================================================================')
                 logger.warning('缺少 paddlespeech_ctcdecoders 库，请执行以下命令安装。')
-                logger.warning('python -m pip install paddlespeech_ctcdecoders -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
+                logger.warning('python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
                 logger.warning('【注意】现在已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
                 logger.warning('==================================================================\n')
                 self.configs.decoder = 'ctc_greedy'
@@ -351,9 +350,6 @@ class MASRPredictor:
 
     # 对文本进行反标准化
     def inverse_text_normalization(self, text):
-        if self.configs.decoder == 'ctc_beam_search' and platform.system() != 'Windows':
-            logger.error("目前只有Windows支持同时使用ctc_beam_search和itn")
-            return text
         if self.inv_normalizer is None:
             # 需要安装WeTextProcessing>=0.1.0
             from itn.chinese.inverse_normalizer import InverseNormalizer
