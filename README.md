@@ -109,35 +109,35 @@ predictor.reset_stream()
 1. [WenetSpeech](./docs/wenetspeech.md) (10000小时) 的预训练模型列表：
 
 |   使用模型    | 是否为流式 | 预处理方式 | 语言  | 测试集字错率 | 下载地址 |
-|:---------:|:-----:|:-----:|:---:|:------:|:----:|
-| conformer | True  | fbank | 普通话 |        |      |
+|:---------:|:-----:|:-----:|:---:|:-----------:|:----:|
+| conformer | True  | fbank | 普通话 |             |      |
 
 
 2.  [WenetSpeech](./docs/wenetspeech.md) (10000小时)+[中文语音数据集](https://download.csdn.net/download/qq_33200967/87003964) (3000+小时) 的预训练模型列表：
 
-|    使用模型    | 是否为流式 | 预处理方式 | 语言  |                               测试集字错率                                |                              下载地址                               |
+|    使用模型    | 是否为流式 | 预处理方式 | 语言  |                             测试集字错率                             |                              下载地址                               |
 |:----------:|:-----:|:-----:|:---:|:-------------------------------------------------------------------:|:---------------------------------------------------------------:|
 | conformere | True  | fbank | 普通话 | 0.03179(aishell_test)<br>0.16722(test_net)<br>0.20317(test_meeting) | [点击下载](https://download.csdn.net/download/qq_33200967/87402419) |
 
 
 3. [AIShell](https://openslr.magicdatatech.com/resources/33) (179小时) 的预训练模型列表：
 
-|        使用模型         | 是否为流式 | 预处理方式 | 语言  | 测试集字错率  |                               下载地址                               |
-|:-------------------:|:-----:|:-----:|:---:|:-------:|:----------------------------------------------------------------:|
-|    squeezeformer    | True  | fbank | 普通话 | 0.04137 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-|      conformer      | True  | fbank | 普通话 | 0.04491 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| efficient_conformer | True  | fbank | 普通话 | 0.04073 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-|     deepspeech2     | True  | fbank | 普通话 | 0.06907 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+|        使用模型         | 是否为流式 | 预处理方式 | 语言  | 测试集字错率 |                               下载地址                               |
+|:-------------------:|:-----:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+|    squeezeformer    | True  | fbank | 普通话 |   0.04137   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+|      conformer      | True  | fbank | 普通话 |   0.04491   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+| efficient_conformer | True  | fbank | 普通话 |   0.04073   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+|     deepspeech2     | True  | fbank | 普通话 |   0.06907   | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
 
 
 4. [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) 的预训练模型列表：
 
-|        使用模型         | 是否为流式 | 预处理方式 | 语言 | 测试集词错率  |                               下载地址                               |
-|:-------------------:|:-----:|:-----:|:--:|:-------:|:----------------------------------------------------------------:|
-|    squeezeformer    | True  | fbank | 英文 |         | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-|      conformer      | True  | fbank | 英文 | 0.09265 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-| efficient_conformer | True  | fbank | 英文 |         | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-|     deepspeech2     | True  | fbank | 英文 |         | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+|        使用模型         | 是否为流式 | 预处理方式 | 语言  | 测试集词错率 |                               下载地址                               |
+|:-------------------:|:-----:|:-----:|:---:|:-----------:|:----------------------------------------------------------------:|
+|    squeezeformer    | True  | fbank | 英文  |   0.09715   | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+|      conformer      | True  | fbank | 英文  |   0.09265   | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+| efficient_conformer | True  | fbank | 英文  |             | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+|     deepspeech2     | True  | fbank | 英文  |   0.22489   | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 
 
 **说明：** 
