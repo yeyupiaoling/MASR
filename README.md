@@ -10,7 +10,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 **如果熟悉PaddlePaddle，请优先使用：[PPASR](https://github.com/yeyupiaoling/PPASR)**
 
-**欢迎大家扫码入QQ群讨论**，或者直接搜索QQ群号`1169600237`，问题答案为博主Github的ID`yeyupiaoling`。
+**欢迎大家扫码入QQ群讨论**，或者直接搜索QQ群号`758170167`，问题答案为博主Github的ID`yeyupiaoling`。
 
 <div align="center">
   <img src="docs/images/qq.png"/>
