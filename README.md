@@ -137,7 +137,7 @@ predictor.reset_stream()
 |    squeezeformer    | True  | fbank | 英文 | 0.09715 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 |      conformer      | True  | fbank | 英文 | 0.09265 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 | efficient_conformer | True  | fbank | 英文 |         | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-|     deepspeech2     | True  | fbank | 英文 | 0.22489 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+|     deepspeech2     | True  | fbank | 英文 | 0.19423 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
 
 
 **说明：** 
