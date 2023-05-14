@@ -38,8 +38,7 @@ def download_multi(url, target_dir, extra_args):
     """Download multiple files from url to target_dir."""
     if not os.path.exists(target_dir): os.makedirs(target_dir)
     print("Downloading %s ..." % url)
-    ret_code = os.system("wget -c " + url + ' ' + extra_args + " -P " +
-                         target_dir)
+    ret_code = os.system("wget -c " + url + ' ' + extra_args + " -P " + target_dir)
     return ret_code
 
 
@@ -57,6 +56,7 @@ def download(url, md5sum, target_dir):
     if not os.path.exists(target_dir): os.makedirs(target_dir)
     filepath = os.path.join(target_dir, url.split("/")[-1])
     if not (os.path.exists(filepath) and md5file(filepath) == md5sum):
+        print(f"{filepath}不存在，准备下载")
         print(f"Downloading {url} to {filepath} ...")
         with urllib.request.urlopen(url) as source, open(filepath, "wb") as output:
             with tqdm(total=int(source.info().get("Content-Length")), ncols=80, unit='iB', unit_scale=True,
