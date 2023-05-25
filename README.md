@@ -175,6 +175,14 @@ predictor.reset_stream()
  - 基于PaddlePaddle实现的语音识别：[PPASR](https://github.com/yeyupiaoling/PPASR)
 
 
+## 打赏作者
+
+<br/>
+<div align="center">
+<img src="https://yeyupiaoling.cn/reward.png" alt="打赏作者" width="400">
+</div>
+
+
 ## 参考资料
  - https://github.com/yeyupiaoling/PPASR
  - https://github.com/jiwidi/DeepSpeech-pytorch
