@@ -18,7 +18,7 @@ python -m pip install masr -U -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```shell
 git clone https://github.com/yeyupiaoling/MASR.git
 cd MASR
-python setup.py install
+pip install .
 ```
 
 **常见安装问题：** 
