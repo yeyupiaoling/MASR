@@ -8,12 +8,12 @@
 
 MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神奇的自动语音识别框架（Magical Automatic Speech Recognition），当前为V2版本，如果想使用V1版本，请在这个分支[r1.x](https://github.com/yeyupiaoling/MASR/tree/r1.x)。MASR致力于简单，实用的语音识别项目。可部署在服务器，Nvidia Jetson设备，未来还计划支持Android等移动设备。
 
-**如果熟悉PaddlePaddle，请优先使用：[PPASR](https://github.com/yeyupiaoling/PPASR)**
 
-**欢迎大家扫码入QQ群讨论**，或者直接搜索QQ群号`758170167`，问题答案为博主Github的ID`yeyupiaoling`。
+**欢迎大家扫码入知识星球或者QQ群讨论，知识星球里面提供项目的模型文件和博主其他相关项目的模型文件，也包括其他一些资源。**
 
 <div align="center">
-  <img src="docs/images/qq.png"/>
+  <img src="https://yeyupiaoling.cn/zsxq.png" alt="知识星球" width="400">
+  <img src="https://yeyupiaoling.cn/qq.png" alt="QQ群" width="400">
 </div>
 
 
@@ -115,29 +115,29 @@ predictor.reset_stream()
 
 2.  [WenetSpeech](./docs/wenetspeech.md) (10000小时)+[中文语音数据集](https://download.csdn.net/download/qq_33200967/87003964) (3000+小时) 的预训练模型列表：
 
-|    使用模型    | 是否为流式 | 预处理方式 | 语言  |                               测试集字错率                                |                              下载地址                            |
-|:----------:|:-----:|:-----:|:---:|:-------------------------------------------------------------------:|:---------------------------------------------------------------:|
-| conformere | True  | fbank | 普通话 | 0.03179(aishell_test)<br>0.16722(test_net)<br>0.20317(test_meeting) | [点击下载](https://download.csdn.net/download/qq_33200967/87402419) |
+|    使用模型    | 是否为流式 | 预处理方式 | 语言  |                               测试集字错率                                |   下载地址   |
+|:----------:|:-----:|:-----:|:---:|:-------------------------------------------------------------------:|:--------:|
+| conformere | True  | fbank | 普通话 | 0.03179(aishell_test)<br>0.16722(test_net)<br>0.20317(test_meeting) | 加入知识星球获取 |
 
 
 3. [AIShell](https://openslr.magicdatatech.com/resources/33) (179小时) 的预训练模型列表：
 
-|        使用模型         | 是否为流式 | 预处理方式 | 语言  | 测试集字错率  |                               下载地址                               |
-|:-------------------:|:-----:|:-----:|:---:|:-------:|:----------------------------------------------------------------:|
-|    squeezeformer    | True  | fbank | 普通话 | 0.04137 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-|      conformer      | True  | fbank | 普通话 | 0.04491 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-| efficient_conformer | True  | fbank | 普通话 | 0.04073 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
-|     deepspeech2     | True  | fbank | 普通话 | 0.06907 | [点击下载](https://pan.baidu.com/s/10fxH3-UZBEWUmqAUcQcXFg?pwd=d4u2) |
+|        使用模型         | 是否为流式 | 预处理方式 | 语言  | 测试集字错率  |   下载地址   |
+|:-------------------:|:-----:|:-----:|:---:|:-------:|:--------:|
+|    squeezeformer    | True  | fbank | 普通话 | 0.04137 | 加入知识星球获取 |
+|      conformer      | True  | fbank | 普通话 | 0.04491 | 加入知识星球获取 |
+| efficient_conformer | True  | fbank | 普通话 | 0.04073 | 加入知识星球获取 |
+|     deepspeech2     | True  | fbank | 普通话 | 0.06907 | 加入知识星球获取 |
 
 
 4. [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时) 的预训练模型列表：
 
-|        使用模型         | 是否为流式 | 预处理方式 | 语言 | 测试集词错率  |                               下载地址                               |
-|:-------------------:|:-----:|:-----:|:--:|:-------:|:----------------------------------------------------------------:|
-|    squeezeformer    | True  | fbank | 英文 | 0.09715 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-|      conformer      | True  | fbank | 英文 | 0.09265 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-| efficient_conformer | True  | fbank | 英文 |         | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
-|     deepspeech2     | True  | fbank | 英文 | 0.19423 | [点击下载](https://pan.baidu.com/s/111PY9PEOUBEjE8vx79ythg?pwd=sypb) | 
+|        使用模型         | 是否为流式 | 预处理方式 | 语言 | 测试集词错率  |   下载地址   |
+|:-------------------:|:-----:|:-----:|:--:|:-------:|:--------:|
+|    squeezeformer    | True  | fbank | 英文 | 0.09715 | 加入知识星球获取 | 
+|      conformer      | True  | fbank | 英文 | 0.09265 | 加入知识星球获取 | 
+| efficient_conformer | True  | fbank | 英文 |         | 加入知识星球获取 | 
+|     deepspeech2     | True  | fbank | 英文 | 0.19423 | 加入知识星球获取 | 
 
 
 **说明：** 
