@@ -521,6 +521,7 @@ class MASRTrainer(object):
             self.__train_epoch(epoch_id=epoch_id, save_model_path=save_model_path, writer=writer)
             # 多卡训练只使用一个进程执行评估和保存模型
             if self.local_rank == 0:
+                if self.stop_eval: continue
                 logger.info('=' * 70)
                 self.eval_loss, self.eval_error_result = self.evaluate(resume_model=None)
                 logger.info(
