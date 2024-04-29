@@ -2,12 +2,12 @@ import math
 from typing import Union
 
 import torch
-from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import LRScheduler
 
-from typeguard import check_argument_types
+from typeguard import typechecked
 
 
-class WarmupLR(_LRScheduler):
+class WarmupLR(LRScheduler):
     """The WarmupLR scheduler
 
     This scheduler is almost same as NoamLR Scheduler except for following
@@ -24,6 +24,7 @@ class WarmupLR(_LRScheduler):
 
     """
 
+    @typechecked
     def __init__(
             self,
             optimizer: torch.optim.Optimizer,
@@ -31,7 +32,6 @@ class WarmupLR(_LRScheduler):
             min_lr=1e-5,
             last_epoch: int = -1,
     ):
-        assert check_argument_types()
         self.warmup_steps = warmup_steps
         self.min_lr = min_lr
         super().__init__(optimizer, last_epoch)
@@ -62,7 +62,7 @@ class WarmupLR(_LRScheduler):
         self.last_epoch = step
 
 
-class NoamHoldAnnealing(_LRScheduler):
+class NoamHoldAnnealing(LRScheduler):
     def __init__(self, optimizer, max_steps=175680, warmup_steps=None, warmup_ratio=0.2, hold_steps=None,
                  hold_ratio=0.3, decay_rate=1.0, min_lr=1.e-5, last_epoch=-1):
         """
@@ -188,7 +188,7 @@ class NoamHoldAnnealing(_LRScheduler):
         self.last_epoch = step
 
 
-class CosineWithWarmup(_LRScheduler):
+class CosineWithWarmup(LRScheduler):
     def __init__(self, optimizer: torch.optim.Optimizer, T_max, eta_min=0, warmup_steps=None, warmup_ratio=0.2,
                  last_epoch=-1):
         """

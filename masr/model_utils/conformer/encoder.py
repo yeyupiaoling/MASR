@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 import torch
 from torch import nn
-from typeguard import check_argument_types
+from typeguard import typechecked
 
 from masr.model_utils.conformer.attention import MultiHeadedAttention
 from masr.model_utils.conformer.attention import RelPositionMultiHeadedAttention
@@ -166,6 +166,7 @@ class ConformerEncoderLayer(nn.Module):
 class ConformerEncoder(nn.Module):
     """Conformer encoder module."""
 
+    @typechecked
     def __init__(
             self,
             input_size: int,
@@ -232,7 +233,6 @@ class ConformerEncoder(nn.Module):
             cnn_module_kernel (int): Kernel size of convolution module.
             causal (bool): whether to use causal convolution or not.
         """
-        assert check_argument_types()
         super().__init__()
         self._output_size = output_size
 
