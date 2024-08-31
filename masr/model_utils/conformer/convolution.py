@@ -2,7 +2,7 @@ from typing import Tuple
 
 import torch
 from torch import nn
-from typeguard import check_argument_types
+from typeguard import typechecked
 
 __all__ = ['ConvolutionModule']
 
@@ -10,6 +10,7 @@ __all__ = ['ConvolutionModule']
 class ConvolutionModule(nn.Module):
     """ConvolutionModule in Conformer model."""
 
+    @typechecked
     def __init__(self,
                  channels: int,
                  kernel_size: int = 15,
@@ -26,7 +27,6 @@ class ConvolutionModule(nn.Module):
             causal (bool): Whether use causal convolution or not
             bias (bool): Whether Conv with bias or not
         """
-        assert check_argument_types()
         super().__init__()
         self.pointwise_conv1 = nn.Conv1d(
             channels,

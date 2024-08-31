@@ -19,8 +19,8 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 本项目使用的环境：
  - Anaconda 3
- - Python 3.8
- - Pytorch 1.13.1
+ - Python 3.11
+ - Pytorch 2.0.1
  - Windows 10 or Ubuntu 18.04
 
 
@@ -44,6 +44,9 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - [知识点讲解（哔哩哔哩）](https://www.bilibili.com/video/BV1Rr4y1D7iZ)
  - [流式识别的使用讲解（哔哩哔哩）](https://www.bilibili.com/video/BV1Te4y1h7KK)
 
+## 在线使用
+
+**- [在线使用Dome](https://www.doiduoyi.com/?app=SPEECHRECOG)**
 
 # 快速使用
 

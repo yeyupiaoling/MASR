@@ -8,6 +8,7 @@ from collections import Counter
 from contextlib import nullcontext
 from datetime import timedelta
 
+import numpy as np
 import torch
 import torch.distributed as dist
 import yaml
@@ -63,6 +64,12 @@ class MASRTrainer(object):
             self.configs.dataset_conf.num_workers = 0
             self.configs.dataset_conf.prefetch_factor = 2
             logger.warning('Windows系统不支持多线程读取数据，已自动关闭！')
+        self.max_step, self.train_step = None, None
+        self.train_loss, self.train_eta_sec = None, None
+        self.eval_best_error_rate = None
+        self.eval_loss, self.eval_error_result = None, None
+        self.test_log_step, self.train_log_step = 0, 0
+        self.stop_train, self.stop_eval = False, False
 
     def __setup_dataloader(self, augment_conf_path=None, is_train=False):
         # 获取训练数据
@@ -99,7 +106,6 @@ class MASRTrainer(object):
             self.train_loader = DataLoader(dataset=self.train_dataset,
                                            collate_fn=collate_fn,
                                            batch_sampler=self.train_batch_sampler,
-                                           prefetch_factor=self.configs.dataset_conf.prefetch_factor,
                                            num_workers=self.configs.dataset_conf.num_workers)
         # 获取测试数据
         self.test_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
@@ -111,8 +117,52 @@ class MASRTrainer(object):
         self.test_loader = DataLoader(dataset=self.test_dataset,
                                       batch_size=self.configs.dataset_conf.batch_size,
                                       collate_fn=collate_fn,
-                                      prefetch_factor=self.configs.dataset_conf.prefetch_factor,
                                       num_workers=self.configs.dataset_conf.num_workers)
+
+    # 提取特征保存文件
+    def extract_features(self, save_dir='dataset/features'):
+        for i, data_list_file in enumerate([self.configs.dataset_conf.train_manifest,
+                                            self.configs.dataset_conf.test_manifest]):
+            save_dir1 = os.path.join(save_dir, data_list_file.split('.')[-1])
+            os.makedirs(save_dir1, exist_ok=True)
+            test_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
+                                       data_manifest=data_list_file,
+                                       vocab_filepath=self.configs.dataset_conf.dataset_vocab,
+                                       manifest_type=self.configs.dataset_conf.manifest_type,
+                                       max_duration=-1)
+            save_dir_num = f'{int(time.time())}'
+            os.makedirs(os.path.join(str(save_dir1), save_dir_num), exist_ok=True)
+            all_feature, time_sum, index = None, 0, 0
+            save_data_list = data_list_file.replace('manifest', 'manifest_features')
+            with open(save_data_list, 'w', encoding='utf-8') as f:
+                for i in tqdm(range(len(test_dataset))):
+                    feature, _ = test_dataset[i]
+                    data_list = test_dataset.get_one_list(idx=i)
+                    time_sum += data_list['duration']
+                    if all_feature is None:
+                        index += 1
+                        all_feature = feature
+                        if index >= 1000:
+                            index = 0
+                            save_dir_num = f'{int(time.time())}'
+                            os.makedirs(os.path.join(str(save_dir1), save_dir_num), exist_ok=True)
+                        save_path = os.path.join(str(save_dir1), save_dir_num,
+                                                 f'{int(time.time() * 1000)}.npy').replace('\\', '/')
+                    else:
+                        all_feature = np.concatenate((all_feature, feature), axis=0)
+                    new_data_list = {"audio_filepath": save_path,
+                                     "duration": data_list['duration'],
+                                     "text": data_list['text'],
+                                     "start_frame": all_feature.shape[0] - feature.shape[0],
+                                     "end_frame": all_feature.shape[0]}
+                    f.write(f'{json.dumps(new_data_list, ensure_ascii=False)}\n')
+                    if time_sum > 600:
+                        np.save(save_path, all_feature)
+                        all_feature, time_sum = None, 0
+                if all_feature is not None:
+                    np.save(save_path, all_feature)
+                    print(save_path)
+            logger.info(f'[{data_list_file}]列表中的数据已提取特征完成，新列表为：[{save_data_list}]')
 
     def __setup_model(self, input_dim, vocab_size, is_train=False):
         from masr.model_utils.squeezeformer.model import SqueezeformerModel
@@ -280,7 +330,8 @@ class MASRTrainer(object):
             except ModuleNotFoundError:
                 logger.warning('==================================================================')
                 logger.warning('缺少 paddlespeech-ctcdecoders 库，请根据文档安装。')
-                logger.warning('python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
+                logger.warning(
+                    'python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
                 logger.warning('【注意】现在已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
                 logger.warning('==================================================================\n')
                 self.configs.decoder = 'ctc_greedy'
@@ -300,11 +351,11 @@ class MASRTrainer(object):
             model_context = self.model.join
         else:
             model_context = nullcontext
-        train_times, reader_times, batch_times = [], [], []
+        train_times, reader_times, batch_times, loss_sum = [], [], [], []
         start = time.time()
-        sum_batch = len(self.train_loader) * self.configs.train_conf.max_epoch
         with model_context():
             for batch_id, batch in enumerate(self.train_loader):
+                if self.stop_train: break
                 inputs, labels, input_lens, label_lens = batch
                 reader_times.append((time.time() - start) * 1000)
                 start_step = time.time()
@@ -333,10 +384,6 @@ class MASRTrainer(object):
                         loss.backward()
                 # 执行一次梯度计算
                 if batch_id % accum_grad == 0:
-                    if self.local_rank == 0 and writer is not None:
-                        writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
-                        # 记录学习率
-                        writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], self.train_step)
                     # 是否开启自动混合精度
                     if self.configs.train_conf.enable_amp:
                         self.amp_scaler.unscale_(self.optimizer)
@@ -348,28 +395,32 @@ class MASRTrainer(object):
                             self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.scheduler.step()
-                    self.train_step += 1
+                loss_sum.append(loss.data.cpu().numpy())
+                train_times.append((time.time() - start) * 1000)
                 batch_times.append((time.time() - start_step) * 1000)
+                self.train_step += 1
 
                 # 多卡训练只使用一个进程打印
-                train_times.append((time.time() - start) * 1000)
                 if batch_id % self.configs.train_conf.log_interval == 0 and self.local_rank == 0:
                     # 计算每秒训练数据量
                     train_speed = self.configs.dataset_conf.batch_size / (sum(train_times) / len(train_times) / 1000)
                     # 计算剩余时间
-                    eta_sec = (sum(train_times) / len(train_times)) * (
-                            sum_batch - (epoch_id - 1) * len(self.train_loader) - batch_id)
-                    eta_str = str(timedelta(seconds=int(eta_sec / 1000)))
+                    self.train_eta_sec = (sum(train_times) / len(train_times)) * (self.max_step - self.train_step) / 1000
+                    eta_str = str(timedelta(seconds=int(self.train_eta_sec)))
+                    self.train_loss = sum(loss_sum) / len(loss_sum)
                     logger.info(f'Train epoch: [{epoch_id}/{self.configs.train_conf.max_epoch}], '
                                 f'batch: [{batch_id}/{len(self.train_loader)}], '
-                                f'loss: {loss.cpu().detach().numpy():.5f}, '
+                                f'loss: {self.train_loss:.5f}, '
                                 f'learning_rate: {self.scheduler.get_last_lr()[0]:>.8f}, '
                                 f'reader_cost: {(sum(reader_times) / len(reader_times) / 1000):.4f}, '
                                 f'batch_cost: {(sum(batch_times) / len(batch_times) / 1000):.4f}, '
                                 f'ips: {train_speed:.4f} speech/sec, '
                                 f'eta: {eta_str}')
-                    writer.add_scalar('Train/Loss', loss.cpu().detach().numpy(), self.train_step)
-                    train_times = []
+                    # 记录学习率
+                    writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], self.train_log_step)
+                    writer.add_scalar('Train/Loss', self.train_loss, self.train_log_step)
+                    self.train_log_step += 1
+                    train_times, reader_times, batch_times, loss_sum = [], [], [], []
                 # 固定步数也要保存一次模型
                 if batch_id % 10000 == 0 and batch_id != 0 and self.local_rank == 0:
                     self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id)
@@ -494,39 +545,49 @@ class MASRTrainer(object):
 
         self.__load_pretrained(pretrained_model=pretrained_model)
         # 加载恢复模型
-        last_epoch, best_error_rate = self.__load_checkpoint(save_model_path=save_model_path, resume_model=resume_model)
+        last_epoch, self.eval_best_error_rate = self.__load_checkpoint(save_model_path=save_model_path,
+                                                                       resume_model=resume_model)
 
-        test_step, self.train_step = 0, 0
+        self.train_loss = None
+        self.test_log_step, self.train_log_step = 0, 0
+        self.eval_loss, self.eval_error_result = None, None
         last_epoch += 1
         self.train_batch_sampler.epoch = last_epoch
         if self.local_rank == 0:
             writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], last_epoch)
+        # 最大步数
+        self.max_step = len(self.train_loader) * self.configs.train_conf.max_epoch
+        self.train_step = max(last_epoch, 0) * len(self.train_loader)
         # 开始训练
         for epoch_id in range(last_epoch, self.configs.train_conf.max_epoch):
+            if self.stop_train: break
             epoch_id += 1
             start_epoch = time.time()
             # 训练一个epoch
             self.__train_epoch(epoch_id=epoch_id, save_model_path=save_model_path, writer=writer)
             # 多卡训练只使用一个进程执行评估和保存模型
             if self.local_rank == 0:
+                if self.stop_eval: continue
                 logger.info('=' * 70)
-                loss, error_result = self.evaluate(resume_model=None)
-                logger.info('Test epoch: {}, time/epoch: {}, loss: {:.5f}, {}: {:.5f}, best {}: {:.5f}'.format(
-                    epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), loss, self.configs.metrics_type,
-                    error_result, self.configs.metrics_type, error_result if error_result <= best_error_rate else best_error_rate))
+                self.eval_loss, self.eval_error_result = self.evaluate(resume_model=None)
+                logger.info(
+                    f'Test epoch: {epoch_id}, time/epoch: {str(timedelta(seconds=(time.time() - start_epoch)))}, '
+                    f'loss: {self.eval_loss:.5f}, {self.configs.metrics_type}: {self.eval_error_result:.5f}, '
+                    f'best {self.configs.metrics_type}: '
+                    f'{self.eval_error_result if self.eval_error_result <= self.eval_best_error_rate else self.eval_best_error_rate:.5f}')
                 logger.info('=' * 70)
-                writer.add_scalar('Test/{}'.format(self.configs.metrics_type), error_result, test_step)
-                writer.add_scalar('Test/Loss', loss, test_step)
-                test_step += 1
+                writer.add_scalar(f'Test/{self.configs.metrics_type}', self.eval_error_result, self.test_log_step)
+                writer.add_scalar('Test/Loss', self.eval_loss, self.test_log_step)
+                self.test_log_step += 1
                 self.model.train()
                 # 保存最优模型
-                if error_result <= best_error_rate:
-                    best_error_rate = error_result
-                    self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id, error_rate=error_result,
-                                           test_loss=loss, best_model=True)
+                if self.eval_error_result <= self.eval_best_error_rate:
+                    self.eval_best_error_rate = self.eval_error_result
+                    self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id,
+                                           error_rate=self.eval_error_result, test_loss=self.eval_loss, best_model=True)
                 # 保存模型
-                self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id, error_rate=error_result,
-                                       test_loss=loss)
+                self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id,
+                                       error_rate=self.eval_error_result, test_loss=self.eval_loss)
 
     def evaluate(self, resume_model='models/conformer_streaming_fbank/best_model/', display_result=False):
         """
@@ -560,6 +621,7 @@ class MASRTrainer(object):
         eos = self.test_dataset.vocab_size - 1
         with torch.no_grad():
             for batch_id, batch in enumerate(tqdm(self.test_loader)):
+                if self.stop_eval: break
                 inputs, labels, input_lens, label_lens = batch
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
@@ -583,8 +645,8 @@ class MASRTrainer(object):
                         logger.info(f'这条数据的{self.configs.metrics_type}：{round(error_rate, 6)}，'
                                     f'当前{self.configs.metrics_type}：{round(sum(error_results) / len(error_results), 6)}')
                         logger.info('-' * 70)
-        loss = float(sum(losses) / len(losses))
-        error_result = float(sum(error_results) / len(error_results))
+        loss = float(sum(losses) / len(losses)) if len(losses) > 0 else -1
+        error_result = float(sum(error_results) / len(error_results)) if len(error_results) > 0 else -1
         self.model.train()
         return loss, error_result
 

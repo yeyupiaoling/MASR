@@ -49,8 +49,8 @@ class AudioSegment(object):
 
     def __str__(self):
         """返回该音频的信息"""
-        return ("%s: num_samples=%d, sample_rate=%d, duration=%.2fsec, "
-                "rms=%.2fdB" % (type(self), self.num_samples, self.sample_rate, self.duration, self.rms_db))
+        return (f"{type(self)}: num_samples={self.num_samples}, sample_rate={self.sample_rate}, "
+                f"duration={self.duration:.2f}sec, rms={self.rms_db:.2f}dB")
 
     @classmethod
     def from_file(cls, file):
@@ -97,9 +97,9 @@ class AudioSegment(object):
         if start < 0.0: start = 0.0
         if end > duration: end = duration
         if end < 0.0:
-            raise ValueError("切片结束位置(%f s)越界" % end)
+            raise ValueError(f"切片结束位置({end} s)越界")
         if start > end:
-            raise ValueError("切片开始位置(%f s)晚于切片结束位置(%f s)" % (start, end))
+            raise ValueError(f"切片开始位置({start} s)晚于切片结束位置({end} s)")
         start_frame = int(start * sample_rate)
         end_frame = int(end * sample_rate)
         sndfile.seek(start_frame)
@@ -222,7 +222,7 @@ class AudioSegment(object):
         :raise ValueError: 不能添加不同类型的段
         """
         if not isinstance(other, type(self)):
-            raise TypeError("不能添加不同类型的段: %s 和 %s" % (type(self), type(other)))
+            raise TypeError(f"不能添加不同类型的段: {type(self)} 和 {type(other)}")
         if self._sample_rate != other._sample_rate:
             raise ValueError("采样率必须匹配才能添加片段")
         if len(self._samples) != len(other._samples):
@@ -258,7 +258,7 @@ class AudioSegment(object):
 
         Note that this is an in-place transformation.
 
-        :param gain: Gain in decibels to apply to samples. 
+        :param gain: Gain in decibels to apply to samples.
         :type gain: float|1darray
         """
         self._samples *= 10. ** (gain / 20.)
@@ -298,7 +298,6 @@ class AudioSegment(object):
         :raises ValueError: If the required gain to normalize the segment to
                             the target_db value exceeds max_gain_db.
         """
-        if -np.inf == self.rms_db: return
         gain = target_db - self.rms_db
         if gain > max_gain_db:
             raise ValueError(f"无法将段规范化到{target_db}dB，音频增益{gain}增益已经超过max_gain_db ({max_gain_db}dB)")
@@ -342,7 +341,7 @@ class AudioSegment(object):
         elif sides == "both":
             padded = cls.concatenate(silence, self, silence)
         else:
-            raise ValueError("Unknown value for the sides %s" % sides)
+            raise ValueError(f"Unknown value for the sides {sides}")
         self._samples = padded._samples
 
     def shift(self, shift_ms):
@@ -386,13 +385,13 @@ class AudioSegment(object):
         if end_sec < 0.0:
             end_sec = self.duration + end_sec
         if start_sec < 0.0:
-            raise ValueError("切片起始位置(%f s)越界" % start_sec)
+            raise ValueError(f"切片起始位置({start_sec} s)越界")
         if end_sec < 0.0:
-            raise ValueError("切片结束位置(%f s)越界" % end_sec)
+            raise ValueError(f"切片结束位置({end_sec} s)越界")
         if start_sec > end_sec:
-            raise ValueError("切片的起始位置(%f s)晚于结束位置(%f s)" % (start_sec, end_sec))
+            raise ValueError(f"切片的起始位置({start_sec} s)晚于结束位置({end_sec} s)")
         if end_sec > self.duration:
-            raise ValueError("切片结束位置(%f s)越界(> %f s)" % (end_sec, self.duration))
+            raise ValueError(f"切片结束位置({end_sec} s)越界(> {self.duration} s)")
         start_sample = int(round(start_sec * self._sample_rate))
         end_sample = int(round(end_sec * self._sample_rate))
         self._samples = self._samples[start_sample:end_sample]
@@ -421,7 +420,7 @@ class AudioSegment(object):
         :param impulse_segment: Impulse response segments.
         :type impulse_segment: AudioSegment
         :param allow_resample: Indicates whether resampling is allowed when
-                               the impulse_segment has a different sample 
+                               the impulse_segment has a different sample
                                rate from this signal.
         :type allow_resample: bool
         :raises ValueError: If the sample rate is not match between two
@@ -430,8 +429,7 @@ class AudioSegment(object):
         if allow_resample and self.sample_rate != impulse_segment.sample_rate:
             impulse_segment.resample(self.sample_rate)
         if self.sample_rate != impulse_segment.sample_rate:
-            raise ValueError("脉冲段采样率(%d Hz)不等于基信号采样率(%d Hz)" %
-                             (impulse_segment.sample_rate, self.sample_rate))
+            raise ValueError(f"脉冲段采样率({impulse_segment.sample_rate} Hz)不等于基信号采样率({self.sample_rate} Hz)")
         samples = signal.fftconvolve(self.samples, impulse_segment.samples, "full")
         self._samples = samples
 
@@ -472,9 +470,9 @@ class AudioSegment(object):
                             is shorter than original audio segments.
         """
         if noise.sample_rate != self.sample_rate:
-            raise ValueError("噪声采样率(%d Hz)不等于基信号采样率(%d Hz)" % (noise.sample_rate, self.sample_rate))
+            raise ValueError(f"噪声采样率({noise.sample_rate} Hz)不等于基信号采样率({self.sample_rate} Hz)")
         if noise.duration < self.duration:
-            raise ValueError("噪声信号(%f秒)必须至少与基信号(%f秒)一样长" % (noise.duration, self.duration))
+            raise ValueError(f"噪声信号({noise.duration}秒)必须至少与基信号({self.duration}秒)一样长")
         noise_gain_db = min(self.rms_db - noise.rms_db - snr_dB, max_gain_db)
         noise_new = copy.deepcopy(noise)
         noise_new.random_subsegment(self.duration)
@@ -526,16 +524,19 @@ class AudioSegment(object):
         """
         # square root => multiply by 10 instead of 20 for dBs
         mean_square = np.mean(self._samples ** 2)
+        if mean_square == 0:
+            mean_square = 1
         return 10 * np.log10(mean_square)
 
-    def _convert_samples_to_float32(self, samples):
+    @staticmethod
+    def _convert_samples_to_float32(samples):
         """Convert sample type to float32.
 
         Audio sample type is usually integer or float-point.
         Integers will be scaled to [-1, 1] in float32.
         """
         float32_samples = samples.astype('float32')
-        if samples.dtype in np.sctypes['int']:
+        if samples.dtype in [np.int8, np.int16, np.int32, np.int64]:
             bits = np.iinfo(samples.dtype).bits
             float32_samples *= (1. / 2 ** (bits - 1))
         elif samples.dtype in np.sctypes['float']:
@@ -544,7 +545,8 @@ class AudioSegment(object):
             raise TypeError("Unsupported sample type: %s." % samples.dtype)
         return float32_samples
 
-    def _convert_samples_from_float32(self, samples, dtype):
+    @staticmethod
+    def _convert_samples_from_float32(samples, dtype):
         """Convert sample type from float32 to dtype.
 
         Audio sample type is usually integer or float-point. For integer
@@ -555,7 +557,7 @@ class AudioSegment(object):
         """
         dtype = np.dtype(dtype)
         output_samples = samples.copy()
-        if dtype in np.sctypes['int']:
+        if dtype in [np.int8, np.int16, np.int32, np.int64]:
             bits = np.iinfo(dtype).bits
             output_samples *= (2 ** (bits - 1) / 1.)
             min_val = np.iinfo(dtype).min

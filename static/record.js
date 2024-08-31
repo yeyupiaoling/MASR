@@ -105,7 +105,7 @@ var MASRRecorder = function (stream, url, textResult) {
     socket.onopen = () => {
         socket.binaryType = 'arraybuffer';
         this.start();
-        textResult.innerText = ''
+        textResult.value = ''
     };
     //接收到消息的回调方法
     socket.onmessage = function (MesssageEvent) {
@@ -115,7 +115,7 @@ var MASRRecorder = function (stream, url, textResult) {
         let data = JSON.parse(jsonStr)
         let code = data['code'];
         if (code === 0){
-            textResult.innerText = data['result']
+            textResult.value = data['result']
         }else {
             let msg = data['msg'];
             alert('报错，错误信息：' + msg)
@@ -124,7 +124,7 @@ var MASRRecorder = function (stream, url, textResult) {
     //连接关闭的回调方法
     socket.onerror = function (err) {
         console.info(err)
-        textResult.innerText = err
+        textResult.value = err
     }
     //关闭websocket连接
     socket.onclose = function (msg) {

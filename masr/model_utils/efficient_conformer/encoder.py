@@ -3,7 +3,7 @@ from typing import Tuple, Optional, List, Union
 import torch
 import torch.nn.functional as F
 from torch import nn
-from typeguard import check_argument_types
+from typeguard import typechecked
 
 from masr.model_utils.conformer.attention import MultiHeadedAttention, RelPositionMultiHeadedAttention
 from masr.model_utils.conformer.embedding import PositionalEncoding, RelPositionalEncoding, NoPositionalEncoding
@@ -21,6 +21,7 @@ from masr.model_utils.utils.mask import make_pad_mask, add_optional_chunk_mask
 class EfficientConformerEncoder(torch.nn.Module):
     """Conformer encoder module."""
 
+    @typechecked
     def __init__(
             self,
             input_size: int,
@@ -68,7 +69,6 @@ class EfficientConformerEncoder(torch.nn.Module):
             group_size (int): group size of every GroupedAttention layer
             stride_kernel (bool): default True. True: recompute cnn kernels with stride.
         """
-        assert check_argument_types()
         super().__init__()
         self._output_size = output_size
 

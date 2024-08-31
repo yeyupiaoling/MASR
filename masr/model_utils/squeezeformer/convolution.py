@@ -2,12 +2,13 @@ from typing import Tuple
 
 import torch
 from torch import nn
-from typeguard import check_argument_types
+from typeguard import typechecked
 
 
 class ConvolutionModule(nn.Module):
     """ConvolutionModule in Conformer model."""
 
+    @typechecked
     def __init__(self,
                  channels: int,
                  kernel_size: int = 15,
@@ -23,7 +24,6 @@ class ConvolutionModule(nn.Module):
             kernel_size (int): Kernel size of conv layers.
             causal (int): Whether use causal convolution or not
         """
-        assert check_argument_types()
         super().__init__()
         self.bias = bias
         self.channels = channels

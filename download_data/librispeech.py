@@ -5,7 +5,7 @@ import os
 
 from utility import download, unpack, add_arguments
 
-URL_ROOT = "https://https://openslr.elda.org/resources/12"
+URL_ROOT = "https://https://openslr.trmal.net/resources/12"
 URL_TEST_CLEAN = URL_ROOT + "/test-clean.tar.gz"
 URL_TEST_OTHER = URL_ROOT + "/test-other.tar.gz"
 URL_DEV_CLEAN = URL_ROOT + "/dev-clean.tar.gz"
@@ -49,13 +49,13 @@ def create_annotation_text(data_dir, annotation_path):
             for line in io.open(text_filepath, encoding="utf8"):
                 segments = line.strip().split()
                 text = ' '.join(segments[1:]).lower()
-                audio_filepath = os.path.join(subfolder, segments[0] + '.flac')
+                audio_filepath = os.path.join(subfolder, segments[0] + '.flac').replace('\\', '/')
                 if 'test-clean' not in subfolder and 'test-other' not in subfolder and \
                         'dev-other' not in subfolder and 'dev-other' not in subfolder:
-                    f_train.write(audio_filepath[3:] + '\t' + text + '\n')
+                    f_train.write(audio_filepath.replace('../', '') + '\t' + text + '\n')
                 else:
                     if 'test-clean' in subfolder:
-                        f_test.write(audio_filepath[3:] + '\t' + text + '\n')
+                        f_test.write(audio_filepath.replace('../', '') + '\t' + text + '\n')
     f_test.close()
     f_train.close()
 
