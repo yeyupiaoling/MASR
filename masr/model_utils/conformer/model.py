@@ -16,7 +16,7 @@ __all__ = ["ConformerModel"]
 class ConformerModel(torch.nn.Module):
     def __init__(
             self,
-            input_dim: int,
+            input_size: int,
             vocab_size: int,
             mean_istd_path: str,
             streaming: bool = True,
@@ -29,7 +29,7 @@ class ConformerModel(torch.nn.Module):
             length_normalized_loss: bool = False):
         assert 0.0 <= ctc_weight <= 1.0, ctc_weight
         super().__init__()
-        self.input_dim = input_dim
+        self.input_size = input_size
         # 设置是否为流式模型
         self.streaming = streaming
         use_dynamic_chunk = False
@@ -40,7 +40,7 @@ class ConformerModel(torch.nn.Module):
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
-        self.encoder = ConformerEncoder(input_size=input_dim,
+        self.encoder = ConformerEncoder(input_size=input_size,
                                         global_cmvn=global_cmvn,
                                         use_dynamic_chunk=use_dynamic_chunk,
                                         causal=causal,

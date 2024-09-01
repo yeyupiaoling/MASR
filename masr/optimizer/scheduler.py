@@ -2,11 +2,7 @@ import math
 from typing import Union
 
 import torch
-try:
-    from torch.optim.lr_scheduler import LRScheduler
-except:
-    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
-
+from torch.optim.lr_scheduler import LRScheduler
 from typeguard import typechecked
 
 

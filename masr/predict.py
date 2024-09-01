@@ -3,17 +3,15 @@ from io import BufferedReader
 
 import numpy as np
 import yaml
+from loguru import logger
+from yeaudio.audio import AudioSegment
 
 from masr import SUPPORT_MODEL
-from masr.data_utils.audio import AudioSegment
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder, greedy_decoder_chunk
 from masr.infer_utils.inference_predictor import InferencePredictor
-from masr.utils.logger import setup_logger
 from masr.utils.utils import dict_to_object, print_arguments, download_model
-
-logger = setup_logger(__name__)
 
 
 class MASRPredictor:
@@ -103,16 +101,11 @@ class MASRPredictor:
             except ModuleNotFoundError:
                 logger.warning('==================================================================')
                 logger.warning('缺少 paddlespeech_ctcdecoders 库，请执行以下命令安装。')
-                logger.warning('python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
+                logger.warning(
+                    'python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
                 logger.warning('【注意】现在已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
                 logger.warning('==================================================================\n')
                 self.configs.decoder = 'ctc_greedy'
-
-    # 初始化VAD工具
-    def init_vad(self):
-        if self.vad_predictor is None:
-            from masr.infer_utils.vad_predictor import VADPredictor
-            self.vad_predictor = VADPredictor()
 
     # 解码模型输出结果
     def decode(self, output_data, use_pun, is_itn):
@@ -205,14 +198,13 @@ class MASRPredictor:
         :param sample_rate: 如果传入的事numpy数据，需要指定采样率
         :return: 识别的文本结果和解码的得分数
         """
-        self.init_vad()
         # 加载音频文件，并进行预处理
         audio_segment = self._load_audio(audio_data=audio_data, sample_rate=sample_rate)
         # 重采样，方便进行语音活动检测
         if audio_segment.sample_rate != self.configs.preprocess_conf.sample_rate:
             audio_segment.resample(self.configs.preprocess_conf.sample_rate)
         # 获取语音活动区域
-        speech_timestamps = self.vad_predictor.get_speech_timestamps(audio_segment.samples, audio_segment.sample_rate)
+        speech_timestamps = audio_segment.vad()
         texts, scores = '', []
         for t in speech_timestamps:
             audio_ndarray = audio_segment.samples[t['start']: t['end']]

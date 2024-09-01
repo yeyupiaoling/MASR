@@ -1,34 +1,51 @@
 import json
 
 import numpy as np
+import torch
 from torch.utils.data import Dataset
+from yeaudio.audio import AudioSegment
+from yeaudio.augmentation import ReverbPerturbAugmentor, SpecAugmentor, SpecSubAugmentor
+from yeaudio.augmentation import SpeedPerturbAugmentor, VolumePerturbAugmentor, NoisePerturbAugmentor
 
-from masr.data_utils.audio import AudioSegment
-from masr.data_utils.augmentor.augmentation import AugmentationPipeline
 from masr.data_utils.binary import DatasetReader
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
-from masr.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 
 
 # 音频数据加载器
 class MASRDataset(Dataset):
     def __init__(self,
-                 preprocess_configs,
                  data_manifest,
-                 vocab_filepath,
+                 audio_featurizer: AudioFeaturizer,
+                 text_featurizer: TextFeaturizer,
                  min_duration=0,
                  max_duration=20,
-                 augmentation_config='{}',
+                 aug_conf=None,
                  manifest_type='txt',
-                 train=False):
+                 sample_rate=16000,
+                 use_dB_normalization=True,
+                 target_dB=-20,
+                 mode="train"):
         super(MASRDataset, self).__init__()
-        self._augmentation_pipeline = AugmentationPipeline(augmentation_config=augmentation_config)
-        self._audio_featurizer = AudioFeaturizer(train=train, **preprocess_configs)
-        self._text_featurizer = TextFeaturizer(vocab_filepath)
+        assert manifest_type in ['txt', 'binary'], "数据列表类型只支持txt和binary"
+        assert mode in ['train', 'val', 'test'], "数据模式只支持train、val和test"
+        self._audio_featurizer = audio_featurizer
+        self._text_featurizer = text_featurizer
         self.manifest_type = manifest_type
+        self._target_sample_rate = sample_rate
+        self._use_dB_normalization = use_dB_normalization
+        self._use_dB_normalization = use_dB_normalization
+        self._target_dB = target_dB
+        self.mode = mode
+        self.speed_augment = None
+        self.volume_augment = None
+        self.noise_augment = None
+        self.reverb_augment = None
+        self.spec_augment = None
+        self.spec_sub_augment = None
+        if mode == "train" and aug_conf is not None:
+            # 获取数据增强器
+            self.get_augmentor(aug_conf)
         if self.manifest_type == 'txt':
             # 获取文本格式数据列表
             with open(data_manifest, 'r', encoding='utf-8') as f:
@@ -67,12 +84,26 @@ class MASRDataset(Dataset):
                 # 分割读取音频
                 audio_segment = AudioSegment.slice_from_file(audio_file, start=start_time, end=end_time)
             # 音频增强
-            self._augmentation_pipeline.transform_audio(audio_segment)
+            if self.mode == 'train':
+                audio_segment = self.augment_audio(audio_segment)
+            # 重采样
+            if audio_segment.sample_rate != self._target_sample_rate:
+                audio_segment.resample(self._target_sample_rate)
+            # 音量归一化
+            if self._use_dB_normalization:
+                audio_segment.normalize(target_db=self._target_dB)
             # 预处理，提取特征
-            feature = self._audio_featurizer.featurize(audio_segment)
+            feature = self._audio_featurizer.featurize(waveform=audio_segment.samples,
+                                                       sample_rate=audio_segment.sample_rate)
         transcript = self._text_featurizer.featurize(transcript)
         # 特征增强
-        feature = self._augmentation_pipeline.transform_feature(feature)
+        if self.mode == 'train':
+            feature = feature.cpu().numpy()
+            if self.spec_augment is not None:
+                feature = self.spec_augment(feature)
+            if self.spec_sub_augment is not None:
+                feature = self.spec_sub_augment(feature)
+            feature = torch.tensor(feature, dtype=torch.float32)
         transcript = np.array(transcript, dtype=np.int32)
         return feature.astype(np.float32), transcript
 
@@ -89,29 +120,29 @@ class MASRDataset(Dataset):
             raise Exception(f'没有该类型：{self.manifest_type}')
         return data_list
 
-    @property
-    def feature_dim(self):
-        """返回音频特征大小
+    # 获取数据增强器
+    def get_augmentor(self, aug_conf):
+        if aug_conf.speed is not None:
+            self.speed_augment = SpeedPerturbAugmentor(**aug_conf.speed)
+        if aug_conf.volume is not None:
+            self.volume_augment = VolumePerturbAugmentor(**aug_conf.volume)
+        if aug_conf.noise is not None:
+            self.noise_augment = NoisePerturbAugmentor(**aug_conf.noise)
+        if aug_conf.reverb is not None:
+            self.reverb_augment = ReverbPerturbAugmentor(**aug_conf.reverb)
+        if aug_conf.spec_aug is not None:
+            self.spec_augment = SpecAugmentor(**aug_conf.spec_aug)
+        if aug_conf.spec_sub_aug is not None:
+            self.spec_sub_augment = SpecSubAugmentor(**aug_conf.spec_sub_aug)
 
-        :return: 词汇表大小
-        :rtype: int
-        """
-        return self._audio_featurizer.feature_dim
-
-    @property
-    def vocab_size(self):
-        """返回词汇表大小
-
-        :return: 词汇表大小
-        :rtype: int
-        """
-        return self._text_featurizer.vocab_size
-
-    @property
-    def vocab_list(self):
-        """返回词汇表列表
-
-        :return: 词汇表列表
-        :rtype: list
-        """
-        return self._text_featurizer.vocab_list
+    # 音频增强
+    def augment_audio(self, audio_segment):
+        if self.speed_augment is not None:
+            audio_segment = self.speed_augment(audio_segment)
+        if self.volume_augment is not None:
+            audio_segment = self.volume_augment(audio_segment)
+        if self.noise_augment is not None:
+            audio_segment = self.noise_augment(audio_segment)
+        if self.reverb_augment is not None:
+            audio_segment = self.reverb_augment(audio_segment)
+        return audio_segment

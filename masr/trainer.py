@@ -12,6 +12,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import yaml
+from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualdl import LogWriter
@@ -23,24 +24,23 @@ from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.data_utils.normalizer import FeatureNormalizer
 from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
+from masr.data_utils.utils import create_manifest, create_noise, count_manifest, merge_audio
 from masr.data_utils.utils import create_manifest_binary
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
-from masr.utils.logger import setup_logger
-from masr.utils.metrics import cer, wer
+from masr.model_utils import build_model
 from masr.optimizer.scheduler import WarmupLR, NoamHoldAnnealing, CosineWithWarmup
+from masr.utils.metrics import cer, wer
 from masr.utils.utils import dict_to_object, print_arguments
-from masr.data_utils.utils import create_manifest, create_noise, count_manifest, merge_audio
 from masr.utils.utils import labels_to_string
-
-logger = setup_logger(__name__)
 
 
 class MASRTrainer(object):
-    def __init__(self, configs, use_gpu=True):
+    def __init__(self, configs, use_gpu=True, data_augment_configs=None):
         """ MASR集成工具类
 
         :param configs: 配置文件路径或者是yaml读取到的配置参数
         :param use_gpu: 是否使用GPU训练模型
+        :param data_augment_configs: 数据增强配置字典或者其文件路径
         """
         if use_gpu:
             assert (torch.cuda.is_available()), 'GPU不可用'
@@ -54,11 +54,26 @@ class MASRTrainer(object):
                 configs = yaml.load(f.read(), Loader=yaml.FullLoader)
             print_arguments(configs=configs)
         self.configs = dict_to_object(configs)
+        # 读取数据增强配置文件
+        if isinstance(data_augment_configs, str):
+            with open(data_augment_configs, 'r', encoding='utf-8') as f:
+                data_augment_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+            print_arguments(configs=data_augment_configs, title='数据增强配置')
+        self.data_augment_configs = dict_to_object(data_augment_configs)
         self.local_rank = 0
         self.use_gpu = use_gpu
         assert self.configs.use_model in SUPPORT_MODEL, f'没有该模型：{self.configs.use_model}'
         self.model = None
+        self.model = None
+        self.optimizer = None
+        self.scheduler = None
+        self.audio_featurizer = None
+        self.text_featurizer = None
+        self.train_dataset = None
+        self.train_loader = None
+        self.test_dataset = None
         self.test_loader = None
+        self.amp_scaler = None
         self.beam_search_decoder = None
         if platform.system().lower() == 'windows':
             self.configs.dataset_conf.num_workers = 0
@@ -71,25 +86,28 @@ class MASRTrainer(object):
         self.test_log_step, self.train_log_step = 0, 0
         self.stop_train, self.stop_eval = False, False
 
-    def __setup_dataloader(self, augment_conf_path=None, is_train=False):
-        # 获取训练数据
-        if augment_conf_path is not None and os.path.exists(augment_conf_path) and is_train:
-            augmentation_config = io.open(augment_conf_path, mode='r', encoding='utf8').read()
-        else:
-            if augment_conf_path is not None and not os.path.exists(augment_conf_path):
-                logger.info('数据增强配置文件{}不存在'.format(augment_conf_path))
-            augmentation_config = '{}'
+    def __setup_dataloader(self, is_train=False):
+        """ 获取数据加载器
+
+        :param is_train: 是否获取训练数据
+        """
+        # 获取特征器
+        self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
+                                                method_args=self.configs.preprocess_conf.get('method_args', {}))
+        self.text_featurizer = TextFeaturizer(vocab_filepath=self.configs.preprocess_conf.vocab_filepath)
+        # 判断是否有归一化文件
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
+
+        dataset_args = self.configs.dataset_conf.get('dataset', {})
+        data_loader_args = self.configs.dataset_conf.get('dataLoader', {})
         if is_train:
-            self.train_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
-                                             data_manifest=self.configs.dataset_conf.train_manifest,
-                                             vocab_filepath=self.configs.dataset_conf.dataset_vocab,
-                                             min_duration=self.configs.dataset_conf.min_duration,
-                                             max_duration=self.configs.dataset_conf.max_duration,
-                                             augmentation_config=augmentation_config,
-                                             manifest_type=self.configs.dataset_conf.manifest_type,
-                                             train=is_train)
+            self.train_dataset = MASRDataset(data_manifest=self.configs.dataset_conf.train_manifest,
+                                             audio_featurizer=self.audio_featurizer,
+                                             text_featurizer=self.text_featurizer,
+                                             aug_conf=self.data_augment_configs,
+                                             mode='train',
+                                             **dataset_args)
             # 设置支持多卡训练
             if torch.cuda.device_count() > 1:
                 self.train_batch_sampler = DSElasticDistributedSampler(self.train_dataset,
@@ -106,30 +124,39 @@ class MASRTrainer(object):
             self.train_loader = DataLoader(dataset=self.train_dataset,
                                            collate_fn=collate_fn,
                                            batch_sampler=self.train_batch_sampler,
-                                           num_workers=self.configs.dataset_conf.num_workers)
+                                           **data_loader_args)
         # 获取测试数据
-        self.test_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
-                                        data_manifest=self.configs.dataset_conf.test_manifest,
-                                        vocab_filepath=self.configs.dataset_conf.dataset_vocab,
-                                        manifest_type=self.configs.dataset_conf.manifest_type,
-                                        min_duration=self.configs.dataset_conf.min_duration,
-                                        max_duration=self.configs.dataset_conf.max_duration)
+        self.test_dataset = MASRDataset(data_manifest=self.configs.dataset_conf.test_manifest,
+                                        audio_featurizer=self.audio_featurizer,
+                                        text_featurizer=self.text_featurizer,
+                                        mode='eval',
+                                        **dataset_args)
         self.test_loader = DataLoader(dataset=self.test_dataset,
                                       batch_size=self.configs.dataset_conf.batch_size,
                                       collate_fn=collate_fn,
-                                      num_workers=self.configs.dataset_conf.num_workers)
+                                      **data_loader_args)
 
     # 提取特征保存文件
-    def extract_features(self, save_dir='dataset/features'):
+    def extract_features(self, save_dir='dataset/features', max_duration=100):
+        """ 提取特征保存文件
+
+        :param save_dir: 保存路径
+        :param max_duration: 提取特征的最大时长，单位秒
+        """
+        # 获取特征器
+        self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
+                                                method_args=self.configs.preprocess_conf.get('method_args', {}))
         for i, data_list_file in enumerate([self.configs.dataset_conf.train_manifest,
                                             self.configs.dataset_conf.test_manifest]):
             save_dir1 = os.path.join(save_dir, data_list_file.split('.')[-1])
             os.makedirs(save_dir1, exist_ok=True)
-            test_dataset = MASRDataset(preprocess_configs=self.configs.preprocess_conf,
-                                       data_manifest=data_list_file,
-                                       vocab_filepath=self.configs.dataset_conf.dataset_vocab,
-                                       manifest_type=self.configs.dataset_conf.manifest_type,
-                                       max_duration=-1)
+            dataset_args = self.configs.dataset_conf.get('dataset', {})
+            dataset_args.max_duration = max_duration
+            test_dataset = MASRDataset(data_manifest=data_list_file,
+                                       audio_featurizer=self.audio_featurizer,
+                                       text_featurizer=self.text_featurizer,
+                                       mode='eval',
+                                       **dataset_args)
             save_dir_num = f'{int(time.time())}'
             os.makedirs(os.path.join(str(save_dir1), save_dir_num), exist_ok=True)
             all_feature, time_sum, index = None, 0, 0
@@ -165,52 +192,26 @@ class MASRTrainer(object):
             logger.info(f'[{data_list_file}]列表中的数据已提取特征完成，新列表为：[{save_data_list}]')
 
     def __setup_model(self, input_dim, vocab_size, is_train=False):
-        from masr.model_utils.squeezeformer.model import SqueezeformerModel
-        from masr.model_utils.conformer.model import ConformerModel
-        from masr.model_utils.efficient_conformer.model import EfficientConformerModel
-        from masr.model_utils.deepspeech2.model import DeepSpeech2Model
         # 获取模型
-        if self.configs.use_model == 'squeezeformer':
-            self.model = SqueezeformerModel(input_dim=input_dim,
-                                            vocab_size=vocab_size,
-                                            mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                            streaming=self.configs.streaming,
-                                            encoder_conf=self.configs.encoder_conf,
-                                            decoder_conf=self.configs.decoder_conf,
-                                            **self.configs.model_conf)
-        elif self.configs.use_model == 'efficient_conformer':
-            self.model = EfficientConformerModel(input_dim=input_dim,
-                                                 vocab_size=vocab_size,
-                                                 mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                                 streaming=self.configs.streaming,
-                                                 encoder_conf=self.configs.encoder_conf,
-                                                 decoder_conf=self.configs.decoder_conf,
-                                                 **self.configs.model_conf)
-        elif self.configs.use_model == 'conformer':
-            self.model = ConformerModel(input_dim=input_dim,
-                                        vocab_size=vocab_size,
-                                        mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                        streaming=self.configs.streaming,
-                                        encoder_conf=self.configs.encoder_conf,
-                                        decoder_conf=self.configs.decoder_conf,
-                                        **self.configs.model_conf)
-        elif self.configs.use_model == 'deepspeech2':
-            self.model = DeepSpeech2Model(input_dim=input_dim,
-                                          vocab_size=vocab_size,
-                                          mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                          streaming=self.configs.streaming,
-                                          encoder_conf=self.configs.encoder_conf,
-                                          decoder_conf=self.configs.decoder_conf)
-        else:
-            raise Exception('没有该模型：{}'.format(self.configs.use_model))
+        self.model = build_model(input_size=input_dim,
+                                 vocab_size=vocab_size,
+                                 mean_istd_path=self.configs.dataset_conf.mean_istd_path,
+                                 encoder_conf=self.configs.encoder_conf,
+                                 decoder_conf=self.configs.decoder_conf,
+                                 configs=self.configs.model_conf)
         if torch.cuda.device_count() > 1:
             self.model.to(self.local_rank)
         else:
             self.model.to(self.device)
+        # 使用Pytorch2.0的编译器
+        if self.configs.train_conf.use_compile and torch.__version__ >= "2" and platform.system().lower() == 'windows':
+            self.model = torch.compile(self.model, mode="reduce-overhead")
         # print(self.model)
         if is_train:
             if self.configs.train_conf.enable_amp:
-                self.amp_scaler = torch.cuda.amp.GradScaler(init_scale=1024)
+                self.amp_scaler = torch.GradScaler(init_scale=1024)
+            # 获取优化方法
+            self.optimizer = build_optimizer(params=self.model.parameters(), configs=self.configs)
             # 获取优化方法
             optimizer = self.configs.optimizer_conf.optimizer
             if optimizer == 'Adam':
@@ -405,7 +406,8 @@ class MASRTrainer(object):
                     # 计算每秒训练数据量
                     train_speed = self.configs.dataset_conf.batch_size / (sum(train_times) / len(train_times) / 1000)
                     # 计算剩余时间
-                    self.train_eta_sec = (sum(train_times) / len(train_times)) * (self.max_step - self.train_step) / 1000
+                    self.train_eta_sec = (sum(train_times) / len(train_times)) * (
+                            self.max_step - self.train_step) / 1000
                     eta_str = str(timedelta(seconds=int(self.train_eta_sec)))
                     self.train_loss = sum(loss_sum) / len(loss_sum)
                     logger.info(f'Train epoch: [{epoch_id}/{self.configs.train_conf.max_epoch}], '

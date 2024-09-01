@@ -1,19 +1,17 @@
 import json
 import math
 import os
-
-import numpy as np
 import random
 
+import numpy as np
 import torch
-from tqdm import tqdm
+from loguru import logger
 from torch.utils.data import Dataset, DataLoader
-from masr.data_utils.utils import read_manifest
-from masr.data_utils.audio import AudioSegment
-from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
-from masr.utils.logger import setup_logger
+from tqdm import tqdm
+from yeaudio.audio import AudioSegment
 
-logger = setup_logger(__name__)
+from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
+from masr.data_utils.utils import read_manifest
 
 __all__ = ['FeatureNormalizer']
 

@@ -14,8 +14,8 @@ __all__ = ["DeepSpeech2Model"]
 class DeepSpeech2Model(nn.Module):
     """The DeepSpeech2 network structure.
 
-    :param input_dim: feature size for audio.
-    :type input_dim: int
+    :param input_size: feature size for audio.
+    :type input_size: int
     :param vocab_size: Dictionary size for tokenized transcription.
     :type vocab_size: int
     :return: A tuple of an output unnormalized log probability layer (
@@ -24,19 +24,19 @@ class DeepSpeech2Model(nn.Module):
     """
 
     def __init__(self,
-                 input_dim: int,
+                 input_size: int,
                  vocab_size: int,
                  mean_istd_path: str,
                  streaming: bool = True,
                  encoder_conf: Dict = None,
                  decoder_conf: Dict = None):
         super().__init__()
-        self.input_dim = input_dim
+        self.input_size = input_size
         self.streaming = streaming
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
-        self.encoder = CRNNEncoder(input_dim=input_dim,
+        self.encoder = CRNNEncoder(input_dim=input_size,
                                    vocab_size=vocab_size,
                                    global_cmvn=global_cmvn,
                                    rnn_direction='forward' if streaming else 'bidirect',
@@ -79,23 +79,3 @@ class DeepSpeech2Model(nn.Module):
     def export(self):
         static_model = torch.jit.script(self)
         return static_model
-
-
-def DeepSpeech2ModelOnline(configs,
-                           input_dim: int,
-                           vocab_size: int):
-    model = DeepSpeech2Model(configs=configs,
-                             input_dim=input_dim,
-                             vocab_size=vocab_size,
-                             rnn_direction='forward')
-    return model
-
-
-def DeepSpeech2ModelOffline(configs,
-                            input_dim: int,
-                            vocab_size: int):
-    model = DeepSpeech2Model(configs=configs,
-                             input_dim=input_dim,
-                             vocab_size=vocab_size,
-                             rnn_direction='bidirect')
-    return model

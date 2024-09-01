@@ -45,11 +45,13 @@ class TextFeaturizer(object):
         """
         return self._vocab_list
 
-    def _char_tokenize(self, text):
+    @staticmethod
+    def _char_tokenize(text):
         """Character tokenizer."""
         return list(text.strip())
 
-    def _load_vocabulary_from_file(self, vocab_filepath):
+    @staticmethod
+    def _load_vocabulary_from_file(vocab_filepath):
         """Load vocabulary from file."""
         vocab_lines = []
         with open(vocab_filepath, 'r', encoding='utf-8') as file:

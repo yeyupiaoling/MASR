@@ -4,11 +4,8 @@ import re
 
 import numpy as np
 import paddle.inference as paddle_infer
+from loguru import logger
 from paddlenlp.transformers import ErnieTokenizer
-
-from masr.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 
 __all__ = ['PunctuationPredictor']
 
