@@ -8,7 +8,6 @@ parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('configs',              str,  'configs/conformer.yml',    '配置文件')
 add_arg('annotation_path',      str,  'dataset/annotation/',      '标注文件的路径')
-add_arg('noise_path',           str,  'dataset/audio/noise',      '噪声音频存放的文件夹路径')
 add_arg('save_audio_path',      str,  'dataset/audio/merge_audio','合并音频的保存路径')
 add_arg('is_change_frame_rate', bool, False,        '是否统一改变音频的采样率')
 add_arg('only_keep_zh_en',      bool, True,         '是否只保留中文和英文字符，训练其他语言可以设置为False')
@@ -27,7 +26,6 @@ trainer = MASRTrainer(configs=args.configs)
 
 # 创建训练数据列表和归一化文件
 trainer.create_data(annotation_path=args.annotation_path,
-                    noise_path=args.noise_path,
                     num_samples=args.num_samples,
                     count_threshold=args.count_threshold,
                     is_change_frame_rate=args.is_change_frame_rate,

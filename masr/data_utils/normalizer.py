@@ -1,5 +1,4 @@
 import json
-import math
 import os
 import random
 
@@ -39,17 +38,15 @@ class FeatureNormalizer(object):
         return mean, istd
 
     def compute_mean_istd(self,
-                          preprocess_configs,
+                          preprocess_conf,
                           manifest_path,
-                          num_workers=4,
-                          batch_size=64,
+                          data_loader_conf,
                           num_samples=5000):
         """从随机抽样的实例中计算均值和标准值，并写入到文件中
 
-        :param preprocess_configs: 数据预处理配置参数
+        :param preprocess_conf: 数据预处理配置参数
         :param manifest_path: 数据列表文件路径
-        :param num_workers: 计算的线程数量
-        :param batch_size: 计算的批量大小
+        :param data_loader_conf: DataLoader参数
         :param num_samples: 用于计算均值和标准值的音频数量
         """
         manifest = read_manifest(manifest_path)
@@ -58,8 +55,8 @@ class FeatureNormalizer(object):
         else:
             sampled_manifest = random.sample(manifest, num_samples)
         logger.info('开始抽取{}条数据计算均值和标准值...'.format(len(sampled_manifest)))
-        dataset = NormalizerDataset(sampled_manifest, preprocess_configs)
-        test_loader = DataLoader(dataset=dataset, batch_size=batch_size, collate_fn=collate_fn, num_workers=num_workers)
+        dataset = NormalizerDataset(sampled_manifest, preprocess_conf)
+        test_loader = DataLoader(dataset=dataset, collate_fn=collate_fn, **data_loader_conf)
         with torch.no_grad():
             # 求总和
             std, means = None, None
@@ -80,20 +77,20 @@ class FeatureNormalizer(object):
                 std[i] = std[i] / number - means[i] * means[i]
                 if std[i] < 1.0e-20:
                     std[i] = 1.0e-20
-                std[i] = math.sqrt(std[i])
+                std[i] = torch.sqrt(std[i])
         istd = 1.0 / std
         # 写入到文件中
-        data = {'mean': means.tolist(),
-                'istd': istd.tolist(),
-                'feature_method': preprocess_configs.feature_method}
+        data = {'mean': means.cpu().numpy().tolist(),
+                'istd': istd.cpu().numpy().tolist(),
+                'feature_method': preprocess_conf.feature_method}
         with open(self.mean_std_filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f)
 
 
 class NormalizerDataset(Dataset):
-    def __init__(self, sampled_manifest, preprocess_configs):
+    def __init__(self, sampled_manifest, preprocess_conf):
         super(NormalizerDataset, self).__init__()
-        self.audio_featurizer = AudioFeaturizer(**preprocess_configs)
+        self.audio_featurizer = AudioFeaturizer(**preprocess_conf)
         self.sampled_manifest = sampled_manifest
 
     def __getitem__(self, idx):
@@ -110,8 +107,8 @@ class NormalizerDataset(Dataset):
             # 读取音频
             audio = AudioSegment.slice_from_file(audio_file, start=start_time, end=end_time)
         # 获取音频特征
-        feature = self.audio_featurizer.featurize(audio)
-        return feature.astype(np.float32), 0
+        feature = self.audio_featurizer.featurize(waveform=audio.samples, sample_rate=audio.sample_rate)
+        return feature, 0
 
     def __len__(self):
         return len(self.sampled_manifest)
@@ -122,12 +119,12 @@ def collate_fn(features):
     number = 0
     for feature, _ in features:
         number += feature.shape[0]
-        sums = np.sum(feature, axis=0)
+        sums = torch.sum(feature, dim=0)
         if means is None:
             means = sums
         else:
             means += sums
-        square_sums = np.sum(np.square(feature), axis=0)
+        square_sums = torch.sum(np.square(feature), dim=0)
         if std is None:
             std = square_sums
         else:

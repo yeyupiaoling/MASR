@@ -30,6 +30,10 @@ class AudioFeaturizer(object):
         :return: 二维的音频特征
         :rtype: np.ndarray
         """
+        if isinstance(waveform, np.ndarray):
+            waveform = torch.tensor(waveform, dtype=torch.float32)
+        if waveform.ndim == 1:
+            waveform = waveform.unsqueeze(0)
         if self._mode == 'train':
             self._method_args.dither = 0.0
         # 计算音频特征

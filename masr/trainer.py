@@ -2,7 +2,6 @@ import io
 import json
 import os
 import platform
-import shutil
 import time
 from collections import Counter
 from contextlib import nullcontext
@@ -28,18 +27,27 @@ from masr.data_utils.utils import create_manifest, create_noise, count_manifest,
 from masr.data_utils.utils import create_manifest_binary
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.model_utils import build_model
-from masr.optimizer.scheduler import WarmupLR, NoamHoldAnnealing, CosineWithWarmup
+from masr.optimizer import build_optimizer, build_lr_scheduler
+from masr.utils.checkpoint import save_checkpoint, load_pretrained, load_checkpoint
 from masr.utils.metrics import cer, wer
 from masr.utils.utils import dict_to_object, print_arguments
 from masr.utils.utils import labels_to_string
 
 
 class MASRTrainer(object):
-    def __init__(self, configs, use_gpu=True, data_augment_configs=None):
+    def __init__(self,
+                 configs,
+                 use_gpu=True,
+                 metrics_type="cer",
+                 decoder="ctc_greedy",
+                 decoder_configs=None,
+                 data_augment_configs=None):
         """ MASR集成工具类
 
         :param configs: 配置文件路径或者是yaml读取到的配置参数
         :param use_gpu: 是否使用GPU训练模型
+        :param metrics_type: 评估指标类型，中文用cer，英文用wer
+        :param decoder: 解码器，支持ctc_greedy、ctc_beam_search
         :param data_augment_configs: 数据增强配置字典或者其文件路径
         """
         if use_gpu:
@@ -48,6 +56,8 @@ class MASRTrainer(object):
         else:
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
             self.device = torch.device("cpu")
+        if decoder == "ctc_beam_search":
+            assert decoder_configs is not None, '请配置ctc_beam_search解码器的参数'
         # 读取配置文件
         if isinstance(configs, str):
             with open(configs, 'r', encoding='utf-8') as f:
@@ -62,7 +72,9 @@ class MASRTrainer(object):
         self.data_augment_configs = dict_to_object(data_augment_configs)
         self.local_rank = 0
         self.use_gpu = use_gpu
-        assert self.configs.use_model in SUPPORT_MODEL, f'没有该模型：{self.configs.use_model}'
+        self.metrics_type = metrics_type
+        self.decoder = decoder
+        self.decoder_configs = decoder_configs
         self.model = None
         self.model = None
         self.optimizer = None
@@ -76,8 +88,7 @@ class MASRTrainer(object):
         self.amp_scaler = None
         self.beam_search_decoder = None
         if platform.system().lower() == 'windows':
-            self.configs.dataset_conf.num_workers = 0
-            self.configs.dataset_conf.prefetch_factor = 2
+            self.configs.dataset_conf.dataLoader.num_workers = 0
             logger.warning('Windows系统不支持多线程读取数据，已自动关闭！')
         self.max_step, self.train_step = None, None
         self.train_loss, self.train_eta_sec = None, None
@@ -94,7 +105,7 @@ class MASRTrainer(object):
         # 获取特征器
         self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
                                                 method_args=self.configs.preprocess_conf.get('method_args', {}))
-        self.text_featurizer = TextFeaturizer(vocab_filepath=self.configs.preprocess_conf.vocab_filepath)
+        self.text_featurizer = TextFeaturizer(vocab_filepath=self.configs.dataset_conf.dataset_vocab)
         # 判断是否有归一化文件
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
@@ -111,16 +122,9 @@ class MASRTrainer(object):
             # 设置支持多卡训练
             if torch.cuda.device_count() > 1:
                 self.train_batch_sampler = DSElasticDistributedSampler(self.train_dataset,
-                                                                       batch_size=self.configs.dataset_conf.batch_size,
-                                                                       sortagrad=True,
-                                                                       drop_last=True,
-                                                                       shuffle=True)
+                                                                       **self.configs.dataset_conf.batch_sampler)
             else:
-                self.train_batch_sampler = DSRandomSampler(self.train_dataset,
-                                                           batch_size=self.configs.dataset_conf.batch_size,
-                                                           sortagrad=True,
-                                                           drop_last=True,
-                                                           shuffle=True)
+                self.train_batch_sampler = DSRandomSampler(self.train_dataset, **self.configs.dataset_conf.batch_sampler)
             self.train_loader = DataLoader(dataset=self.train_dataset,
                                            collate_fn=collate_fn,
                                            batch_sampler=self.train_batch_sampler,
@@ -212,122 +216,22 @@ class MASRTrainer(object):
                 self.amp_scaler = torch.GradScaler(init_scale=1024)
             # 获取优化方法
             self.optimizer = build_optimizer(params=self.model.parameters(), configs=self.configs)
-            # 获取优化方法
-            optimizer = self.configs.optimizer_conf.optimizer
-            if optimizer == 'Adam':
-                self.optimizer = torch.optim.Adam(params=self.model.parameters(),
-                                                  lr=float(self.configs.optimizer_conf.learning_rate),
-                                                  weight_decay=float(self.configs.optimizer_conf.weight_decay))
-            elif optimizer == 'AdamW':
-                self.optimizer = torch.optim.AdamW(params=self.model.parameters(),
-                                                   lr=float(self.configs.optimizer_conf.learning_rate),
-                                                   weight_decay=float(self.configs.optimizer_conf.weight_decay))
-            elif optimizer == 'SGD':
-                self.optimizer = torch.optim.SGD(params=self.model.parameters(),
-                                                 momentum=self.configs.optimizer_conf.momentum,
-                                                 lr=float(self.configs.optimizer_conf.learning_rate),
-                                                 weight_decay=float(self.configs.optimizer_conf.weight_decay))
-            else:
-                raise Exception(f'不支持优化方法：{optimizer}')
-            # 学习率衰减
-            scheduler_conf = self.configs.optimizer_conf.scheduler_conf
-            scheduler = self.configs.optimizer_conf.scheduler
-            if scheduler == 'WarmupLR':
-                self.scheduler = WarmupLR(optimizer=self.optimizer, **scheduler_conf)
-            elif scheduler == 'NoamHoldAnnealing':
-                self.scheduler = NoamHoldAnnealing(optimizer=self.optimizer, **scheduler_conf)
-            elif scheduler == 'CosineWithWarmup':
-                self.scheduler = CosineWithWarmup(optimizer=self.optimizer, **scheduler_conf)
-            else:
-                raise Exception(f'不支持学习率衰减方法：{scheduler}')
-
-    def __load_pretrained(self, pretrained_model):
-        # 加载预训练模型
-        if pretrained_model is not None:
-            if os.path.isdir(pretrained_model):
-                pretrained_model = os.path.join(pretrained_model, 'model.pt')
-            assert os.path.exists(pretrained_model), f"{pretrained_model} 模型不存在！"
-            model_dict = self.model.state_dict()
-            model_state_dict = torch.load(pretrained_model)
-            # 特征层
-            for name, weight in model_dict.items():
-                if name in model_state_dict.keys():
-                    if list(weight.shape) != list(model_state_dict[name].shape):
-                        logger.warning('{} not used, shape {} unmatched with {} in model.'.
-                                       format(name, list(model_state_dict[name].shape), list(weight.shape)))
-                        model_state_dict.pop(name, None)
-                else:
-                    logger.warning('Lack weight: {}'.format(name))
-            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-                self.model.module.load_state_dict(model_state_dict, strict=False)
-            else:
-                self.model.load_state_dict(model_state_dict, strict=False)
-            logger.info(f'[GPU:{self.local_rank}] 成功加载预训练模型：{pretrained_model}')
-
-    def __load_checkpoint(self, save_model_path, resume_model):
-        last_epoch = -1
-        best_error_rate = 1.0
-        save_model_name = f'{self.configs.use_model}_{"streaming" if self.configs.streaming else "non-streaming"}' \
-                          f'_{self.configs.preprocess_conf.feature_method}'
-        last_model_dir = os.path.join(save_model_path, save_model_name, 'last_model')
-        if resume_model is not None or (os.path.exists(os.path.join(last_model_dir, 'model.pt'))
-                                        and os.path.exists(os.path.join(last_model_dir, 'optimizer.pt'))):
-            # 自动获取最新保存的模型
-            if resume_model is None: resume_model = last_model_dir
-            assert os.path.exists(os.path.join(resume_model, 'model.pt')), "模型参数文件不存在！"
-            assert os.path.exists(os.path.join(resume_model, 'optimizer.pt')), "优化方法参数文件不存在！"
-            state_dict = torch.load(os.path.join(resume_model, 'model.pt'))
-            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-                self.model.module.load_state_dict(state_dict)
-            else:
-                self.model.load_state_dict(state_dict)
-            self.optimizer.load_state_dict(torch.load(os.path.join(resume_model, 'optimizer.pt')))
-            with open(os.path.join(resume_model, 'model.state'), 'r', encoding='utf-8') as f:
-                json_data = json.load(f)
-                last_epoch = json_data['last_epoch'] - 1
-                if 'test_cer' in json_data.keys():
-                    best_error_rate = abs(json_data['test_cer'])
-                if 'test_wer' in json_data.keys():
-                    best_error_rate = abs(json_data['test_wer'])
-            logger.info(f'[GPU:{self.local_rank}] 成功恢复模型参数和优化方法参数：{resume_model}')
-        return last_epoch, best_error_rate
-
-    # 保存模型
-    def __save_checkpoint(self, save_model_path, epoch_id, error_rate=1.0, test_loss=1e3, best_model=False):
-        if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-            state_dict = self.model.module.state_dict()
-        else:
-            state_dict = self.model.state_dict()
-        save_model_name = f'{self.configs.use_model}_{"streaming" if self.configs.streaming else "non-streaming"}' \
-                          f'_{self.configs.preprocess_conf.feature_method}'
-        if best_model:
-            model_path = os.path.join(save_model_path, save_model_name, 'best_model')
-        else:
-            model_path = os.path.join(save_model_path, save_model_name, 'epoch_{}'.format(epoch_id))
-        os.makedirs(model_path, exist_ok=True)
-        torch.save(self.optimizer.state_dict(), os.path.join(model_path, 'optimizer.pt'))
-        torch.save(state_dict, os.path.join(model_path, 'model.pt'))
-        with open(os.path.join(model_path, 'model.state'), 'w', encoding='utf-8') as f:
-            data = {"last_epoch": epoch_id, f"test_{self.configs.metrics_type}": error_rate, "test_loss": test_loss,
-                    "version": __version__}
-            f.write(json.dumps(data))
-        if not best_model:
-            last_model_path = os.path.join(save_model_path, save_model_name, 'last_model')
-            shutil.rmtree(last_model_path, ignore_errors=True)
-            shutil.copytree(model_path, last_model_path)
-            # 删除旧的模型
-            old_model_path = os.path.join(save_model_path, save_model_name, 'epoch_{}'.format(epoch_id - 3))
-            if os.path.exists(old_model_path):
-                shutil.rmtree(old_model_path)
-        logger.info('已保存模型：{}'.format(model_path))
+            # 学习率衰减函数
+            self.scheduler = build_lr_scheduler(optimizer=self.optimizer, step_per_epoch=len(self.train_loader),
+                                                configs=self.configs)
 
     def __decoder_result(self, outs, vocabulary):
         # 集束搜索方法的处理
-        if self.configs.decoder == "ctc_beam_search" and self.beam_search_decoder is None:
+        if self.decoder == "ctc_beam_search" and self.beam_search_decoder is None:
             try:
                 from masr.decoders.beam_search_decoder import BeamSearchDecoder
-                self.beam_search_decoder = BeamSearchDecoder(vocab_list=vocabulary,
-                                                             **self.configs.ctc_beam_search_decoder_conf)
+                # 读取数据增强配置文件
+                if isinstance(self.decoder_configs, str):
+                    with open(self.decoder_configs, 'r', encoding='utf-8') as f:
+                        self.decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+                    print_arguments(configs=self.decoder_configs, title='BeamSearchDecoder解码器参数')
+                self.decoder_configs = dict_to_object(self.decoder_configs)
+                self.beam_search_decoder = BeamSearchDecoder(vocab_list=vocabulary, **self.decoder_configs)
             except ModuleNotFoundError:
                 logger.warning('==================================================================')
                 logger.warning('缺少 paddlespeech-ctcdecoders 库，请根据文档安装。')
@@ -335,11 +239,11 @@ class MASRTrainer(object):
                     'python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
                 logger.warning('【注意】现在已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
                 logger.warning('==================================================================\n')
-                self.configs.decoder = 'ctc_greedy'
+                self.decoder = 'ctc_greedy'
 
         # 执行解码
         outs = [outs[i, :, :] for i, _ in enumerate(range(outs.shape[0]))]
-        if self.configs.decoder == 'ctc_greedy':
+        if self.decoder == 'ctc_greedy':
             result = greedy_decoder_batch(outs, vocabulary)
         else:
             result = self.beam_search_decoder.decode_batch_beam_search_offline(probs_split=outs)
@@ -368,7 +272,7 @@ class MASRTrainer(object):
                 if num_utts == 0:
                     continue
                 # 执行模型计算，是否开启自动混合精度
-                with torch.cuda.amp.autocast(enabled=self.configs.train_conf.enable_amp):
+                with torch.autocast('cuda', enabled=self.configs.train_conf.enable_amp):
                     loss_dict = self.model(inputs, input_lens, labels, label_lens)
                 if torch.cuda.device_count() > 1 and batch_id % accum_grad != 0:
                     context = self.model.no_sync
@@ -425,12 +329,12 @@ class MASRTrainer(object):
                     train_times, reader_times, batch_times, loss_sum = [], [], [], []
                 # 固定步数也要保存一次模型
                 if batch_id % 10000 == 0 and batch_id != 0 and self.local_rank == 0:
-                    self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id)
+                    save_checkpoint(configs=self.configs, model=self.model, optimizer=self.optimizer,
+                                    amp_scaler=self.amp_scaler, save_model_path=save_model_path, epoch_id=epoch_id)
                 start = time.time()
 
     def create_data(self,
                     annotation_path='dataset/annotation/',
-                    noise_path='dataset/audio/noise',
                     num_samples=1000000,
                     count_threshold=2,
                     is_change_frame_rate=True,
@@ -442,7 +346,6 @@ class MASRTrainer(object):
         """
         创建数据列表和词汇表
         :param annotation_path: 标注文件的路径
-        :param noise_path: 噪声音频存放的文件夹路径
         :param num_samples: 用于计算均值和标准值得音频数量，当为-1使用全部数据
         :param count_threshold: 字符计数的截断阈值，0为不做限制
         :param is_change_frame_rate: 是否统一改变音频的采样率
@@ -455,7 +358,7 @@ class MASRTrainer(object):
         if is_merge_audio:
             logger.info('开始合并音频...')
             merge_audio(annotation_path=annotation_path, save_audio_path=save_audio_path, max_duration=max_duration,
-                        target_sr=self.configs.preprocess_conf.sample_rate)
+                        target_sr=self.configs.dataset_conf.dataset.sample_rate)
             logger.info('合并音频已完成，原始音频文件和标注文件已自动删除，其他原始文件可手动删除！')
 
         logger.info('开始生成数据列表...')
@@ -465,13 +368,7 @@ class MASRTrainer(object):
                         only_keep_zh_en=only_keep_zh_en,
                         is_change_frame_rate=is_change_frame_rate,
                         max_test_manifest=max_test_manifest,
-                        target_sr=self.configs.preprocess_conf.sample_rate)
-        logger.info('=' * 70)
-        logger.info('开始生成噪声数据列表...')
-        create_noise(path=noise_path,
-                     noise_manifest_path=self.configs.dataset_conf.noise_manifest_path,
-                     is_change_frame_rate=is_change_frame_rate,
-                     target_sr=self.configs.preprocess_conf.sample_rate)
+                        target_sr=self.configs.dataset_conf.dataset.sample_rate)
         logger.info('=' * 70)
 
         logger.info('开始生成数据字典...')
@@ -493,13 +390,12 @@ class MASRTrainer(object):
         logger.info('=' * 70)
         normalizer = FeatureNormalizer(mean_istd_filepath=self.configs.dataset_conf.mean_istd_path)
         normalizer.compute_mean_istd(manifest_path=self.configs.dataset_conf.train_manifest,
-                                     num_workers=self.configs.dataset_conf.num_workers,
-                                     preprocess_configs=self.configs.preprocess_conf,
-                                     batch_size=self.configs.dataset_conf.batch_size,
+                                     preprocess_conf=self.configs.preprocess_conf,
+                                     data_loader_conf=self.configs.dataset_conf.dataLoader,
                                      num_samples=num_samples)
         print('计算的均值和标准值已保存在 %s！' % self.configs.dataset_conf.mean_istd_path)
 
-        if self.configs.dataset_conf.manifest_type == 'binary':
+        if self.configs.dataset_conf.dataset.manifest_type == 'binary':
             logger.info('=' * 70)
             logger.info('正在生成数据列表的二进制文件...')
             create_manifest_binary(train_manifest_path=self.configs.dataset_conf.train_manifest,
@@ -509,17 +405,13 @@ class MASRTrainer(object):
     def train(self,
               save_model_path='models/',
               resume_model=None,
-              pretrained_model=None,
-              augment_conf_path='configs/augmentation.json'):
+              pretrained_model=None):
         """
         训练模型
         :param save_model_path: 模型保存的路径
         :param resume_model: 恢复训练，当为None则不使用预训练模型
         :param pretrained_model: 预训练模型的路径，当为None则不使用预训练模型
-        :param augment_conf_path: 数据增强的配置文件，为json格式
         """
-        # 训练只能用贪心解码，解码速度快
-        self.configs.decoder = 'ctc_greedy'
         # 获取有多少张显卡训练
         nranks = torch.cuda.device_count()
         if nranks > 1:
@@ -532,27 +424,26 @@ class MASRTrainer(object):
             writer = LogWriter(logdir='log')
 
         # 获取数据
-        self.__setup_dataloader(augment_conf_path=augment_conf_path, is_train=True)
+        self.__setup_dataloader(is_train=True)
         # 获取模型
-        self.__setup_model(input_dim=self.test_dataset.feature_dim,
-                           vocab_size=self.test_dataset.vocab_size,
+        self.__setup_model(input_dim=self.audio_featurizer.feature_dim,
+                           vocab_size=self.text_featurizer.vocab_size,
                            is_train=True)
-
+        # 加载预训练模型
+        self.model = load_pretrained(model=self.model, pretrained_model=pretrained_model)
+        # 加载恢复模型
+        self.model, self.optimizer, self.amp_scaler, self.scheduler, last_epoch, self.eval_error_result = \
+            load_checkpoint(configs=self.configs, model=self.model, optimizer=self.optimizer,
+                            amp_scaler=self.amp_scaler, scheduler=self.scheduler, step_epoch=len(self.train_loader),
+                            save_model_path=save_model_path, resume_model=resume_model)
         # 支持多卡训练
         if nranks > 1:
-            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.local_rank],
-                                                                   find_unused_parameters=self.configs.use_model == 'efficient_conformer')
+            self.model.to(self.local_rank)
+            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.local_rank])
         if self.local_rank == 0:
             logger.info('训练数据：{}'.format(len(self.train_dataset)))
-
-        self.__load_pretrained(pretrained_model=pretrained_model)
-        # 加载恢复模型
-        last_epoch, self.eval_best_error_rate = self.__load_checkpoint(save_model_path=save_model_path,
-                                                                       resume_model=resume_model)
-
-        self.train_loss = None
+        self.train_loss, self.eval_loss = None, None
         self.test_log_step, self.train_log_step = 0, 0
-        self.eval_loss, self.eval_error_result = None, None
         last_epoch += 1
         self.train_batch_sampler.epoch = last_epoch
         if self.local_rank == 0:
@@ -574,24 +465,27 @@ class MASRTrainer(object):
                 self.eval_loss, self.eval_error_result = self.evaluate(resume_model=None)
                 logger.info(
                     f'Test epoch: {epoch_id}, time/epoch: {str(timedelta(seconds=(time.time() - start_epoch)))}, '
-                    f'loss: {self.eval_loss:.5f}, {self.configs.metrics_type}: {self.eval_error_result:.5f}, '
-                    f'best {self.configs.metrics_type}: '
+                    f'loss: {self.eval_loss:.5f}, {self.metrics_type}: {self.eval_error_result:.5f}, '
+                    f'best {self.metrics_type}: '
                     f'{self.eval_error_result if self.eval_error_result <= self.eval_best_error_rate else self.eval_best_error_rate:.5f}')
                 logger.info('=' * 70)
-                writer.add_scalar(f'Test/{self.configs.metrics_type}', self.eval_error_result, self.test_log_step)
+                writer.add_scalar(f'Test/{self.metrics_type}', self.eval_error_result, self.test_log_step)
                 writer.add_scalar('Test/Loss', self.eval_loss, self.test_log_step)
                 self.test_log_step += 1
                 self.model.train()
                 # 保存最优模型
                 if self.eval_error_result <= self.eval_best_error_rate:
                     self.eval_best_error_rate = self.eval_error_result
-                    self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id,
-                                           error_rate=self.eval_error_result, test_loss=self.eval_loss, best_model=True)
+                    save_checkpoint(configs=self.configs, model=self.model, optimizer=self.optimizer,
+                                    amp_scaler=self.amp_scaler, save_model_path=save_model_path, epoch_id=epoch_id,
+                                    error_rate=self.eval_error_result, metrics_type=self.metrics_type,
+                                    best_model=True)
                 # 保存模型
-                self.__save_checkpoint(save_model_path=save_model_path, epoch_id=epoch_id,
-                                       error_rate=self.eval_error_result, test_loss=self.eval_loss)
+                save_checkpoint(configs=self.configs, model=self.model, optimizer=self.optimizer,
+                                amp_scaler=self.amp_scaler, save_model_path=save_model_path, epoch_id=epoch_id,
+                                error_rate=self.eval_error_result, metrics_type=self.metrics_type)
 
-    def evaluate(self, resume_model='models/conformer_streaming_fbank/best_model/', display_result=False):
+    def evaluate(self, resume_model=None, display_result=False):
         """
         评估模型
         :param resume_model: 所使用的模型
@@ -605,7 +499,7 @@ class MASRTrainer(object):
                                vocab_size=self.test_dataset.vocab_size)
         if resume_model is not None:
             if os.path.isdir(resume_model):
-                resume_model = os.path.join(resume_model, 'model.pt')
+                resume_model = os.path.join(resume_model, 'model.pth')
             assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
             if self.use_gpu:
                 model_state_dict = torch.load(resume_model)
@@ -636,7 +530,7 @@ class MASRTrainer(object):
                 labels_str = labels_to_string(labels, self.test_dataset.vocab_list, eos=eos)
                 for out_string, label in zip(*(out_strings, labels_str)):
                     # 计算字错率或者词错率
-                    if self.configs.metrics_type == 'wer':
+                    if self.metrics_type == 'wer':
                         error_rate = wer(out_string, label)
                     else:
                         error_rate = cer(out_string, label)
@@ -644,8 +538,8 @@ class MASRTrainer(object):
                     if display_result:
                         logger.info(f'预测结果为：{out_string}')
                         logger.info(f'实际标签为：{label}')
-                        logger.info(f'这条数据的{self.configs.metrics_type}：{round(error_rate, 6)}，'
-                                    f'当前{self.configs.metrics_type}：{round(sum(error_results) / len(error_results), 6)}')
+                        logger.info(f'这条数据的{self.metrics_type}：{round(error_rate, 6)}，'
+                                    f'当前{self.metrics_type}：{round(sum(error_results) / len(error_results), 6)}')
                         logger.info('-' * 70)
         loss = float(sum(losses) / len(losses)) if len(losses) > 0 else -1
         error_result = float(sum(error_results) / len(error_results)) if len(error_results) > 0 else -1

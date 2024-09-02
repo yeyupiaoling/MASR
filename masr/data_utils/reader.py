@@ -95,7 +95,6 @@ class MASRDataset(Dataset):
             # 预处理，提取特征
             feature = self._audio_featurizer.featurize(waveform=audio_segment.samples,
                                                        sample_rate=audio_segment.sample_rate)
-        transcript = self._text_featurizer.featurize(transcript)
         # 特征增强
         if self.mode == 'train':
             feature = feature.cpu().numpy()

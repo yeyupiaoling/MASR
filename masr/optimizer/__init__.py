@@ -18,7 +18,7 @@ def build_optimizer(params, configs):
 
 
 def build_lr_scheduler(optimizer, step_per_epoch, configs):
-    use_scheduler = configs.optimizer_conf.get('scheduler', 'WarmupCosineSchedulerLR')
+    use_scheduler = configs.optimizer_conf.get('scheduler', 'WarmupLR')
     scheduler_args = configs.optimizer_conf.get('scheduler_args', {})
     if configs.optimizer_conf.scheduler == 'CosineAnnealingLR' and 'T_max' not in scheduler_args:
         scheduler_args.T_max = int(configs.train_conf.max_epoch * 1.2) * step_per_epoch
