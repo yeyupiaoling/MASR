@@ -55,7 +55,7 @@ dataset_conf:
     manifest_type: 'txt'
   batch_sampler:
     # 训练的批量大小
-    batch_size: 8
+    batch_size: 6
     sortagrad: True
     drop_last: True
     shuffle: True
@@ -87,7 +87,7 @@ optimizer_conf:
   optimizer_args:
     lr: 0.001
     weight_decay: !!float 1.e-6
-  # 学习率衰减函数，支持Pytorch支持的和项目提供的WarmupCosineSchedulerLR和WarmupLR
+  # 学习率衰减函数，支持Pytorch支持的和项目提供的额外方法
   scheduler: 'WarmupLR'
   # 学习率衰减函数参数
   scheduler_args:

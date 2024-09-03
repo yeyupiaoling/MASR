@@ -1,18 +1,13 @@
-import gc
-import io
-import itertools
 import json
 import os
 import time
 import wave
 
-import av
 import numpy as np
-import resampy
 import soundfile
 from loguru import logger
-from pydub import AudioSegment
 from tqdm import tqdm
+from yeaudio.audio import AudioSegment
 from zhconv import convert
 
 from masr.data_utils.binary import DatasetWriter
@@ -97,8 +92,8 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
                 if is_change_frame_rate:
                     change_rate(audio_path, target_sr=target_sr)
                 # 获取音频长度
-                audio_data, samplerate = soundfile.read(audio_path)
-                duration = float(len(audio_data)) / samplerate
+                audio_segment = AudioSegment.from_file(audio_path)
+                duration = audio_segment.duration
                 durations.append(duration)
                 text = text.lower().strip()
                 if only_keep_zh_en:
@@ -161,21 +156,17 @@ def merge_audio(annotation_path, save_audio_path, max_duration=600, target_sr=16
         for line in tqdm(lines):
             audio_path, text = line.replace('\n', '').replace('\r', '').split('\t')
             if not os.path.exists(audio_path): continue
-            audio_data, samplerate = soundfile.read(audio_path)
-            # 获取音频长度
-            duration = float(len(audio_data)) / samplerate
-            # 重新调整音频格式并保存
-            if samplerate != target_sr:
-                audio_data = resampy.resample(audio_data, sr_orig=samplerate, sr_new=target_sr)
-                soundfile.write(audio_path, audio_data, samplerate=target_sr)
-                audio_data, _ = soundfile.read(audio_path)
+            audio_segment = AudioSegment.from_file(audio_path)
+            # 重采样
+            if audio_segment.sample_rate != target_sr:
+                audio_segment.resample(target_sample_rate=target_sr)
             # 合并数据
-            duration_sum.append(duration)
-            wav.append(audio_data)
+            duration_sum.append(audio_segment.duration)
+            wav.append(audio_segment.samples)
             # 列表数据
             list_d = dict(text=text,
-                          duration=round(duration, 5),
-                          start_time=round(sum(duration_sum) - duration, 5),
+                          duration=round(audio_segment.duration, 5),
+                          start_time=round(sum(duration_sum) - audio_segment.duration, 5),
                           end_time=round(sum(duration_sum), 5))
             list_data.append(list_d)
             # 删除已处理的音频文件
@@ -206,18 +197,13 @@ def merge_audio(annotation_path, save_audio_path, max_duration=600, target_sr=16
 # 改变音频采样率
 def change_rate(audio_path, target_sr=16000):
     is_change = False
-    wav, samplerate = soundfile.read(audio_path, dtype='float32')
-    # 多通道转单通道
-    if wav.ndim > 1:
-        wav = wav.T
-        wav = np.mean(wav, axis=tuple(range(wav.ndim - 1)))
-        is_change = True
+    audio_segment = AudioSegment.from_file(audio_path)
     # 重采样
-    if samplerate != target_sr:
-        wav = resampy.resample(wav, sr_orig=samplerate, sr_new=target_sr)
+    if audio_segment.sample_rate != target_sr:
+        audio_segment.resample(target_sample_rate=target_sr)
         is_change = True
     if is_change:
-        soundfile.write(audio_path, wav, samplerate=target_sr)
+        audio_segment.to_wav_file(audio_path)
 
 
 # 过滤非法的字符
@@ -310,6 +296,6 @@ def create_manifest_binary(train_manifest_path, test_manifest_path):
 
 
 def opus_to_wav(opus_path, save_wav_path, rate=16000):
-    source_wav = AudioSegment.from_file(opus_path)
-    target_audio = source_wav.set_frame_rate(rate)
-    target_audio.export(save_wav_path, format="wav")
+    audio_segment = AudioSegment.from_file(opus_path)
+    audio_segment.resample(rate)
+    audio_segment.to_wav_file(save_wav_path)

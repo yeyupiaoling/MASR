@@ -5,11 +5,11 @@ import random
 import numpy as np
 import torch
 from loguru import logger
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from tqdm import tqdm
-from yeaudio.audio import AudioSegment
 
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
+from masr.data_utils.reader import MASRDataset
 from masr.data_utils.utils import read_manifest
 
 __all__ = ['FeatureNormalizer']
@@ -55,7 +55,8 @@ class FeatureNormalizer(object):
         else:
             sampled_manifest = random.sample(manifest, num_samples)
         logger.info('开始抽取{}条数据计算均值和标准值...'.format(len(sampled_manifest)))
-        dataset = NormalizerDataset(sampled_manifest, preprocess_conf)
+        audio_featurizer = AudioFeaturizer(**preprocess_conf)
+        dataset = MASRDataset(sampled_manifest, audio_featurizer=audio_featurizer)
         test_loader = DataLoader(dataset=dataset, collate_fn=collate_fn, **data_loader_conf)
         with torch.no_grad():
             # 求总和
@@ -87,37 +88,10 @@ class FeatureNormalizer(object):
             json.dump(data, f)
 
 
-class NormalizerDataset(Dataset):
-    def __init__(self, sampled_manifest, preprocess_conf):
-        super(NormalizerDataset, self).__init__()
-        self.audio_featurizer = AudioFeaturizer(**preprocess_conf)
-        self.sampled_manifest = sampled_manifest
-
-    def __getitem__(self, idx):
-        instance = self.sampled_manifest[idx]
-        if 'start_time' not in instance.keys():
-            # 分割音频路径和标签
-            audio_file, transcript = instance["audio_filepath"], instance["text"]
-            # 读取音频
-            audio = AudioSegment.from_file(audio_file)
-        else:
-            # 分割音频路径和标签
-            audio_file, transcript = instance["audio_filepath"], instance["text"]
-            start_time, end_time = instance["start_time"], instance["end_time"]
-            # 读取音频
-            audio = AudioSegment.slice_from_file(audio_file, start=start_time, end=end_time)
-        # 获取音频特征
-        feature = self.audio_featurizer.featurize(waveform=audio.samples, sample_rate=audio.sample_rate)
-        return feature, 0
-
-    def __len__(self):
-        return len(self.sampled_manifest)
-
-
 def collate_fn(features):
     std, means = None, None
     number = 0
-    for feature, _ in features:
+    for feature in features:
         number += feature.shape[0]
         sums = torch.sum(feature, dim=0)
         if means is None:

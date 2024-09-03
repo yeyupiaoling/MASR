@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 import numpy as np
 import torch
@@ -15,9 +16,9 @@ from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 # 音频数据加载器
 class MASRDataset(Dataset):
     def __init__(self,
-                 data_manifest,
+                 data_manifest: [str or List],
                  audio_featurizer: AudioFeaturizer,
-                 text_featurizer: TextFeaturizer,
+                 text_featurizer: TextFeaturizer = None,
                  min_duration=0,
                  max_duration=20,
                  aug_conf=None,
@@ -28,43 +29,26 @@ class MASRDataset(Dataset):
                  mode="train"):
         super(MASRDataset, self).__init__()
         assert manifest_type in ['txt', 'binary'], "数据列表类型只支持txt和binary"
-        assert mode in ['train', 'val', 'test'], "数据模式只支持train、val和test"
+        assert mode in ['train', 'eval', 'test'], "数据模式只支持train、val和test"
         self._audio_featurizer = audio_featurizer
         self._text_featurizer = text_featurizer
         self.manifest_type = manifest_type
         self._target_sample_rate = sample_rate
         self._use_dB_normalization = use_dB_normalization
-        self._use_dB_normalization = use_dB_normalization
         self._target_dB = target_dB
         self.mode = mode
+        self.dataset_reader = None
         self.speed_augment = None
         self.volume_augment = None
         self.noise_augment = None
         self.reverb_augment = None
         self.spec_augment = None
         self.spec_sub_augment = None
+        # 获取数据列表
+        self.data_list = self.get_data_list(data_manifest, min_duration, max_duration)
+        # 获取数据增强器
         if mode == "train" and aug_conf is not None:
-            # 获取数据增强器
             self.get_augmentor(aug_conf)
-        if self.manifest_type == 'txt':
-            # 获取文本格式数据列表
-            with open(data_manifest, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-            self.data_list = []
-            for line in lines:
-                line = json.loads(line)
-                # 跳过超出长度限制的音频
-                if line["duration"] < min_duration:
-                    continue
-                if max_duration != -1 and line["duration"] > max_duration:
-                    continue
-                self.data_list.append(dict(line))
-        else:
-            # 获取二进制的数据列表
-            self.dataset_reader = DatasetReader(data_path=data_manifest,
-                                                min_duration=min_duration,
-                                                max_duration=max_duration)
-            self.data_list = self.dataset_reader.get_keys()
 
     def __getitem__(self, idx):
         data_list = self.get_one_list(idx)
@@ -97,20 +81,52 @@ class MASRDataset(Dataset):
                                                        sample_rate=audio_segment.sample_rate)
         # 特征增强
         if self.mode == 'train':
-            feature = feature.cpu().numpy()
+            if isinstance(feature, torch.Tensor):
+                feature = feature.cpu().numpy()
             if self.spec_augment is not None:
                 feature = self.spec_augment(feature)
             if self.spec_sub_augment is not None:
                 feature = self.spec_sub_augment(feature)
-            feature = torch.tensor(feature, dtype=torch.float32)
-        transcript = np.array(transcript, dtype=np.int32)
-        return feature.astype(np.float32), transcript
+        feature = torch.tensor(feature, dtype=torch.float32)
+        # 有些任务值需要音频特征
+        if self._text_featurizer is None:
+            return feature
+        # 把文本标签转成token
+        transcript = self._text_featurizer.featurize(transcript)
+        transcript = torch.tensor(transcript, dtype=torch.int32)
+        return feature, transcript
 
     def __len__(self):
         return len(self.data_list)
 
+    # 获取数据列表
+    def get_data_list(self, data_manifest, min_duration=0, max_duration=20):
+        data_list = []
+        if isinstance(data_manifest, str):
+            if self.manifest_type == 'txt':
+                # 获取文本格式数据列表
+                with open(data_manifest, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                for line in lines:
+                    line = json.loads(line)
+                    # 跳过超出长度限制的音频
+                    if line["duration"] < min_duration:
+                        continue
+                    if max_duration != -1 and line["duration"] > max_duration:
+                        continue
+                    data_list.append(dict(line))
+            else:
+                # 获取二进制的数据列表
+                self.dataset_reader = DatasetReader(data_path=data_manifest,
+                                                    min_duration=min_duration,
+                                                    max_duration=max_duration)
+                data_list = self.dataset_reader.get_keys()
+        else:
+            data_list = data_manifest
+        return data_list
+
+    # 获取数据列表中的一条数据
     def get_one_list(self, idx):
-        # 获取数据列表
         if self.manifest_type == 'txt':
             data_list = self.data_list[idx]
         elif self.manifest_type == 'binary':

@@ -12,7 +12,7 @@ import torch
 import torch.distributed as dist
 import yaml
 from loguru import logger
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, BatchSampler
 from tqdm import tqdm
 from visualdl import LogWriter
 
@@ -48,6 +48,7 @@ class MASRTrainer(object):
         :param use_gpu: 是否使用GPU训练模型
         :param metrics_type: 评估指标类型，中文用cer，英文用wer
         :param decoder: 解码器，支持ctc_greedy、ctc_beam_search
+        :param decoder_configs: 解码器配置参数
         :param data_augment_configs: 数据增强配置字典或者其文件路径
         """
         if use_gpu:
@@ -136,8 +137,9 @@ class MASRTrainer(object):
                                         mode='eval',
                                         **dataset_args)
         self.test_loader = DataLoader(dataset=self.test_dataset,
-                                      batch_size=self.configs.dataset_conf.batch_size,
+                                      batch_size=self.configs.dataset_conf.batch_sampler.batch_size,
                                       collate_fn=collate_fn,
+                                      shuffle=False,
                                       **data_loader_args)
 
     # 提取特征保存文件
@@ -158,7 +160,6 @@ class MASRTrainer(object):
             dataset_args.max_duration = max_duration
             test_dataset = MASRDataset(data_manifest=data_list_file,
                                        audio_featurizer=self.audio_featurizer,
-                                       text_featurizer=self.text_featurizer,
                                        mode='eval',
                                        **dataset_args)
             save_dir_num = f'{int(time.time())}'
@@ -167,7 +168,7 @@ class MASRTrainer(object):
             save_data_list = data_list_file.replace('manifest', 'manifest_features')
             with open(save_data_list, 'w', encoding='utf-8') as f:
                 for i in tqdm(range(len(test_dataset))):
-                    feature, _ = test_dataset[i]
+                    feature = test_dataset[i]
                     data_list = test_dataset.get_one_list(idx=i)
                     time_sum += data_list['duration']
                     if all_feature is None:
@@ -202,7 +203,7 @@ class MASRTrainer(object):
                                  mean_istd_path=self.configs.dataset_conf.mean_istd_path,
                                  encoder_conf=self.configs.encoder_conf,
                                  decoder_conf=self.configs.decoder_conf,
-                                 configs=self.configs.model_conf)
+                                 model_conf=self.configs.model_conf)
         if torch.cuda.device_count() > 1:
             self.model.to(self.local_rank)
         else:
@@ -231,7 +232,7 @@ class MASRTrainer(object):
                         self.decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
                     print_arguments(configs=self.decoder_configs, title='BeamSearchDecoder解码器参数')
                 self.decoder_configs = dict_to_object(self.decoder_configs)
-                self.beam_search_decoder = BeamSearchDecoder(vocab_list=vocabulary, **self.decoder_configs)
+                self.beam_search_decoder = BeamSearchDecoder(vocab_list=vocabulary, **self.decoder_configs.decoder_args)
             except ModuleNotFoundError:
                 logger.warning('==================================================================')
                 logger.warning('缺少 paddlespeech-ctcdecoders 库，请根据文档安装。')
@@ -308,7 +309,7 @@ class MASRTrainer(object):
                 # 多卡训练只使用一个进程打印
                 if batch_id % self.configs.train_conf.log_interval == 0 and self.local_rank == 0:
                     # 计算每秒训练数据量
-                    train_speed = self.configs.dataset_conf.batch_size / (sum(train_times) / len(train_times) / 1000)
+                    train_speed = self.configs.dataset_conf.batch_sampler.batch_size / (sum(train_times) / len(train_times) / 1000)
                     # 计算剩余时间
                     self.train_eta_sec = (sum(train_times) / len(train_times)) * (
                             self.max_step - self.train_step) / 1000
@@ -432,7 +433,7 @@ class MASRTrainer(object):
         # 加载预训练模型
         self.model = load_pretrained(model=self.model, pretrained_model=pretrained_model)
         # 加载恢复模型
-        self.model, self.optimizer, self.amp_scaler, self.scheduler, last_epoch, self.eval_error_result = \
+        self.model, self.optimizer, self.amp_scaler, self.scheduler, last_epoch, self.eval_best_error_rate = \
             load_checkpoint(configs=self.configs, model=self.model, optimizer=self.optimizer,
                             amp_scaler=self.amp_scaler, scheduler=self.scheduler, step_epoch=len(self.train_loader),
                             save_model_path=save_model_path, resume_model=resume_model)
@@ -444,7 +445,6 @@ class MASRTrainer(object):
             logger.info('训练数据：{}'.format(len(self.train_dataset)))
         self.train_loss, self.eval_loss = None, None
         self.test_log_step, self.train_log_step = 0, 0
-        last_epoch += 1
         self.train_batch_sampler.epoch = last_epoch
         if self.local_rank == 0:
             writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], last_epoch)
@@ -495,8 +495,8 @@ class MASRTrainer(object):
         if self.test_loader is None:
             self.__setup_dataloader()
         if self.model is None:
-            self.__setup_model(input_dim=self.test_dataset.feature_dim,
-                               vocab_size=self.test_dataset.vocab_size)
+            self.__setup_model(input_dim=self.audio_featurizer.feature_dim,
+                               vocab_size=self.text_featurizer.vocab_size)
         if resume_model is not None:
             if os.path.isdir(resume_model):
                 resume_model = os.path.join(resume_model, 'model.pth')
@@ -514,7 +514,7 @@ class MASRTrainer(object):
             eval_model = self.model
 
         error_results, losses = [], []
-        eos = self.test_dataset.vocab_size - 1
+        eos = self.text_featurizer.vocab_size - 1
         with torch.no_grad():
             for batch_id, batch in enumerate(tqdm(self.test_loader)):
                 if self.stop_eval: break
@@ -526,8 +526,8 @@ class MASRTrainer(object):
                 losses.append(loss_dict['loss'].cpu().detach().numpy())
                 # 获取模型编码器输出
                 outputs = eval_model.get_encoder_out(inputs, input_lens).cpu().detach().numpy()
-                out_strings = self.__decoder_result(outs=outputs, vocabulary=self.test_dataset.vocab_list)
-                labels_str = labels_to_string(labels, self.test_dataset.vocab_list, eos=eos)
+                out_strings = self.__decoder_result(outs=outputs, vocabulary=self.text_featurizer.vocab_list)
+                labels_str = labels_to_string(labels, self.text_featurizer.vocab_list, eos=eos)
                 for out_string, label in zip(*(out_strings, labels_str)):
                     # 计算字错率或者词错率
                     if self.metrics_type == 'wer':
