@@ -38,7 +38,7 @@ class MASRPredictor:
         assert os.path.exists(model_info_path), f'模型配置文件[{model_info_path}]不存在，请检查该文件是否存在！'
         with open(model_info_path, 'r', encoding='utf-8') as f:
             configs = json.load(f)
-            print_arguments(configs=configs)
+            print_arguments(configs=configs, title="模型参数配置")
         self.model_info = dict_to_object(configs)
         if decoder == "ctc_beam_search":
             assert decoder_configs is not None, '请配置ctc_beam_search解码器的参数'
@@ -192,6 +192,8 @@ class MASRPredictor:
         :param allow_use_vad: 当音频长度大于30秒，是否允许使用语音活动检测分割音频进行识别
         :return: 识别的文本结果和解码的得分数
         """
+        if isinstance(audio_data, np.ndarray):
+            assert isinstance(sample_rate, int), '当传入的是numpy数据时，需要指定采样率'
         # 加载音频文件，并进行预处理
         audio_segment = self._load_audio(audio_data=audio_data, sample_rate=sample_rate)
         # 重采样，方便进行语音活动检测
