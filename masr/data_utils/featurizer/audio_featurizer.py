@@ -28,7 +28,7 @@ class AudioFeaturizer(object):
         :param sample_rate: 音频采样率
         :type sample_rate: int
         :return: 二维的音频特征
-        :rtype: np.ndarray
+        :rtype: torch.Tensor
         """
         if isinstance(waveform, np.ndarray):
             waveform = torch.tensor(waveform, dtype=torch.float32)

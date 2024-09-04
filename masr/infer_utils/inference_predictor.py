@@ -49,11 +49,13 @@ class InferencePredictor:
         """
         预测函数，只预测完整的一句话。
         :param speech: 经过处理的音频数据
+        :type speech: torch.Tensor
         :param speech_lengths: 音频长度
+        :type speech_lengths: torch.Tensor
         :return: 识别的文本结果和解码的得分数
         """
-        audio_data = torch.tensor(speech, dtype=torch.float32, device=self.device)
-        audio_len = torch.tensor(speech_lengths, dtype=torch.int64, device=self.device)
+        audio_data = speech.to(self.device)
+        audio_len = speech_lengths.to(self.device)
 
         # 非流式模型的输入
         output_data = self.predictor.get_encoder_out(speech=audio_data, speech_lengths=audio_len)

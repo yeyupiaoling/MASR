@@ -501,9 +501,9 @@ class MASRTrainer(object):
                 resume_model = os.path.join(resume_model, 'model.pth')
             assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
             if self.use_gpu:
-                model_state_dict = torch.load(resume_model)
+                model_state_dict = torch.load(resume_model, weights_only=True)
             else:
-                model_state_dict = torch.load(resume_model, map_location='cpu')
+                model_state_dict = torch.load(resume_model, map_location='cpu', weights_only=True)
             self.model.load_state_dict(model_state_dict)
             logger.info(f'成功加载模型：{resume_model}')
         self.model.eval()
@@ -569,9 +569,9 @@ class MASRTrainer(object):
             resume_model = os.path.join(resume_model, 'model.pth')
         assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
         if torch.cuda.is_available() and self.use_gpu:
-            model_state_dict = torch.load(resume_model)
+            model_state_dict = torch.load(resume_model, weights_only=True)
         else:
-            model_state_dict = torch.load(resume_model, map_location='cpu')
+            model_state_dict = torch.load(resume_model, map_location='cpu', weights_only=True)
         self.model.load_state_dict(model_state_dict)
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
         self.model.eval()

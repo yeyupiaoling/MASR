@@ -3,6 +3,7 @@ import os
 from io import BufferedReader
 
 import numpy as np
+import torch
 import yaml
 from loguru import logger
 from yeaudio.audio import AudioSegment
@@ -148,46 +149,47 @@ class MASRPredictor:
         return audio_segment
 
     # 预测音频
-    def predict(self,
-                audio_data,
-                use_pun=False,
-                is_itn=False,
-                sample_rate=16000):
+    def _infer(self,
+               audio_data,
+               use_pun=False,
+               is_itn=False,
+               sample_rate=16000):
         """
         预测函数，只预测完整的一句话。
-        :param audio_data: 需要识别的数据，支持文件路径，文件对象，字节，numpy。如果是字节的话，必须是完整的字节文件
+        :param audio_data: 音频数据
+        :type audio_data: np.ndarray
         :param use_pun: 是否使用加标点符号的模型
         :param is_itn: 是否对文本进行反标准化
         :param sample_rate: 如果传入的事numpy数据，需要指定采样率
         :return: 识别的文本结果和解码的得分数
         """
-        # 加载音频文件，并进行预处理
-        audio_segment = self._load_audio(audio_data=audio_data, sample_rate=sample_rate)
-        audio_feature = self._audio_featurizer.featurize(waveform=audio_segment.samples,
-                                                         sample_rate=audio_segment.sample_rate)
-        input_data = np.array(audio_feature).astype(np.float32)[np.newaxis, :]
-        audio_len = np.array([input_data.shape[1]]).astype(np.int64)
+        # 提取音频特征
+        audio_data = torch.tensor(audio_data, dtype=torch.float32)
+        audio_feature = self._audio_featurizer.featurize(waveform=audio_data, sample_rate=sample_rate)
+        audio_feature = audio_feature.unsqueeze(0)
+        audio_len = torch.tensor([audio_feature.size(1)], dtype=torch.int64)
 
         # 运行predictor
-        output_data = self.predictor.predict(input_data, audio_len)[0]
+        output_data = self.predictor.predict(audio_feature, audio_len)[0]
 
         # 解码
-        score, text = self.decode(output_data=output_data, use_pun=use_pun, is_itn=is_itn)
-        result = {'text': text, 'score': score}
-        return result
+        _, text = self.decode(output_data=output_data, use_pun=use_pun, is_itn=is_itn)
+        return text
 
-    # 长语音预测
-    def predict_long(self,
-                     audio_data,
-                     use_pun=False,
-                     is_itn=False,
-                     sample_rate=16000):
+    # 语音预测
+    def predict(self,
+                audio_data,
+                use_pun=False,
+                is_itn=False,
+                sample_rate=16000,
+                allow_use_vad=True):
         """
         预测函数，只预测完整的一句话。
         :param audio_data: 需要识别的数据，支持文件路径，文件对象，字节，numpy。如果是字节的话，必须是完整的字节文件
         :param use_pun: 是否使用加标点符号的模型
         :param is_itn: 是否对文本进行反标准化
         :param sample_rate: 如果传入的事numpy数据，需要指定采样率
+        :param allow_use_vad: 当音频长度大于30秒，是否允许使用语音活动检测分割音频进行识别
         :return: 识别的文本结果和解码的得分数
         """
         # 加载音频文件，并进行预处理
@@ -195,27 +197,36 @@ class MASRPredictor:
         # 重采样，方便进行语音活动检测
         if audio_segment.sample_rate != self.model_info.sample_rate:
             audio_segment.resample(self.model_info.sample_rate)
-        # 获取语音活动区域
-        speech_timestamps = audio_segment.vad()
-        texts, scores = '', []
-        for t in speech_timestamps:
-            audio_ndarray = audio_segment.samples[t['start']: t['end']]
-            # 执行识别
-            result = self.predict(audio_data=audio_ndarray, use_pun=False, is_itn=is_itn)
-            score, text = result['score'], result['text']
-            if text != '':
-                texts = texts + text if use_pun else texts + '，' + text
-            scores.append(score)
-            logger.info(f'长语音识别片段结果：{text}')
-        if texts[0] == '，': texts = texts[1:]
-        # 加标点符号
-        if use_pun and len(texts) > 0:
-            if self.pun_predictor is not None:
-                texts = self.pun_predictor(texts)
-            else:
-                logger.warning('标点符号模型没有初始化！')
-        result = {'text': texts, 'score': round(sum(scores) / len(scores), 2)}
-        return result
+        if audio_segment.duration <= 30 or not allow_use_vad:
+            text = self._infer(audio_data=audio_segment.samples, use_pun=use_pun, is_itn=is_itn,
+                               sample_rate=audio_segment.sample_rate)
+            result = {'text': text,
+                      'sentences': [{'text': text, 'start': 0, 'end': audio_segment.duration}]}
+            return result
+        elif allow_use_vad and audio_segment.duration > 30:
+            # 获取语音活动区域
+            speech_timestamps = audio_segment.vad()
+            texts, sentences = '', []
+            for t in speech_timestamps:
+                audio_ndarray = audio_segment.samples[t['start']: t['end']]
+                # 执行识别
+                text = self._infer(audio_data=audio_ndarray, use_pun=False, is_itn=is_itn,
+                                   sample_rate=audio_segment.sample_rate)
+                if text != '':
+                    texts = texts + text if use_pun else texts + '，' + text
+                sentences.append({'text': text,
+                                  'start': round(t['start'] / audio_segment.sample_rate, 3),
+                                  'end': round(t['end'] / audio_segment.sample_rate, 3)})
+                logger.info(f'长语音识别片段结果：{text}')
+            if texts[0] == '，': texts = texts[1:]
+            # 加标点符号
+            if use_pun and len(texts) > 0:
+                if self.pun_predictor is not None:
+                    texts = self.pun_predictor(texts)
+                else:
+                    logger.warning('标点符号模型没有初始化！')
+            result = {'text': texts, 'sentences': sentences}
+            return result
 
     # 预测音频
     def predict_stream(self,
