@@ -13,28 +13,27 @@ from tkinter.filedialog import askopenfilename
 
 import numpy as np
 import pyaudio
-import soundcard
 import requests
+import soundcard
 import soundfile
 import websockets
+from loguru import logger
 
 from masr.predict import MASRPredictor
-from masr.utils.logger import setup_logger
 from masr.utils.utils import add_arguments, print_arguments
-
-logger = setup_logger(__name__)
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,   'configs/conformer.yml',       "配置文件")
 add_arg('use_server',       bool,   False,         "是否使用服务器服务进行识别，否则使用本地识别")
 add_arg("host",             str,    "127.0.0.1",   "服务器IP地址")
 add_arg("port_server",      int,    5000,          "普通识别服务端口号")
 add_arg("port_stream",      int,    5001,          "流式识别服务端口号")
 add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
 add_arg('use_pun',          bool,   False,  "是否给识别结果加标点符号")
-add_arg('model_path',       str,    'models/conformer_streaming_fbank/inference.pt', "导出的预测模型文件路径")
-add_arg('pun_model_dir',    str,    'models/pun_models/',        "加标点符号的模型文件夹路径")
+add_arg('model_dir',        str,    'models/ConformerModel_fbank/inference_model/', "导出的预测模型文件夹路径")
+add_arg('decoder',          str,    'ctc_beam_search',             "解码器，支持ctc_greedy、ctc_beam_search")
+add_arg('decoder_configs',  str,    'configs/chinese_decoder.yml', "解码器配置参数文件路径")
+add_arg('pun_model_dir',    str,    'models/pun_models/',          "加标点符号的模型文件夹路径")
 args = parser.parse_args()
 print_arguments(args=args)
 
@@ -91,9 +90,10 @@ class SpeechRecognitionApp:
 
         if not self.use_server:
             # 获取识别器
-            self.predictor = MASRPredictor(configs=args.configs,
-                                           model_path=args.model_path,
+            self.predictor = MASRPredictor(model_dir=args.model_dir,
                                            use_gpu=args.use_gpu,
+                                           decoder=args.decoder,
+                                           decoder_configs=args.decoder_configs,
                                            use_pun=args.use_pun,
                                            pun_model_dir=args.pun_model_dir)
 

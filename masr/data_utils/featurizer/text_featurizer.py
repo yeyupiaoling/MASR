@@ -1,13 +1,20 @@
+from typing import List
+
+
 class TextFeaturizer(object):
     """文本特征器，用于处理或从文本中提取特征。支持字符级的令牌化和转换为令牌索引列表
 
-    :param vocab_filepath: 令牌索引转换词汇表的文件路径
-    :type vocab_filepath: str
+    :param vocabulary: 词汇表文件路径或者词汇表列表
+    :type vocabulary: str
     """
 
-    def __init__(self, vocab_filepath):
+    def __init__(self, vocabulary:[str or List]):
         self.unk = "<unk>"
-        self._vocab_dict, self._vocab_list = self._load_vocabulary_from_file(vocab_filepath)
+        if isinstance(vocabulary, str):
+            self._vocab_dict, self._vocab_list = self._load_vocabulary_from_file(vocabulary)
+        elif isinstance(vocabulary, list):
+            self._vocab_list = vocabulary
+            self._vocab_dict = dict([(token, id) for (id, token) in enumerate(vocabulary)])
 
     def featurize(self, text):
         """将文本字符串转换为字符级的令牌索引列表

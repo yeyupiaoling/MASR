@@ -10,15 +10,13 @@ from datetime import datetime
 import aiofiles
 import uvicorn
 from fastapi import FastAPI, WebSocket, UploadFile, File, Request
+from loguru import logger
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 from starlette.websockets import WebSocketState
 
 from masr.predict import MASRPredictor
-from masr.utils.logger import setup_logger
 from masr.utils.utils import add_arguments, print_arguments
-
-logger = setup_logger(__name__)
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
@@ -29,8 +27,10 @@ add_arg("save_path",        str,    'dataset/upload/',    "上传音频文件的
 add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
 add_arg('use_pun',          bool,   False,  "是否给识别结果加标点符号")
 add_arg('is_itn',           bool,   False,  "是否对文本进行反标准化")
-add_arg('model_path',       str,    'models/conformer_streaming_fbank/inference.pt', "导出的预测模型文件路径")
-add_arg('pun_model_dir',    str,    'models/pun_models/',        "加标点符号的模型文件夹路径")
+add_arg('model_dir',        str,    'models/ConformerModel_fbank/inference_model/', "导出的预测模型文件夹路径")
+add_arg('decoder',          str,    'ctc_beam_search',             "解码器，支持ctc_greedy、ctc_beam_search")
+add_arg('decoder_configs',  str,    'configs/chinese_decoder.yml', "解码器配置参数文件路径")
+add_arg('pun_model_dir',    str,    'models/pun_models/',          "加标点符号的模型文件夹路径")
 args = parser.parse_args()
 print_arguments(args=args)
 
@@ -39,9 +39,10 @@ app.mount('/static', StaticFiles(directory='static'), name='static')
 templates = Jinja2Templates(directory="templates")
 
 # 创建预测器
-predictor = MASRPredictor(configs=args.configs,
-                          model_path=args.model_path,
+predictor = MASRPredictor(model_dir=args.model_dir,
                           use_gpu=args.use_gpu,
+                          decoder=args.decoder,
+                          decoder_configs=args.decoder_configs,
                           use_pun=args.use_pun,
                           pun_model_dir=args.pun_model_dir)
 

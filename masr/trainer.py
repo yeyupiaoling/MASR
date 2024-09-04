@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader, BatchSampler
 from tqdm import tqdm
 from visualdl import LogWriter
 
-from masr import SUPPORT_MODEL, __version__
 from masr.data_utils.collate_fn import collate_fn
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
@@ -106,7 +105,7 @@ class MASRTrainer(object):
         # 获取特征器
         self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
                                                 method_args=self.configs.preprocess_conf.get('method_args', {}))
-        self.text_featurizer = TextFeaturizer(vocab_filepath=self.configs.dataset_conf.dataset_vocab)
+        self.text_featurizer = TextFeaturizer(vocabulary=self.configs.dataset_conf.dataset_vocab)
         # 判断是否有归一化文件
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
@@ -548,7 +547,7 @@ class MASRTrainer(object):
 
     def export(self,
                save_model_path='models/',
-               resume_model='models/conformer_streaming_fbank/best_model/',
+               resume_model='models/ConformerModel_fbank/best_model/',
                save_quant=False):
         """
         导出预测模型
@@ -567,7 +566,7 @@ class MASRTrainer(object):
                            vocab_size=text_featurizer.vocab_size)
         # 加载预训练模型
         if os.path.isdir(resume_model):
-            resume_model = os.path.join(resume_model, 'model.pt')
+            resume_model = os.path.join(resume_model, 'model.pth')
         assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
         if torch.cuda.is_available() and self.use_gpu:
             model_state_dict = torch.load(resume_model)
@@ -578,16 +577,27 @@ class MASRTrainer(object):
         self.model.eval()
         # 获取静态模型
         infer_model = self.model.export()
-        save_model_name = f'{self.configs.use_model}_{"streaming" if self.configs.streaming else "non-streaming"}' \
-                          f'_{self.configs.preprocess_conf.feature_method}'
-        infer_model_path = os.path.join(save_model_path, save_model_name, 'inference.pt')
+        # 保存模型的路径
+        save_feature_method = self.configs.preprocess_conf.feature_method
+        save_model_name = f'{self.configs.model_conf.model}_{save_feature_method}/inference_model'
+        infer_model_path = os.path.join(save_model_path, save_model_name, 'inference.pth')
         os.makedirs(os.path.dirname(infer_model_path), exist_ok=True)
         torch.jit.save(infer_model, infer_model_path)
         logger.info("预测模型已保存：{}".format(infer_model_path))
         # 保存量化模型
         if save_quant:
-            quant_model_path = os.path.join(os.path.dirname(infer_model_path), 'inference_quant.pt')
+            quant_model_path = os.path.join(os.path.dirname(infer_model_path), 'inference_quant.pth')
             quantized_model = torch.quantization.quantize_dynamic(self.model)
             script_quant_model = torch.jit.script(quantized_model)
             torch.jit.save(script_quant_model, quant_model_path)
             logger.info("量化模型已保存：{}".format(quant_model_path))
+        # 配置信息
+        with open(os.path.join(save_model_path, save_model_name, 'inference.json'), 'w', encoding="utf-8") as f:
+            inference_config = {
+                'model_name': self.configs.model_conf.model,
+                'streaming': self.configs.model_conf.model_args.streaming,
+                'sample_rate': self.configs.dataset_conf.dataset.sample_rate,
+                'preprocess_conf': self.configs.preprocess_conf,
+                'vocabulary': text_featurizer.vocab_list
+            }
+            json.dump(inference_config, f, indent=4, ensure_ascii=False)

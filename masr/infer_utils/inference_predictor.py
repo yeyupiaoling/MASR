@@ -6,21 +6,19 @@ from loguru import logger
 
 class InferencePredictor:
     def __init__(self,
-                 configs,
-                 use_model,
-                 streaming=True,
-                 model_path='models/conformer_streaming_fbank/inference.pt',
+                 model_name,
+                 model_path,
+                 streaming,
                  use_gpu=True):
         """
         语音识别预测工具
-        :param configs: 配置参数
-        :param use_model: 使用模型的名称
+        :param model_name: 使用模型的名称
         :param model_path: 导出的预测模型文件夹路径
+        :param streaming: 是否为流式模型
         :param use_gpu: 是否使用GPU预测
         """
-        self.configs = configs
         self.use_gpu = use_gpu
-        self.use_model = use_model
+        self.model_name = model_name
         self.streaming = streaming
         # 创建模型
         if not os.path.exists(model_path):
@@ -62,8 +60,8 @@ class InferencePredictor:
         return output_data.cpu().detach().numpy()
 
     def predict_chunk_deepspeech(self, x_chunk):
-        if not (self.use_model == 'deepspeech2' and self.streaming):
-            raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}，参数streaming为：{self.streaming}')
+        if not (self.model_name == 'deepspeech2' and self.streaming):
+            raise Exception(f'当前模型不支持该方法，当前模型为：{self.model_name}，参数streaming为：{self.streaming}')
 
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)
         audio_len = torch.tensor([x_chunk.shape[1]], dtype=torch.int64, device=self.device)
@@ -76,8 +74,8 @@ class InferencePredictor:
         return output_chunk_probs.cpu().detach().numpy(), output_lens.cpu().detach().numpy()
 
     def predict_chunk_conformer(self, x_chunk, required_cache_size):
-        if not ('former' in self.use_model and self.streaming):
-            raise Exception(f'当前模型不支持该方法，当前模型为：{self.use_model}，参数streaming为：{self.streaming}')
+        if not ('former' in self.model_name and self.streaming):
+            raise Exception(f'当前模型不支持该方法，当前模型为：{self.model_name}，参数streaming为：{self.streaming}')
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)
         required_cache_size = torch.tensor([required_cache_size], dtype=torch.int32, device=self.device)
 

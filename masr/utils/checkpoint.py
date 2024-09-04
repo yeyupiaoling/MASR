@@ -87,9 +87,6 @@ def load_checkpoint(configs, model, optimizer, amp_scaler, scheduler,
 
     # 获取最后一个保存的模型
     save_feature_method = configs.preprocess_conf.feature_method
-    if configs.preprocess_conf.get('use_hf_model', False):
-        save_feature_method = save_feature_method[:-1] if save_feature_method[-1] == '/' else save_feature_method
-        save_feature_method = os.path.basename(save_feature_method)
     last_model_dir = os.path.join(save_model_path,
                                   f'{configs.model_conf.model}_{save_feature_method}',
                                   'last_model')
@@ -127,9 +124,6 @@ def save_checkpoint(configs, model, optimizer, amp_scaler, save_model_path, epoc
         state_dict = model.state_dict()
     # 保存模型的路径
     save_feature_method = configs.preprocess_conf.feature_method
-    if configs.preprocess_conf.get('use_hf_model', False):
-        save_feature_method = save_feature_method[:-1] if save_feature_method[-1] == '/' else save_feature_method
-        save_feature_method = os.path.basename(save_feature_method)
     if best_model:
         model_path = os.path.join(save_model_path,
                                   f'{configs.model_conf.model}_{save_feature_method}', 'best_model')

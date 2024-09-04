@@ -1,3 +1,4 @@
+import json
 import os
 from io import BufferedReader
 
@@ -6,64 +7,49 @@ import yaml
 from loguru import logger
 from yeaudio.audio import AudioSegment
 
-from masr import SUPPORT_MODEL
 from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
 from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder, greedy_decoder_chunk
 from masr.infer_utils.inference_predictor import InferencePredictor
-from masr.utils.utils import dict_to_object, print_arguments, download_model
+from masr.utils.utils import dict_to_object, print_arguments
 
 
 class MASRPredictor:
     def __init__(self,
-                 configs=None,
-                 model_tag='conformer_streaming_fbank_aishell',
-                 model_path='models/conformer_streaming_fbank/inference.pt',
+                 model_dir='models/ConformerModel_fbank/',
+                 decoder="ctc_greedy",
+                 decoder_configs=None,
                  use_pun=False,
                  pun_model_dir='models/pun_models/',
                  use_gpu=True):
         """
         语音识别预测工具
-        :param configs: 配置文件路径或者是yaml读取到的配置参数
-        :param model_tag: 如果configs为None，则使用项目提供的模型预测
-        :param model_path: 导出的预测模型文件夹路径
+        :param model_dir: 导出的预测模型文件夹路径
+        :param decoder: 解码器，支持ctc_greedy、ctc_beam_search
+        :param decoder_configs: 解码器配置参数
         :param use_pun: 是否使用加标点符号的模型
         :param pun_model_dir: 给识别结果加标点符号的模型文件夹路径
         :param use_gpu: 是否使用GPU预测
         """
-        if configs:
-            if isinstance(configs, str):
-                # 读取配置文件
-                with open(configs, 'r', encoding='utf-8') as f:
-                    configs = yaml.load(f.read(), Loader=yaml.FullLoader)
-                print_arguments(configs=configs)
-        else:
-            # 使用下载的模型
-            cache_dir = os.path.expanduser("~/.cache/masr")
-            model_url_dict = {
-                'conformer_streaming_fbank_aishell': 'https://masr.yeyupiaoling.cn/models/conformer_streaming_fbank_aishell.zip'}
-            model_url = model_url_dict[model_tag]
-            _ = download_model(model_url, cache_dir)
-            model_path = os.path.join(cache_dir, model_tag, 'models', model_tag[:model_tag.rfind('_')], 'inference.pt')
-            pun_model_dir = os.path.join(cache_dir, model_tag, 'models/pun_models/')
-            configs = os.path.join(cache_dir, model_tag, 'configs',
-                                   os.listdir(os.path.join(cache_dir, model_tag, 'configs'))[0])
-            # 读取配置文件
-            with open(configs, 'r', encoding='utf-8') as f:
-                configs = yaml.load(f.read(), Loader=yaml.FullLoader)
-            configs['dataset_conf']['dataset_vocab'] = os.path.join(cache_dir, model_tag,
-                                                                    configs['dataset_conf']['dataset_vocab'])
+        model_path = os.path.join(model_dir, 'inference.pth')
+        model_info_path = os.path.join(model_dir, 'inference.json')
+        assert os.path.exists(model_path), f'模型文件[{model_path}]不存在，请检查该文件是否存在！'
+        assert os.path.exists(model_info_path), f'模型配置文件[{model_info_path}]不存在，请检查该文件是否存在！'
+        with open(model_info_path, 'r', encoding='utf-8') as f:
+            configs = json.load(f)
             print_arguments(configs=configs)
-
-        self.configs = dict_to_object(configs)
-        assert self.configs.use_model in SUPPORT_MODEL, f'没有该模型：{self.configs.use_model}'
+        self.model_info = dict_to_object(configs)
+        if decoder == "ctc_beam_search":
+            assert decoder_configs is not None, '请配置ctc_beam_search解码器的参数'
+        self.decoder = decoder
+        self.decoder_configs = decoder_configs
         self.running = False
         self.use_gpu = use_gpu
         self.inv_normalizer = None
         self.pun_predictor = None
         self.vad_predictor = None
-        self._text_featurizer = TextFeaturizer(vocab_filepath=self.configs.dataset_conf.dataset_vocab)
-        self._audio_featurizer = AudioFeaturizer(**self.configs.preprocess_conf)
+        self._text_featurizer = TextFeaturizer(vocabulary=self.model_info.vocabulary)
+        self._audio_featurizer = AudioFeaturizer(**self.model_info.preprocess_conf)
         # 流式解码参数
         self.remained_wav = None
         self.cached_feat = None
@@ -78,26 +64,31 @@ class MASRPredictor:
             from masr.infer_utils.pun_predictor import PunctuationPredictor
             self.pun_predictor = PunctuationPredictor(model_dir=pun_model_dir, use_gpu=use_gpu)
         # 获取预测器
-        self.predictor = InferencePredictor(configs=self.configs,
-                                            use_model=self.configs.use_model,
-                                            streaming=self.configs.streaming,
+        self.predictor = InferencePredictor(model_name=self.model_info.model_name,
+                                            streaming=self.model_info.streaming,
                                             model_path=model_path,
                                             use_gpu=self.use_gpu)
         # 预热
         warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
         self.predict(audio_data=warmup_audio, is_itn=False)
-        if 'online' in self.configs.use_model:
+        if self.model_info.streaming:
             self.predict_stream(audio_data=warmup_audio[:8000], is_itn=False)
         self.reset_stream()
 
     # 初始化解码器
     def __init_decoder(self):
         # 集束搜索方法的处理
-        if self.configs.decoder == "ctc_beam_search":
+        if self.decoder == "ctc_beam_search":
             try:
                 from masr.decoders.beam_search_decoder import BeamSearchDecoder
+                # 读取数据增强配置文件
+                if isinstance(self.decoder_configs, str):
+                    with open(self.decoder_configs, 'r', encoding='utf-8') as f:
+                        self.decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+                    print_arguments(configs=self.decoder_configs, title='BeamSearchDecoder解码器参数')
+                self.decoder_configs = dict_to_object(self.decoder_configs)
                 self.beam_search_decoder = BeamSearchDecoder(vocab_list=self._text_featurizer.vocab_list,
-                                                             **self.configs.ctc_beam_search_decoder_conf)
+                                                             **self.decoder_configs.decoder_args)
             except ModuleNotFoundError:
                 logger.warning('==================================================================')
                 logger.warning('缺少 paddlespeech_ctcdecoders 库，请执行以下命令安装。')
@@ -105,7 +96,7 @@ class MASRPredictor:
                     'python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
                 logger.warning('【注意】现在已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
                 logger.warning('==================================================================\n')
-                self.configs.decoder = 'ctc_greedy'
+                self.decoder = 'ctc_greedy'
 
     # 解码模型输出结果
     def decode(self, output_data, use_pun, is_itn):
@@ -117,7 +108,7 @@ class MASRPredictor:
         :return:
         """
         # 执行解码
-        if self.configs.decoder == 'ctc_beam_search':
+        if self.decoder == 'ctc_beam_search':
             # 集束搜索解码策略
             result = self.beam_search_decoder.decode_beam_search_offline(probs_split=output_data)
         else:
@@ -172,7 +163,8 @@ class MASRPredictor:
         """
         # 加载音频文件，并进行预处理
         audio_segment = self._load_audio(audio_data=audio_data, sample_rate=sample_rate)
-        audio_feature = self._audio_featurizer.featurize(audio_segment)
+        audio_feature = self._audio_featurizer.featurize(waveform=audio_segment.samples,
+                                                         sample_rate=audio_segment.sample_rate)
         input_data = np.array(audio_feature).astype(np.float32)[np.newaxis, :]
         audio_len = np.array([input_data.shape[1]]).astype(np.int64)
 
@@ -201,8 +193,8 @@ class MASRPredictor:
         # 加载音频文件，并进行预处理
         audio_segment = self._load_audio(audio_data=audio_data, sample_rate=sample_rate)
         # 重采样，方便进行语音活动检测
-        if audio_segment.sample_rate != self.configs.preprocess_conf.sample_rate:
-            audio_segment.resample(self.configs.preprocess_conf.sample_rate)
+        if audio_segment.sample_rate != self.model_info.sample_rate:
+            audio_segment.resample(self.model_info.sample_rate)
         # 获取语音活动区域
         speech_timestamps = audio_segment.vad()
         texts, scores = '', []
@@ -245,9 +237,7 @@ class MASRPredictor:
         :param sample_rate: 如果传入的是numpy或者pcm字节流数据，需要指定采样率
         :return: 识别的文本结果和解码的得分数
         """
-        if not self.configs.streaming:
-            raise Exception(
-                f"不支持改该模型流式识别，当前模型：{self.configs.use_model}，参数streaming为：{self.configs.streaming}")
+        assert self.model_info.streaming, f'不支持改该模型流式识别，当前模型：{self.model_info.model_name}'
         # 加载音频文件，并进行预处理
         if isinstance(audio_data, np.ndarray):
             audio_data = AudioSegment.from_ndarray(audio_data, sample_rate)
@@ -263,7 +253,8 @@ class MASRPredictor:
                                              audio_data.sample_rate)
 
         # 预处理语音块
-        x_chunk = self._audio_featurizer.featurize(self.remained_wav)
+        x_chunk = self._audio_featurizer.featurize(waveform=self.remained_wav.samples,
+                                                   sample_rate=self.remained_wav.sample_rate)
         x_chunk = np.array(x_chunk).astype(np.float32)[np.newaxis, :]
         if self.cached_feat is None:
             self.cached_feat = x_chunk
@@ -298,18 +289,18 @@ class MASRPredictor:
             x_chunk = self.cached_feat[:, cur:end, :]
 
             # 执行识别
-            if self.configs.use_model == 'deepspeech2':
+            if self.model_info.model_name == 'DeepSpeech2Model':
                 output_chunk_probs, output_lens = self.predictor.predict_chunk_deepspeech(x_chunk=x_chunk)
-            elif 'former' in self.configs.use_model:
+            elif 'ConformerModel' in self.model_info.model_name:
                 num_decoding_left_chunks = -1
                 required_cache_size = decoding_chunk_size * num_decoding_left_chunks
                 output_chunk_probs = self.predictor.predict_chunk_conformer(x_chunk=x_chunk,
                                                                             required_cache_size=required_cache_size)
                 output_lens = np.array([output_chunk_probs.shape[1]])
             else:
-                raise Exception(f'当前模型不支持该方法，当前模型为：{self.configs.use_model}')
+                raise Exception(f'当前模型不支持该方法，当前模型为：{self.model_info.model_name}')
             # 执行解码
-            if self.configs.decoder == 'ctc_beam_search':
+            if self.decoder == 'ctc_beam_search':
                 # 集束搜索解码策略
                 score, text = self.beam_search_decoder.decode_chunk(probs=output_chunk_probs, logits_lens=output_lens)
             else:
@@ -341,7 +332,7 @@ class MASRPredictor:
         self.cached_feat = None
         self.greedy_last_max_prob_list = None
         self.greedy_last_max_index_list = None
-        if self.configs.decoder == 'ctc_beam_search':
+        if self.decoder == 'ctc_beam_search':
             self.beam_search_decoder.reset_decoder()
 
     # 对文本进行反标准化
