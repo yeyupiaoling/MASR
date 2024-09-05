@@ -8,9 +8,9 @@ from yeaudio.audio import AudioSegment
 from yeaudio.augmentation import ReverbPerturbAugmentor, SpecAugmentor, SpecSubAugmentor
 from yeaudio.augmentation import SpeedPerturbAugmentor, VolumePerturbAugmentor, NoisePerturbAugmentor
 
+from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.binary import DatasetReader
-from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
-from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
+from masr.data_utils.tokenizer.base_tokenizer import BaseTokenizer
 
 
 # 音频数据加载器
@@ -18,7 +18,7 @@ class MASRDataset(Dataset):
     def __init__(self,
                  data_manifest: [str or List],
                  audio_featurizer: AudioFeaturizer,
-                 text_featurizer: TextFeaturizer = None,
+                 tokenizer: BaseTokenizer = None,
                  min_duration=0,
                  max_duration=20,
                  aug_conf=None,
@@ -31,7 +31,7 @@ class MASRDataset(Dataset):
         assert manifest_type in ['txt', 'binary'], "数据列表类型只支持txt和binary"
         assert mode in ['train', 'eval', 'test'], "数据模式只支持train、val和test"
         self._audio_featurizer = audio_featurizer
-        self._text_featurizer = text_featurizer
+        self._tokenizer = tokenizer
         self.manifest_type = manifest_type
         self._target_sample_rate = sample_rate
         self._use_dB_normalization = use_dB_normalization
@@ -89,12 +89,12 @@ class MASRDataset(Dataset):
                 feature = self.spec_sub_augment(feature)
         feature = torch.tensor(feature, dtype=torch.float32)
         # 有些任务值需要音频特征
-        if self._text_featurizer is None:
+        if self._tokenizer is None:
             return feature
         # 把文本标签转成token
-        transcript = self._text_featurizer.featurize(transcript)
-        transcript = torch.tensor(transcript, dtype=torch.int32)
-        return feature, transcript
+        text_ids = self._tokenizer.encode(transcript)
+        text_ids = torch.tensor(text_ids, dtype=torch.int32)
+        return feature, text_ids
 
     def __len__(self):
         return len(self.data_list)

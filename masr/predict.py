@@ -8,8 +8,8 @@ import yaml
 from loguru import logger
 from yeaudio.audio import AudioSegment
 
-from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
-from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
+from masr.data_utils.audio_featurizer import AudioFeaturizer
+from masr.data_utils.tokenizer import build_tokenizer
 from masr.decoders.ctc_greedy_decoder import greedy_decoder, greedy_decoder_chunk
 from masr.infer_utils.inference_predictor import InferencePredictor
 from masr.utils.utils import dict_to_object, print_arguments
@@ -49,7 +49,7 @@ class MASRPredictor:
         self.inv_normalizer = None
         self.pun_predictor = None
         self.vad_predictor = None
-        self._text_featurizer = TextFeaturizer(vocabulary=self.model_info.vocabulary)
+        self._tokenizer = build_tokenizer(self.model_info.tokenizer_conf)
         self._audio_featurizer = AudioFeaturizer(**self.model_info.preprocess_conf)
         # 流式解码参数
         self.remained_wav = None
@@ -88,7 +88,7 @@ class MASRPredictor:
                         self.decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
                     print_arguments(configs=self.decoder_configs, title='BeamSearchDecoder解码器参数')
                 self.decoder_configs = dict_to_object(self.decoder_configs)
-                self.beam_search_decoder = BeamSearchDecoder(vocab_list=self._text_featurizer.vocab_list,
+                self.beam_search_decoder = BeamSearchDecoder(vocab_list=self._tokenizer.vocab_list,
                                                              **self.decoder_configs.decoder_args)
             except ModuleNotFoundError:
                 logger.warning('==================================================================')
@@ -114,7 +114,7 @@ class MASRPredictor:
             result = self.beam_search_decoder.decode_beam_search_offline(probs_split=output_data)
         else:
             # 贪心解码策略
-            result = greedy_decoder(probs_seq=output_data, vocabulary=self._text_featurizer.vocab_list)
+            result = greedy_decoder(probs_seq=output_data, vocabulary=self._tokenizer.vocab_list)
 
         score, text = result[0], result[1]
         # 加标点符号

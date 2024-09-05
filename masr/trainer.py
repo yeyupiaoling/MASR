@@ -1,4 +1,3 @@
-import io
 import json
 import os
 import platform
@@ -12,17 +11,17 @@ import torch
 import torch.distributed as dist
 import yaml
 from loguru import logger
-from torch.utils.data import DataLoader, BatchSampler
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualdl import LogWriter
 
+from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.collate_fn import collate_fn
-from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
-from masr.data_utils.featurizer.text_featurizer import TextFeaturizer
 from masr.data_utils.normalizer import FeatureNormalizer
 from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
-from masr.data_utils.utils import create_manifest, create_noise, count_manifest, merge_audio
+from masr.data_utils.tokenizer import build_tokenizer
+from masr.data_utils.utils import create_manifest, count_manifest, merge_audio
 from masr.data_utils.utils import create_manifest_binary
 from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
 from masr.model_utils import build_model
@@ -105,7 +104,7 @@ class MASRTrainer(object):
         # 获取特征器
         self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
                                                 method_args=self.configs.preprocess_conf.get('method_args', {}))
-        self.text_featurizer = TextFeaturizer(vocabulary=self.configs.dataset_conf.dataset_vocab)
+        self.tokenizer = build_tokenizer(self.configs.tokenizer_conf)
         # 判断是否有归一化文件
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
@@ -115,7 +114,7 @@ class MASRTrainer(object):
         if is_train:
             self.train_dataset = MASRDataset(data_manifest=self.configs.dataset_conf.train_manifest,
                                              audio_featurizer=self.audio_featurizer,
-                                             text_featurizer=self.text_featurizer,
+                                             tokenizer=self.tokenizer,
                                              aug_conf=self.data_augment_configs,
                                              mode='train',
                                              **dataset_args)
@@ -132,7 +131,7 @@ class MASRTrainer(object):
         # 获取测试数据
         self.test_dataset = MASRDataset(data_manifest=self.configs.dataset_conf.test_manifest,
                                         audio_featurizer=self.audio_featurizer,
-                                        text_featurizer=self.text_featurizer,
+                                        tokenizer=self.tokenizer,
                                         mode='eval',
                                         **dataset_args)
         self.test_loader = DataLoader(dataset=self.test_dataset,
@@ -558,12 +557,12 @@ class MASRTrainer(object):
         """
         # 获取训练数据
         audio_featurizer = AudioFeaturizer(**self.configs.preprocess_conf)
-        text_featurizer = TextFeaturizer(self.configs.dataset_conf.dataset_vocab)
+        tokenizer = build_tokenizer(self.configs.tokenizer_conf)
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
         # 获取模型
         self.__setup_model(input_dim=audio_featurizer.feature_dim,
-                           vocab_size=text_featurizer.vocab_size)
+                           vocab_size=tokenizer.vocab_size)
         # 加载预训练模型
         if os.path.isdir(resume_model):
             resume_model = os.path.join(resume_model, 'model.pth')
@@ -593,11 +592,12 @@ class MASRTrainer(object):
             logger.info("量化模型已保存：{}".format(quant_model_path))
         # 配置信息
         with open(os.path.join(save_model_path, save_model_name, 'inference.json'), 'w', encoding="utf-8") as f:
+            self.configs.tokenizer_conf.token_list = tokenizer.vocab_list
             inference_config = {
                 'model_name': self.configs.model_conf.model,
                 'streaming': self.configs.model_conf.model_args.streaming,
                 'sample_rate': self.configs.dataset_conf.dataset.sample_rate,
                 'preprocess_conf': self.configs.preprocess_conf,
-                'vocabulary': text_featurizer.vocab_list
+                'tokenizer_conf': self.configs.tokenizer_conf
             }
             json.dump(inference_config, f, indent=4, ensure_ascii=False)

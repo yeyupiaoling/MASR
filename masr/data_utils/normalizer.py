@@ -8,7 +8,7 @@ from loguru import logger
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from masr.data_utils.featurizer.audio_featurizer import AudioFeaturizer
+from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.reader import MASRDataset
 from masr.data_utils.utils import read_manifest
 

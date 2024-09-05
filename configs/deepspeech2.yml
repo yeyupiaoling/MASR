@@ -44,18 +44,31 @@ dataset_conf:
   train_manifest: 'dataset/manifest.train'
   # 测试数据的数据列表路径
   test_manifest: 'dataset/manifest.test'
-  # 数据字典的路径
-  dataset_vocab: 'dataset/vocabulary.txt'
   # 均值和标准值得json文件路径，后缀 (.json)
   mean_istd_path: 'dataset/mean_istd.json'
 
-# 数据预处理参数
+# 数据预处理方法参数
 preprocess_conf:
   # 音频预处理方法，支持：spectrogram、mfcc、fbank
   feature_method: 'fbank'
   # 设置API参数，更参数查看对应API，不清楚的可以直接删除该部分，直接使用默认值。
   method_args:
     num_mel_bins: 80
+
+# Token处理方法参数
+tokenizer_conf:
+  # 支持：CharTokenizer、WordTokenizer
+  tokenizer: 'CharTokenizer'
+  # 方法参数
+  tokenizer_args:
+    # 词汇表路径
+    token_list: "dataset/vocabulary.txt"
+    unk_symbol: "<unk>"
+    delimiter: " "
+    # 非语言符号列表
+    non_linguistic_symbols: [ ]
+    # 是否移除非语言符号
+    remove_non_linguistic_symbols: False
 
 # 优化方法参数配置
 optimizer_conf:
