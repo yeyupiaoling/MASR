@@ -28,8 +28,8 @@ add_arg('use_server',       bool,   False,         "是否使用服务器服务�
 add_arg("host",             str,    "127.0.0.1",   "服务器IP地址")
 add_arg("port_server",      int,    5000,          "普通识别服务端口号")
 add_arg("port_stream",      int,    5001,          "流式识别服务端口号")
-add_arg('use_gpu',          bool,   True,   "是否使用GPU预测")
-add_arg('use_pun',          bool,   False,  "是否给识别结果加标点符号")
+add_arg('use_gpu',          bool,   True,          "是否使用GPU预测")
+add_arg('use_pun',          bool,   False,         "是否给识别结果加标点符号")
 add_arg('model_dir',        str,    'models/ConformerModel_fbank/inference_model/', "导出的预测模型文件夹路径")
 add_arg('decoder',          str,    'ctc_beam_search',             "解码器，支持ctc_greedy、ctc_beam_search")
 add_arg('decoder_configs',  str,    'configs/chinese_decoder.yml', "解码器配置参数文件路径")
@@ -63,18 +63,15 @@ class SpeechRecognitionApp:
         # 固定窗口大小
         self.window.geometry('870x500')
         self.window.resizable(False, False)
-        # 识别短语音按钮
-        self.short_button = Button(self.window, text="选择短语音识别", width=20, command=self.predict_audio_thread)
+        # 识别语音按钮
+        self.short_button = Button(self.window, text="选择语音识别", width=20, command=self.predict_audio_thread)
         self.short_button.place(x=10, y=10)
-        # 识别长语音按钮
-        self.long_button = Button(self.window, text="选择长语音识别", width=20, command=self.predict_long_audio_thread)
-        self.long_button.place(x=170, y=10)
         # 录音按钮
         self.record_button = Button(self.window, text="录音识别", width=20, command=self.record_audio_thread)
-        self.record_button.place(x=330, y=10)
+        self.record_button.place(x=170, y=10)
         # 播放音频按钮
         self.play_button = Button(self.window, text="播放音频", width=20, command=self.play_audio_thread)
-        self.play_button.place(x=490, y=10)
+        self.play_button.place(x=330, y=10)
         # 输出结果文本框
         self.result_label = Label(self.window, text="输出日志：")
         self.result_label.place(x=10, y=70)
@@ -101,7 +98,7 @@ class SpeechRecognitionApp:
     def is_itn_state(self):
         self.is_itn = self.check_var.get()
 
-    # 预测短语音线程
+    # 预测语音线程
     def predict_audio_thread(self):
         if not self.predicting:
             self.wav_path = askopenfilename(filetypes=[("音频文件", "*.wav"), ("音频文件", "*.mp3")], initialdir='./dataset')
@@ -110,18 +107,6 @@ class SpeechRecognitionApp:
             self.result_text.insert(END, "已选择音频文件：%s\n" % self.wav_path)
             self.result_text.insert(END, "正在识别中...\n")
             _thread.start_new_thread(self.predict_audio, (self.wav_path, ))
-        else:
-            tkinter.messagebox.showwarning('警告', '正在预测，请等待上一轮预测结束！')
-
-    # 预测长语音线程
-    def predict_long_audio_thread(self):
-        if not self.predicting:
-            self.wav_path = askopenfilename(filetypes=[("音频文件", "*.wav"), ("音频文件", "*.mp3")], initialdir='./dataset')
-            if self.wav_path == '': return
-            self.result_text.delete('1.0', 'end')
-            self.result_text.insert(END, "已选择音频文件：%s\n" % self.wav_path)
-            self.result_text.insert(END, "正在识别中...\n")
-            _thread.start_new_thread(self.predict_long_audio, (self.wav_path, ))
         else:
             tkinter.messagebox.showwarning('警告', '正在预测，请等待上一轮预测结束！')
 
@@ -215,15 +200,16 @@ class SpeechRecognitionApp:
             new_loop = asyncio.new_event_loop()
             new_loop.run_until_complete(self.run_websocket())
 
-    # 预测短语音
+    # 预测语音
     def predict_audio(self, wav_file):
         self.predicting = True
         try:
             start = time.time()
             # 判断使用本地识别还是调用服务接口
             if not self.use_server:
-                result = self.predictor.predict(audio_data=wav_file, use_pun=args.use_pun, is_itn=self.is_itn)
-                score, text = result['score'], result['text']
+                result = self.predictor.predict(audio_data=wav_file,
+                                                use_pun=args.use_pun,
+                                                is_itn=self.is_itn)
             else:
                 # 调用用服务接口识别
                 url = f"http://{args.host}:{args.port_server}/recognition"
@@ -233,35 +219,9 @@ class SpeechRecognitionApp:
                 data = json.loads(response.text)
                 if data['code'] != 0:
                     raise Exception(f'服务请求失败，错误信息：{data["msg"]}')
-                text, score = data['result'], data['score']
-            self.result_text.insert(END,
-                                    f"消耗时间：{int(round((time.time() - start) * 1000))}ms, 识别结果: {text}, 得分: {score}\n")
-        except Exception as e:
-            self.result_text.insert(END, str(e))
-            logger.error(e)
-        self.predicting = False
-
-    # 预测长语音
-    def predict_long_audio(self, wav_path):
-        self.predicting = True
-        try:
-            start = time.time()
-            # 判断使用本地识别还是调用服务接口
-            if not self.use_server:
-                result = self.predictor.predict_long(audio_data=wav_path, use_pun=args.use_pun, is_itn=self.is_itn)
-                score, text = result['score'], result['text']
-            else:
-                # 调用用服务接口识别
-                url = f"http://{args.host}:{args.port_server}/recognition_long_audio"
-                files = [('audio', ('test.wav', open(wav_path, 'rb'), 'audio/wav'))]
-                headers = {'accept': 'application/json'}
-                response = requests.post(url, headers=headers, files=files)
-                data = json.loads(response.text)
-                if data['code'] != 0:
-                    raise Exception(f'服务请求失败，错误信息：{data["msg"]}')
-                text, score = data['result'], data['score']
-            self.result_text.insert(END, "=====================================================\n")
-            self.result_text.insert(END, f"最终结果，消耗时间：{int(round((time.time() - start) * 1000))}, 得分: {score}, 识别结果: {text}\n")
+                result = data['result']
+            self.result_text.insert(END, f"消耗时间：{int(round((time.time() - start) * 1000))}ms, "
+                                         f"识别结果: \n{json.dumps(result, ensure_ascii=False, indent=4)}\n")
         except Exception as e:
             self.result_text.insert(END, str(e))
             logger.error(e)
