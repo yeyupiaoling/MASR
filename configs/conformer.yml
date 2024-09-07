@@ -1,29 +1,37 @@
-# 编码器参数
+# 编码器
 encoder_conf:
-  output_size: 256    # Attention的维度，对于大数据可以设置设置大一些，如：512
-  attention_heads: 4  # Attention头的数量，对于大数据可以设置设置大一些，如：8
-  linear_units: 2048  # the number of units of position-wise feed forward
-  num_blocks: 12      # the number of encoder blocks
-  dropout_rate: 0.1
-  positional_dropout_rate: 0.1
-  attention_dropout_rate: 0.1
-  input_layer: 'conv2d' # encoder input type, you can chose conv2d, conv2d6 and conv2d8
-  normalize_before: True
-  cnn_module_kernel: 15
-  use_cnn_module: True
-  activation_type: 'swish'
-  pos_enc_layer_type: 'rel_pos'
+  # 使用的编码器
+  encoder_name: 'ConformerEncoder'
+  # 编码器参数
+  encoder_args:
+    output_size: 256    # Attention的维度，对于大数据可以设置设置大一些，如：512
+    attention_heads: 4  # Attention头的数量，对于大数据可以设置设置大一些，如：8
+    linear_units: 2048  # the number of units of position-wise feed forward
+    num_blocks: 12      # the number of encoder blocks
+    dropout_rate: 0.1
+    positional_dropout_rate: 0.1
+    attention_dropout_rate: 0.1
+    input_layer: 'conv2d' # encoder input type, you can chose conv2d, conv2d6 and conv2d8
+    normalize_before: True
+    cnn_module_kernel: 15
+    use_cnn_module: True
+    activation_type: 'swish'
+    pos_enc_layer_type: 'rel_pos'
 
-# 解码器参数
+# 解码器
 decoder_conf:
-  attention_heads: 4  # Attention头的数量，对于大数据可以设置设置大一些，如：8
-  linear_units: 1024  # the number of units of position-wise feed forward，or: 2048
-  num_blocks: 3
-  r_num_blocks: 3
-  dropout_rate: 0.1
-  positional_dropout_rate: 0.1
-  self_attention_dropout_rate: 0.1
-  src_attention_dropout_rate: 0.1
+  # 使用的解码器
+  decoder_name: 'BiTransformerDecoder'
+  # 解码器参数
+  decoder_args:
+    attention_heads: 4  # Attention头的数量，对于大数据可以设置设置大一些，如：8
+    linear_units: 1024  # the number of units of position-wise feed forward，or: 2048
+    num_blocks: 3
+    r_num_blocks: 3
+    dropout_rate: 0.1
+    positional_dropout_rate: 0.1
+    self_attention_dropout_rate: 0.1
+    src_attention_dropout_rate: 0.1
 
 
 model_conf:
@@ -79,18 +87,14 @@ preprocess_conf:
 
 # Token处理方法参数
 tokenizer_conf:
-  # 支持：CharTokenizer、WordTokenizer
-  tokenizer: 'CharTokenizer'
-  # 方法参数
-  tokenizer_args:
-    # 词汇表路径
-    token_list: "dataset/vocabulary.txt"
-    unk_symbol: "<unk>"
-    delimiter: " "
-    # 非语言符号列表
-    non_linguistic_symbols: [ ]
-    # 是否移除非语言符号
-    remove_non_linguistic_symbols: False
+  # 词汇模型文件夹路径
+  vocab_model_dir: "dataset/vocab_model/"
+  # 制作词汇表的字符类型，支持：char、word、unigram
+  model_type: 'char'
+  # 非语言符号列表
+  non_linguistic_symbols: [ ]
+  # 是否移除非语言符号
+  remove_non_linguistic_symbols: False
 
 # 优化方法参数配置
 optimizer_conf:

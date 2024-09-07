@@ -13,7 +13,7 @@ from zhconv import convert
 from masr.data_utils.binary import DatasetWriter
 
 
-def read_manifest(manifest_path, max_duration=float('inf'), min_duration=0.5):
+def read_manifest(manifest_path, max_duration=float('inf'), min_duration=0.0):
     """解析数据列表
     持续时间在[min_duration, max_duration]之外的实例将被过滤。
 
@@ -39,8 +39,7 @@ def read_manifest(manifest_path, max_duration=float('inf'), min_duration=0.5):
 
 
 # 创建数据列表
-def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is_change_frame_rate=True,
-                    only_keep_zh_en=True, max_test_manifest=10000, target_sr=16000):
+def create_manifest(annotation_path, train_manifest_path, test_manifest_path, max_test_manifest=10000):
     data_list = []
     test_list = []
     durations = []
@@ -57,15 +56,9 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
                     continue
                 audio_path, text = d["audio_filepath"], d["text"]
                 start_time, end_time, duration = d["start_time"], d["end_time"], d["duration"]
-                # 重新调整音频格式并保存
-                if is_change_frame_rate:
-                    change_rate(audio_path, target_sr=target_sr)
                 # 获取音频长度
                 durations.append(duration)
                 text = text.lower().strip()
-                if only_keep_zh_en:
-                    # 过滤非法的字符
-                    text = is_ustr(text)
                 if len(text) == 0: continue
                 # 保证全部都是简体
                 text = convert(text, 'zh-cn')
@@ -84,21 +77,15 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, is
                 lines = f.readlines()
             for line in tqdm(lines):
                 try:
-                    audio_path, text = line.replace('\n', '').replace('\r', '').split('\t')
+                    audio_path, text = line.strip().split('\t')
                 except Exception as e:
                     logger.warning(f'{line} 错误，已跳过，错误信息：{e}')
                     continue
-                # 重新调整音频格式并保存
-                if is_change_frame_rate:
-                    change_rate(audio_path, target_sr=target_sr)
                 # 获取音频长度
                 audio_segment = AudioSegment.from_file(audio_path)
                 duration = audio_segment.duration
                 durations.append(duration)
                 text = text.lower().strip()
-                if only_keep_zh_en:
-                    # 过滤非法的字符
-                    text = is_ustr(text)
                 if len(text) == 0 or text == ' ': continue
                 # 保证全部都是简体
                 text = convert(text, 'zh-cn')
@@ -194,90 +181,6 @@ def merge_audio(annotation_path, save_audio_path, max_duration=600, target_sr=16
     f_ann.close()
 
 
-# 改变音频采样率
-def change_rate(audio_path, target_sr=16000):
-    is_change = False
-    audio_segment = AudioSegment.from_file(audio_path)
-    # 重采样
-    if audio_segment.sample_rate != target_sr:
-        audio_segment.resample(target_sample_rate=target_sr)
-        is_change = True
-    if is_change:
-        audio_segment.to_wav_file(audio_path)
-
-
-# 过滤非法的字符
-def is_ustr(in_str):
-    out_str = ''
-    for i in range(len(in_str)):
-        if is_uchar(in_str[i]):
-            out_str = out_str + in_str[i]
-    return out_str
-
-
-# 判断是否为中文字符或者英文字符
-def is_uchar(uchar):
-    if uchar == ' ': return True
-    if u'\u4e00' <= uchar <= u'\u9fa5':
-        return True
-    if u'\u0030' <= uchar <= u'\u0039':
-        return False
-    if (u'\u0041' <= uchar <= u'\u005a') or (u'\u0061' <= uchar <= u'\u007a'):
-        return True
-    if uchar in ["'"]:
-        return True
-    if uchar in ['-', ',', '.', '>', '?']:
-        return False
-    return False
-
-
-# 生成噪声的数据列表
-def create_noise(path, noise_manifest_path, is_change_frame_rate=True, target_sr=16000):
-    if not os.path.exists(path):
-        logger.info('噪声音频文件为空，已跳过！')
-        return
-    json_lines = []
-    logger.info('正在创建噪声数据列表，路径：%s，请等待 ...' % path)
-    for file in tqdm(os.listdir(path)):
-        audio_path = os.path.join(path, file)
-        try:
-            # 噪声的标签可以标记为空
-            text = ""
-            # 重新调整音频格式并保存
-            if is_change_frame_rate:
-                change_rate(audio_path, target_sr=target_sr)
-            f_wave = wave.open(audio_path, "rb")
-            duration = f_wave.getnframes() / f_wave.getframerate()
-            json_lines.append(
-                json.dumps(
-                    {
-                        'audio_filepath': audio_path.replace('\\', '/'),
-                        'duration': duration,
-                        'text': text
-                    },
-                    ensure_ascii=False))
-        except Exception as e:
-            continue
-    with open(noise_manifest_path, 'w', encoding='utf-8') as f_noise:
-        for json_line in json_lines:
-            f_noise.write(json_line + '\n')
-
-
-# 获取全部字符
-def count_manifest(counter, manifest_path):
-    with open(manifest_path, 'r', encoding='utf-8') as f:
-        for line in tqdm(f.readlines()):
-            line = json.loads(line)
-            for char in line["text"].replace('\n', ''):
-                counter.update(char)
-    if os.path.exists(manifest_path.replace('train', 'test')):
-        with open(manifest_path.replace('train', 'test'), 'r', encoding='utf-8') as f:
-            for line in tqdm(f.readlines()):
-                line = json.loads(line)
-                for char in line["text"].replace('\n', ''):
-                    counter.update(char)
-
-
 def create_manifest_binary(train_manifest_path, test_manifest_path):
     """
     生成数据列表的二进制文件
@@ -293,9 +196,3 @@ def create_manifest_binary(train_manifest_path, test_manifest_path):
             line = line.replace('\n', '')
             dataset_writer.add_data(line)
         dataset_writer.close()
-
-
-def opus_to_wav(opus_path, save_wav_path, rate=16000):
-    audio_segment = AudioSegment.from_file(opus_path)
-    audio_segment.resample(rate)
-    audio_segment.to_wav_file(save_wav_path)

@@ -1,8 +1,8 @@
 import json
 import os
 import platform
+import shutil
 import time
-from collections import Counter
 from contextlib import nullcontext
 from datetime import timedelta
 
@@ -20,16 +20,15 @@ from masr.data_utils.collate_fn import collate_fn
 from masr.data_utils.normalizer import FeatureNormalizer
 from masr.data_utils.reader import MASRDataset
 from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
-from masr.data_utils.tokenizer import build_tokenizer
-from masr.data_utils.utils import create_manifest, count_manifest, merge_audio
+from masr.data_utils.tokenizer import MASRTokenizer
+from masr.data_utils.utils import create_manifest, merge_audio
 from masr.data_utils.utils import create_manifest_binary
-from masr.decoders.ctc_greedy_decoder import greedy_decoder_batch
+from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search
 from masr.model_utils import build_model
 from masr.optimizer import build_optimizer, build_lr_scheduler
 from masr.utils.checkpoint import save_checkpoint, load_pretrained, load_checkpoint
 from masr.utils.metrics import cer, wer
 from masr.utils.utils import dict_to_object, print_arguments
-from masr.utils.utils import labels_to_string
 
 
 class MASRTrainer(object):
@@ -79,7 +78,7 @@ class MASRTrainer(object):
         self.optimizer = None
         self.scheduler = None
         self.audio_featurizer = None
-        self.text_featurizer = None
+        self.tokenizer = None
         self.train_dataset = None
         self.train_loader = None
         self.test_dataset = None
@@ -104,7 +103,7 @@ class MASRTrainer(object):
         # 获取特征器
         self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
                                                 method_args=self.configs.preprocess_conf.get('method_args', {}))
-        self.tokenizer = build_tokenizer(self.configs.tokenizer_conf)
+        self.tokenizer = MASRTokenizer(**self.configs.tokenizer_conf)
         # 判断是否有归一化文件
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
@@ -123,7 +122,8 @@ class MASRTrainer(object):
                 self.train_batch_sampler = DSElasticDistributedSampler(self.train_dataset,
                                                                        **self.configs.dataset_conf.batch_sampler)
             else:
-                self.train_batch_sampler = DSRandomSampler(self.train_dataset, **self.configs.dataset_conf.batch_sampler)
+                self.train_batch_sampler = DSRandomSampler(self.train_dataset,
+                                                           **self.configs.dataset_conf.batch_sampler)
             self.train_loader = DataLoader(dataset=self.train_dataset,
                                            collate_fn=collate_fn,
                                            batch_sampler=self.train_batch_sampler,
@@ -194,11 +194,13 @@ class MASRTrainer(object):
                     print(save_path)
             logger.info(f'[{data_list_file}]列表中的数据已提取特征完成，新列表为：[{save_data_list}]')
 
-    def __setup_model(self, input_dim, vocab_size, is_train=False):
+    def __setup_model(self, input_dim, tokenizer, is_train=False):
         # 获取模型
         self.model = build_model(input_size=input_dim,
-                                 vocab_size=vocab_size,
+                                 vocab_size=tokenizer.vocab_size,
                                  mean_istd_path=self.configs.dataset_conf.mean_istd_path,
+                                 sos_id=tokenizer.bos_id,
+                                 eos_id=tokenizer.eos_id,
                                  encoder_conf=self.configs.encoder_conf,
                                  decoder_conf=self.configs.decoder_conf,
                                  model_conf=self.configs.model_conf)
@@ -219,34 +221,15 @@ class MASRTrainer(object):
             self.scheduler = build_lr_scheduler(optimizer=self.optimizer, step_per_epoch=len(self.train_loader),
                                                 configs=self.configs)
 
-    def __decoder_result(self, outs, vocabulary):
-        # 集束搜索方法的处理
-        if self.decoder == "ctc_beam_search" and self.beam_search_decoder is None:
-            try:
-                from masr.decoders.beam_search_decoder import BeamSearchDecoder
-                # 读取数据增强配置文件
-                if isinstance(self.decoder_configs, str):
-                    with open(self.decoder_configs, 'r', encoding='utf-8') as f:
-                        self.decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
-                    print_arguments(configs=self.decoder_configs, title='BeamSearchDecoder解码器参数')
-                self.decoder_configs = dict_to_object(self.decoder_configs)
-                self.beam_search_decoder = BeamSearchDecoder(vocab_list=vocabulary, **self.decoder_configs.decoder_args)
-            except ModuleNotFoundError:
-                logger.warning('==================================================================')
-                logger.warning('缺少 paddlespeech-ctcdecoders 库，请根据文档安装。')
-                logger.warning(
-                    'python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
-                logger.warning('【注意】现在已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
-                logger.warning('==================================================================\n')
-                self.decoder = 'ctc_greedy'
-
-        # 执行解码
-        outs = [outs[i, :, :] for i, _ in enumerate(range(outs.shape[0]))]
-        if self.decoder == 'ctc_greedy':
-            result = greedy_decoder_batch(outs, vocabulary)
+    def __decoder_result(self, ctc_probs, ctc_lens):
+        if self.decoder == "ctc_greedy_search":
+            result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,blank_id=self.tokenizer.blank_id)
+        elif self.decoder == "ctc_prefix_beam_search":
+            result = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self.tokenizer.blank_id)
         else:
-            result = self.beam_search_decoder.decode_batch_beam_search_offline(probs_split=outs)
-        return result
+            raise ValueError(f"不支持该解码器：{self.decoder}")
+        text = self.tokenizer.ids2text(result)
+        return text
 
     def __train_epoch(self, epoch_id, save_model_path, writer):
         accum_grad = self.configs.train_conf.accum_grad
@@ -307,7 +290,8 @@ class MASRTrainer(object):
                 # 多卡训练只使用一个进程打印
                 if batch_id % self.configs.train_conf.log_interval == 0 and self.local_rank == 0:
                     # 计算每秒训练数据量
-                    train_speed = self.configs.dataset_conf.batch_sampler.batch_size / (sum(train_times) / len(train_times) / 1000)
+                    train_speed = self.configs.dataset_conf.batch_sampler.batch_size / (
+                                sum(train_times) / len(train_times) / 1000)
                     # 计算剩余时间
                     self.train_eta_sec = (sum(train_times) / len(train_times)) * (
                             self.max_step - self.train_step) / 1000
@@ -335,21 +319,17 @@ class MASRTrainer(object):
     def create_data(self,
                     annotation_path='dataset/annotation/',
                     num_samples=1000000,
-                    count_threshold=2,
-                    is_change_frame_rate=True,
                     max_test_manifest=10000,
-                    only_keep_zh_en=True,
                     is_merge_audio=False,
+                    only_build_vocab=False,
                     save_audio_path='dataset/audio/merge_audio',
                     max_duration=600):
         """
         创建数据列表和词汇表
         :param annotation_path: 标注文件的路径
         :param num_samples: 用于计算均值和标准值得音频数量，当为-1使用全部数据
-        :param count_threshold: 字符计数的截断阈值，0为不做限制
-        :param is_change_frame_rate: 是否统一改变音频的采样率
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
-        :param only_keep_zh_en: 是否只保留中文和英文字符，训练其他语言可以设置为False
+        :param only_build_vocab: 是否只生成词汇表模型文件，不进行其他操作
         :param is_merge_audio: 是否将多个短音频合并成长音频，以减少音频文件数量，注意自动删除原始音频文件
         :param save_audio_path: 合并音频的保存路径
         :param max_duration: 合并音频的最大长度，单位秒
@@ -360,39 +340,27 @@ class MASRTrainer(object):
                         target_sr=self.configs.dataset_conf.dataset.sample_rate)
             logger.info('合并音频已完成，原始音频文件和标注文件已自动删除，其他原始文件可手动删除！')
 
-        logger.info('开始生成数据列表...')
-        create_manifest(annotation_path=annotation_path,
-                        train_manifest_path=self.configs.dataset_conf.train_manifest,
-                        test_manifest_path=self.configs.dataset_conf.test_manifest,
-                        only_keep_zh_en=only_keep_zh_en,
-                        is_change_frame_rate=is_change_frame_rate,
-                        max_test_manifest=max_test_manifest,
-                        target_sr=self.configs.dataset_conf.dataset.sample_rate)
-        logger.info('=' * 70)
+        if not only_build_vocab:
+            logger.info('开始生成数据列表...')
+            create_manifest(annotation_path=annotation_path,
+                            train_manifest_path=self.configs.dataset_conf.train_manifest,
+                            test_manifest_path=self.configs.dataset_conf.test_manifest,
+                            max_test_manifest=max_test_manifest)
+            logger.info('=' * 70)
 
+            normalizer = FeatureNormalizer(mean_istd_filepath=self.configs.dataset_conf.mean_istd_path)
+            normalizer.compute_mean_istd(manifest_path=self.configs.dataset_conf.train_manifest,
+                                         preprocess_conf=self.configs.preprocess_conf,
+                                         data_loader_conf=self.configs.dataset_conf.dataLoader,
+                                         num_samples=num_samples)
+            print('计算的均值和标准值已保存在 %s！' % self.configs.dataset_conf.mean_istd_path)
+
+        logger.info('=' * 70)
         logger.info('开始生成数据字典...')
-        counter = Counter()
-        count_manifest(counter, self.configs.dataset_conf.train_manifest)
-
-        count_sorted = sorted(counter.items(), key=lambda x: x[1], reverse=True)
-        with open(self.configs.dataset_conf.dataset_vocab, 'w', encoding='utf-8') as fout:
-            fout.write('<blank>\t-1\n')
-            fout.write('<unk>\t-1\n')
-            for char, count in count_sorted:
-                if char == ' ': char = '<space>'
-                # 跳过指定的字符阈值，超过这大小的字符都忽略
-                if count < count_threshold: break
-                fout.write('%s\t%d\n' % (char, count))
-            fout.write('<eos>\t-1\n')
+        tokenizer = MASRTokenizer(is_build_vocab=True, **self.configs.tokenizer_conf)
+        tokenizer.build_vocab(manifest_paths=[self.configs.dataset_conf.train_manifest,
+                                              self.configs.dataset_conf.test_manifest])
         logger.info('数据字典生成完成！')
-
-        logger.info('=' * 70)
-        normalizer = FeatureNormalizer(mean_istd_filepath=self.configs.dataset_conf.mean_istd_path)
-        normalizer.compute_mean_istd(manifest_path=self.configs.dataset_conf.train_manifest,
-                                     preprocess_conf=self.configs.preprocess_conf,
-                                     data_loader_conf=self.configs.dataset_conf.dataLoader,
-                                     num_samples=num_samples)
-        print('计算的均值和标准值已保存在 %s！' % self.configs.dataset_conf.mean_istd_path)
 
         if self.configs.dataset_conf.dataset.manifest_type == 'binary':
             logger.info('=' * 70)
@@ -426,7 +394,7 @@ class MASRTrainer(object):
         self.__setup_dataloader(is_train=True)
         # 获取模型
         self.__setup_model(input_dim=self.audio_featurizer.feature_dim,
-                           vocab_size=self.text_featurizer.vocab_size,
+                           tokenizer=self.tokenizer,
                            is_train=True)
         # 加载预训练模型
         self.model = load_pretrained(model=self.model, pretrained_model=pretrained_model)
@@ -440,7 +408,7 @@ class MASRTrainer(object):
             self.model.to(self.local_rank)
             self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.local_rank])
         if self.local_rank == 0:
-            logger.info('训练数据：{}'.format(len(self.train_dataset)))
+            logger.info(f'训练数据：{len(self.train_dataset)}，词汇表大小：{self.tokenizer.vocab_size}')
         self.train_loss, self.eval_loss = None, None
         self.test_log_step, self.train_log_step = 0, 0
         self.train_batch_sampler.epoch = last_epoch
@@ -493,8 +461,7 @@ class MASRTrainer(object):
         if self.test_loader is None:
             self.__setup_dataloader()
         if self.model is None:
-            self.__setup_model(input_dim=self.audio_featurizer.feature_dim,
-                               vocab_size=self.text_featurizer.vocab_size)
+            self.__setup_model(input_dim=self.audio_featurizer.feature_dim, tokenizer=self.tokenizer)
         if resume_model is not None:
             if os.path.isdir(resume_model):
                 resume_model = os.path.join(resume_model, 'model.pth')
@@ -512,7 +479,6 @@ class MASRTrainer(object):
             eval_model = self.model
 
         error_results, losses = [], []
-        eos = self.text_featurizer.vocab_size - 1
         with torch.no_grad():
             for batch_id, batch in enumerate(tqdm(self.test_loader)):
                 if self.stop_eval: break
@@ -523,9 +489,12 @@ class MASRTrainer(object):
                 loss_dict = eval_model(inputs, input_lens, labels, label_lens)
                 losses.append(loss_dict['loss'].cpu().detach().numpy())
                 # 获取模型编码器输出
-                outputs = eval_model.get_encoder_out(inputs, input_lens).cpu().detach().numpy()
-                out_strings = self.__decoder_result(outs=outputs, vocabulary=self.text_featurizer.vocab_list)
-                labels_str = labels_to_string(labels, self.text_featurizer.vocab_list, eos=eos)
+                ctc_probs, ctc_lens = eval_model.get_encoder_out(inputs, input_lens)
+                out_strings = self.__decoder_result(ctc_probs=ctc_probs, ctc_lens=ctc_lens)
+                # 移除每条数据的-1值
+                labels = labels.cpu().detach().numpy().tolist()
+                labels = [list(filter(lambda x: x != -1, label)) for label in labels]
+                labels_str = self.tokenizer.ids2text(labels)
                 for out_string, label in zip(*(out_strings, labels_str)):
                     # 计算字错率或者词错率
                     if self.metrics_type == 'wer':
@@ -557,12 +526,11 @@ class MASRTrainer(object):
         """
         # 获取训练数据
         audio_featurizer = AudioFeaturizer(**self.configs.preprocess_conf)
-        tokenizer = build_tokenizer(self.configs.tokenizer_conf)
+        tokenizer = MASRTokenizer(**self.configs.tokenizer_conf)
         if not os.path.exists(self.configs.dataset_conf.mean_istd_path):
             raise Exception(f'归一化列表文件 {self.configs.dataset_conf.mean_istd_path} 不存在')
         # 获取模型
-        self.__setup_model(input_dim=audio_featurizer.feature_dim,
-                           vocab_size=tokenizer.vocab_size)
+        self.__setup_model(input_dim=audio_featurizer.feature_dim, tokenizer=tokenizer)
         # 加载预训练模型
         if os.path.isdir(resume_model):
             resume_model = os.path.join(resume_model, 'model.pth')
@@ -579,8 +547,10 @@ class MASRTrainer(object):
         # 保存模型的路径
         save_feature_method = self.configs.preprocess_conf.feature_method
         save_model_name = f'{self.configs.model_conf.model}_{save_feature_method}/inference_model'
-        infer_model_path = os.path.join(save_model_path, save_model_name, 'inference.pth')
-        os.makedirs(os.path.dirname(infer_model_path), exist_ok=True)
+        save_model_dir = os.path.join(save_model_path, save_model_name)
+        infer_model_path = os.path.join(save_model_dir, 'inference.pth')
+        shutil.rmtree(save_model_dir, ignore_errors=True)
+        os.makedirs(save_model_dir, exist_ok=True)
         torch.jit.save(infer_model, infer_model_path)
         logger.info("预测模型已保存：{}".format(infer_model_path))
         # 保存量化模型
@@ -590,6 +560,8 @@ class MASRTrainer(object):
             script_quant_model = torch.jit.script(quantized_model)
             torch.jit.save(script_quant_model, quant_model_path)
             logger.info("量化模型已保存：{}".format(quant_model_path))
+        # 复制词汇表模型
+        shutil.copytree(tokenizer.vocab_model_dir, os.path.join(save_model_dir, 'vocab_model'))
         # 配置信息
         with open(os.path.join(save_model_path, save_model_name, 'inference.json'), 'w', encoding="utf-8") as f:
             self.configs.tokenizer_conf.token_list = tokenizer.vocab_list
@@ -597,7 +569,6 @@ class MASRTrainer(object):
                 'model_name': self.configs.model_conf.model,
                 'streaming': self.configs.model_conf.model_args.streaming,
                 'sample_rate': self.configs.dataset_conf.dataset.sample_rate,
-                'preprocess_conf': self.configs.preprocess_conf,
-                'tokenizer_conf': self.configs.tokenizer_conf
+                'preprocess_conf': self.configs.preprocess_conf
             }
             json.dump(inference_config, f, indent=4, ensure_ascii=False)

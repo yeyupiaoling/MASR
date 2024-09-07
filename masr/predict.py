@@ -9,15 +9,15 @@ from loguru import logger
 from yeaudio.audio import AudioSegment
 
 from masr.data_utils.audio_featurizer import AudioFeaturizer
-from masr.data_utils.tokenizer import build_tokenizer
-from masr.decoders.ctc_greedy_decoder import greedy_decoder, greedy_decoder_chunk
+from masr.data_utils.tokenizer import MASRTokenizer
+from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search
 from masr.infer_utils.inference_predictor import InferencePredictor
 from masr.utils.utils import dict_to_object, print_arguments
 
 
 class MASRPredictor:
     def __init__(self,
-                 model_dir='models/ConformerModel_fbank/',
+                 model_dir='models/ConformerModel_fbank/inference_model/',
                  decoder="ctc_greedy",
                  decoder_configs=None,
                  use_pun=False,
@@ -49,14 +49,15 @@ class MASRPredictor:
         self.inv_normalizer = None
         self.pun_predictor = None
         self.vad_predictor = None
-        self._tokenizer = build_tokenizer(self.model_info.tokenizer_conf)
+        vocab_model_dir = os.path.join(model_dir, 'vocab_model/')
+        assert os.path.exists(vocab_model_dir), f'词表模型文件夹[{vocab_model_dir}]不存在，请检查该文件是否存在！'
+        self._tokenizer = MASRTokenizer(vocab_model_dir=vocab_model_dir)
         self._audio_featurizer = AudioFeaturizer(**self.model_info.preprocess_conf)
         # 流式解码参数
         self.remained_wav = None
         self.cached_feat = None
         self.greedy_last_max_prob_list = None
         self.greedy_last_max_index_list = None
-        self.__init_decoder()
         # 创建模型
         if not os.path.exists(model_path):
             raise Exception("模型文件不存在，请检查{}是否存在！".format(model_path))
@@ -76,31 +77,8 @@ class MASRPredictor:
             self.predict_stream(audio_data=warmup_audio[:8000], is_itn=False)
         self.reset_stream()
 
-    # 初始化解码器
-    def __init_decoder(self):
-        # 集束搜索方法的处理
-        if self.decoder == "ctc_beam_search":
-            try:
-                from masr.decoders.beam_search_decoder import BeamSearchDecoder
-                # 读取数据增强配置文件
-                if isinstance(self.decoder_configs, str):
-                    with open(self.decoder_configs, 'r', encoding='utf-8') as f:
-                        self.decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
-                    print_arguments(configs=self.decoder_configs, title='BeamSearchDecoder解码器参数')
-                self.decoder_configs = dict_to_object(self.decoder_configs)
-                self.beam_search_decoder = BeamSearchDecoder(vocab_list=self._tokenizer.vocab_list,
-                                                             **self.decoder_configs.decoder_args)
-            except ModuleNotFoundError:
-                logger.warning('==================================================================')
-                logger.warning('缺少 paddlespeech_ctcdecoders 库，请执行以下命令安装。')
-                logger.warning(
-                    'python -m pip install paddlespeech_ctcdecoders -U -i https://ppasr.yeyupiaoling.cn/pypi/simple/')
-                logger.warning('【注意】现在已自动切换为ctc_greedy解码器，ctc_greedy解码器准确率相对较低。')
-                logger.warning('==================================================================\n')
-                self.decoder = 'ctc_greedy'
-
     # 解码模型输出结果
-    def decode(self, output_data, use_pun, is_itn):
+    def decode(self, ctc_probs, ctc_lens, use_pun, is_itn):
         """
         解码模型输出结果
         :param output_data: 模型输出结果
@@ -109,14 +87,14 @@ class MASRPredictor:
         :return:
         """
         # 执行解码
-        if self.decoder == 'ctc_beam_search':
-            # 集束搜索解码策略
-            result = self.beam_search_decoder.decode_beam_search_offline(probs_split=output_data)
+        if self.decoder == "ctc_greedy_search":
+            result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self._tokenizer.blank_id)
+        elif self.decoder == "ctc_prefix_beam_search":
+            result = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self._tokenizer.blank_id)
         else:
-            # 贪心解码策略
-            result = greedy_decoder(probs_seq=output_data, vocabulary=self._tokenizer.vocab_list)
+            raise ValueError(f"不支持该解码器：{self.decoder}")
+        text = self._tokenizer.ids2text(result)
 
-        score, text = result[0], result[1]
         # 加标点符号
         if use_pun and len(text) > 0:
             if self.pun_predictor is not None:
@@ -126,7 +104,7 @@ class MASRPredictor:
         # 是否对文本进行反标准化
         if is_itn:
             text = self.inverse_text_normalization(text)
-        return score, text
+        return text
 
     @staticmethod
     def _load_audio(audio_data, sample_rate=16000):
@@ -170,10 +148,10 @@ class MASRPredictor:
         audio_len = torch.tensor([audio_feature.size(1)], dtype=torch.int64)
 
         # 运行predictor
-        output_data = self.predictor.predict(audio_feature, audio_len)[0]
+        ctc_probs, ctc_lens = self.predictor.predict(audio_feature, audio_len)
 
         # 解码
-        _, text = self.decode(output_data=output_data, use_pun=use_pun, is_itn=is_itn)
+        text = self.decode(ctc_probs=ctc_probs, ctc_lens=ctc_lens, use_pun=use_pun, is_itn=is_itn)
         return text
 
     # 语音预测
@@ -319,7 +297,7 @@ class MASRPredictor:
             else:
                 # 贪心解码策略
                 score, text, self.greedy_last_max_prob_list, self.greedy_last_max_index_list = \
-                    greedy_decoder_chunk(probs_seq=output_chunk_probs[0], vocabulary=self._text_featurizer.vocab_list,
+                    greedy_decoder_chunk(probs_seq=output_chunk_probs[0], vocabulary=self._tokenizer.vocab_list,
                                          last_max_index_list=self.greedy_last_max_index_list,
                                          last_max_prob_list=self.greedy_last_max_prob_list)
         # 更新特征缓存
@@ -345,8 +323,6 @@ class MASRPredictor:
         self.cached_feat = None
         self.greedy_last_max_prob_list = None
         self.greedy_last_max_index_list = None
-        if self.decoder == 'ctc_beam_search':
-            self.beam_search_decoder.reset_decoder()
 
     # 对文本进行反标准化
     def inverse_text_normalization(self, text):

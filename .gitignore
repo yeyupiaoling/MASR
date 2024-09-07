@@ -17,3 +17,4 @@ convert_model.py
 build/
 dist/
 masr.egg-info/
+dataset_LibriSpeech/

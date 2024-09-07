@@ -1,4 +1,4 @@
-from typing import Dict
+import importlib
 
 import torch
 from torch import nn
@@ -9,6 +9,8 @@ from masr.model_utils.loss.ctc import CTCLoss
 from masr.model_utils.utils.cmvn import GlobalCMVN
 
 __all__ = ["DeepSpeech2Model"]
+
+from masr.utils.utils import DictObject
 
 
 class DeepSpeech2Model(nn.Module):
@@ -28,22 +30,25 @@ class DeepSpeech2Model(nn.Module):
                  vocab_size: int,
                  mean_istd_path: str,
                  streaming: bool = True,
-                 encoder_conf: Dict = None,
-                 decoder_conf: Dict = None):
+                 encoder_conf: DictObject = None,
+                 decoder_conf: DictObject = None):
         super().__init__()
         self.input_size = input_size
         self.streaming = streaming
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
-        self.encoder = CRNNEncoder(input_dim=input_size,
-                                   vocab_size=vocab_size,
-                                   global_cmvn=global_cmvn,
-                                   rnn_direction='forward' if streaming else 'bidirect',
-                                   **encoder_conf if encoder_conf is not None else {})
+        # 创建编码器
+        mod = importlib.import_module(__name__)
+        self.encoder: CRNNEncoder = getattr(mod, encoder_conf.encoder_name)
+        self.encoder = self.encoder(input_size=input_size,
+                                    vocab_size=vocab_size,
+                                    global_cmvn=global_cmvn,
+                                    rnn_direction='forward' if streaming else 'bidirect',
+                                    **encoder_conf.encoder_args if encoder_conf.encoder_args is not None else {})
         self.decoder = CTCLoss(odim=vocab_size,
                                encoder_output_size=self.encoder.output_size,
-                               **decoder_conf if decoder_conf is not None else {})
+                               dopout_rate=0.1)
 
     def forward(self, speech, speech_lengths, text, text_lengths):
         """Compute Model loss

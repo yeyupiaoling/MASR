@@ -1,12 +1,12 @@
-# encoder参数
+# 编码器
 encoder_conf:
-  num_rnn_layers: 5
-  rnn_size: 1024  # RNN的隐层大小，对于大数据可以设置设置大一些，如：2048
-  use_gru: False
-
-# decoder参数
-decoder_conf:
-  dropout_rate: 0.1
+  # 使用的编码器
+  encoder_name: 'CRNNEncoder'
+  # 编码器参数
+  encoder_args:
+    num_rnn_layers: 5
+    rnn_size: 1024  # RNN的隐层大小，对于大数据可以设置设置大一些，如：2048
+    use_gru: False
 
 model_conf:
   # 所使用的模型
@@ -57,14 +57,12 @@ preprocess_conf:
 
 # Token处理方法参数
 tokenizer_conf:
-  # 支持：CharTokenizer、WordTokenizer
+  # 支持：CharTokenizer、WordTokenizer、UnigramTokenizer
   tokenizer: 'CharTokenizer'
   # 方法参数
   tokenizer_args:
-    # 词汇表路径
-    token_list: "dataset/vocabulary.txt"
-    unk_symbol: "<unk>"
-    delimiter: " "
+    # 词汇模型文件夹路径
+    vocab_model_dir: "dataset/vocab_model/"
     # 非语言符号列表
     non_linguistic_symbols: [ ]
     # 是否移除非语言符号

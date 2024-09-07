@@ -49,7 +49,7 @@ class FeatureNormalizer(object):
         :param data_loader_conf: DataLoader参数
         :param num_samples: 用于计算均值和标准值的音频数量
         """
-        manifest = read_manifest(manifest_path)
+        manifest = read_manifest(manifest_path, max_duration=30, min_duration=0.5)
         if num_samples < 0 or num_samples > len(manifest):
             sampled_manifest = manifest
         else:

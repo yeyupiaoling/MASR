@@ -1,5 +1,6 @@
 import distutils.util
 import os
+import re
 import urllib.request
 import zipfile
 
@@ -41,7 +42,7 @@ def add_arguments(argname, type, default, help, argparser, **kwargs):
                            **kwargs)
 
 
-class Dict(dict):
+class DictObject(dict):
     __setattr__ = dict.__setitem__
     __getattr__ = dict.__getitem__
 
@@ -49,18 +50,11 @@ class Dict(dict):
 def dict_to_object(dict_obj):
     if not isinstance(dict_obj, dict):
         return dict_obj
-    inst = Dict()
+    inst = DictObject()
     for k, v in dict_obj.items():
         inst[k] = dict_to_object(v)
     return inst
 
-
-def labels_to_string(label, vocabulary, eos, blank_index=0):
-    labels = []
-    for l in label:
-        index_list = [index for index in l if index != blank_index and index != -1 and index != eos]
-        labels.append((''.join([vocabulary[index] for index in index_list])).replace('<space>', ' '))
-    return labels
 
 
 # 使用模糊删除方式删除文件
@@ -113,3 +107,10 @@ def download_model(url: str, root: str):
     unzip_file(download_target, os.path.dirname(download_target))
     os.remove(download_target)
     return unzip_path
+
+
+# 判断是否是英文单词
+def is_english_word(word):
+    # 正则表达式匹配英文单词，允许撇号和连字符
+    pattern = re.compile(r"^[A-Za-z'-]+$")
+    return pattern.match(word) is not None

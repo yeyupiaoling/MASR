@@ -1,6 +1,6 @@
 numpy>=1.19.2
 scipy>=1.6.3
-python-Levenshtein==0.12.2
+python-Levenshtein==0.25.1
 visualdl>=2.5.3
 soundfile>=0.12.1
 soundcard>=0.4.2
@@ -11,6 +11,7 @@ pyyaml>=5.4.1
 scikit-learn>=1.0.2
 typeguard>=2.13.3
 onnxruntime>=1.17.1
+sentencepiece>=0.2.0
 loguru>=0.7.2
 yeaudio>=0.0.2
 tqdm

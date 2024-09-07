@@ -58,8 +58,8 @@ class InferencePredictor:
         audio_len = speech_lengths.to(self.device)
 
         # 非流式模型的输入
-        output_data = self.predictor.get_encoder_out(speech=audio_data, speech_lengths=audio_len)
-        return output_data.cpu().detach().numpy()
+        ctc_probs, ctc_lens = self.predictor.get_encoder_out(speech=audio_data, speech_lengths=audio_len)
+        return ctc_probs, ctc_lens
 
     def predict_chunk_deepspeech(self, x_chunk):
         if not (self.model_name == 'deepspeech2' and self.streaming):

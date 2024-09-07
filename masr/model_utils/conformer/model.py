@@ -1,14 +1,16 @@
-from typing import Tuple, Dict
+import importlib
+from typing import Tuple
 
 import torch
 
 from masr.data_utils.normalizer import FeatureNormalizer
 from masr.model_utils.loss.ctc import CTCLoss
 from masr.model_utils.loss.label_smoothing_loss import LabelSmoothingLoss
-from masr.model_utils.transformer.decoder import BiTransformerDecoder
-from masr.model_utils.conformer.encoder import ConformerEncoder
+from masr.model_utils.transformer.decoder import *
+from masr.model_utils.conformer.encoder import *
 from masr.model_utils.utils.cmvn import GlobalCMVN
 from masr.model_utils.utils.common import (IGNORE_ID, add_sos_eos, th_accuracy, reverse_pad_list)
+from masr.utils.utils import DictObject
 
 __all__ = ["ConformerModel"]
 
@@ -19,9 +21,11 @@ class ConformerModel(torch.nn.Module):
             input_size: int,
             vocab_size: int,
             mean_istd_path: str,
+            sos_id: int,
+            eos_id: int,
             streaming: bool = True,
-            encoder_conf: Dict = None,
-            decoder_conf: Dict = None,
+            encoder_conf: DictObject = None,
+            decoder_conf: DictObject = None,
             ctc_weight: float = 0.5,
             ignore_id: int = IGNORE_ID,
             reverse_weight: float = 0.0,
@@ -40,19 +44,23 @@ class ConformerModel(torch.nn.Module):
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
-        self.encoder = ConformerEncoder(input_size=input_size,
-                                        global_cmvn=global_cmvn,
-                                        use_dynamic_chunk=use_dynamic_chunk,
-                                        causal=causal,
-                                        **encoder_conf if encoder_conf is not None else {})
-        self.decoder = BiTransformerDecoder(vocab_size=vocab_size,
-                                            encoder_output_size=self.encoder.output_size(),
-                                            **decoder_conf if decoder_conf is not None else {})
+        # 创建编码器和解码器
+        mod = importlib.import_module(__name__)
+        self.encoder = getattr(mod, encoder_conf.encoder_name)
+        self.encoder = self.encoder(input_size=input_size,
+                                    global_cmvn=global_cmvn,
+                                    use_dynamic_chunk=use_dynamic_chunk,
+                                    causal=causal,
+                                    **encoder_conf.encoder_args if encoder_conf.encoder_args is not None else {})
+        self.decoder = getattr(mod, decoder_conf.decoder_name)
+        self.decoder = self.decoder(vocab_size=vocab_size,
+                                    encoder_output_size=self.encoder.output_size(),
+                                    **decoder_conf.decoder_args if decoder_conf.decoder_args is not None else {})
 
         self.ctc = CTCLoss(vocab_size, self.encoder.output_size())
         # note that eos is the same as sos (equivalent ID)
-        self.sos = vocab_size - 1
-        self.eos = vocab_size - 1
+        self.sos = sos_id
+        self.eos = eos_id
         self.vocab_size = vocab_size
         self.ignore_id = ignore_id
         self.ctc_weight = ctc_weight
@@ -150,7 +158,7 @@ class ConformerModel(torch.nn.Module):
         return loss_att, acc_att
 
     @torch.jit.export
-    def get_encoder_out(self, speech: torch.Tensor, speech_lengths: torch.Tensor) -> torch.Tensor:
+    def get_encoder_out(self, speech: torch.Tensor, speech_lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Get encoder output
 
         Args:
@@ -159,12 +167,13 @@ class ConformerModel(torch.nn.Module):
         Returns:
             Tensor: ctc softmax output
         """
-        encoder_out, _ = self.encoder(speech,
+        encoder_out, encoder_mask = self.encoder(speech,
                                       speech_lengths,
                                       decoding_chunk_size=-1,
                                       num_decoding_left_chunks=-1)  # (B, maxlen, encoder_dim)
         ctc_probs = self.ctc.softmax(encoder_out)
-        return ctc_probs
+        encoder_lens = encoder_mask.squeeze(1).sum(1)
+        return ctc_probs, encoder_lens
 
     @torch.jit.export
     def get_encoder_out_chunk(self,

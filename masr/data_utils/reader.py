@@ -10,7 +10,7 @@ from yeaudio.augmentation import SpeedPerturbAugmentor, VolumePerturbAugmentor, 
 
 from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.binary import DatasetReader
-from masr.data_utils.tokenizer.base_tokenizer import BaseTokenizer
+from masr.data_utils.tokenizer import MASRTokenizer
 
 
 # 音频数据加载器
@@ -18,7 +18,7 @@ class MASRDataset(Dataset):
     def __init__(self,
                  data_manifest: [str or List],
                  audio_featurizer: AudioFeaturizer,
-                 tokenizer: BaseTokenizer = None,
+                 tokenizer: MASRTokenizer = None,
                  min_duration=0,
                  max_duration=20,
                  aug_conf=None,
@@ -59,6 +59,7 @@ class MASRDataset(Dataset):
             start_frame, end_frame = data_list["start_frame"], data_list["end_frame"]
             feature = np.load(audio_file)
             feature = feature[start_frame:end_frame, :]
+            feature = torch.tensor(feature, dtype=torch.float32)
         else:
             if 'start_time' not in data_list.keys():
                 # 读取音频
@@ -87,12 +88,12 @@ class MASRDataset(Dataset):
                 feature = self.spec_augment(feature)
             if self.spec_sub_augment is not None:
                 feature = self.spec_sub_augment(feature)
-        feature = torch.tensor(feature, dtype=torch.float32)
+            feature = torch.tensor(feature, dtype=torch.float32)
         # 有些任务值需要音频特征
         if self._tokenizer is None:
             return feature
         # 把文本标签转成token
-        text_ids = self._tokenizer.encode(transcript)
+        text_ids = self._tokenizer.text2ids(transcript)
         text_ids = torch.tensor(text_ids, dtype=torch.int32)
         return feature, text_ids
 
