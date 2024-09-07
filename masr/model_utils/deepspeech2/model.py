@@ -48,7 +48,7 @@ class DeepSpeech2Model(nn.Module):
                                     **encoder_conf.encoder_args if encoder_conf.encoder_args is not None else {})
         self.decoder = CTCLoss(odim=vocab_size,
                                encoder_output_size=self.encoder.output_size,
-                               dopout_rate=0.1)
+                               dropout_rate=0.1)
 
     def forward(self, speech, speech_lengths, text, text_lengths):
         """Compute Model loss
@@ -68,9 +68,9 @@ class DeepSpeech2Model(nn.Module):
 
     @torch.jit.export
     def get_encoder_out(self, speech, speech_lengths):
-        eouts, _, _, _ = self.encoder(speech, speech_lengths)
+        eouts, encoder_lens, _, _ = self.encoder(speech, speech_lengths)
         ctc_probs = self.decoder.softmax(eouts)
-        return ctc_probs
+        return ctc_probs, encoder_lens
 
     @torch.jit.export
     def get_encoder_out_chunk(self, speech, speech_lengths,

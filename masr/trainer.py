@@ -36,7 +36,7 @@ class MASRTrainer(object):
                  configs,
                  use_gpu=True,
                  metrics_type="cer",
-                 decoder="ctc_greedy",
+                 decoder="ctc_greedy_search",
                  decoder_configs=None,
                  data_augment_configs=None):
         """ MASR集成工具类
@@ -201,8 +201,8 @@ class MASRTrainer(object):
                                  mean_istd_path=self.configs.dataset_conf.mean_istd_path,
                                  sos_id=tokenizer.bos_id,
                                  eos_id=tokenizer.eos_id,
-                                 encoder_conf=self.configs.encoder_conf,
-                                 decoder_conf=self.configs.decoder_conf,
+                                 encoder_conf=self.configs.get('encoder_conf', None),
+                                 decoder_conf=self.configs.get('decoder_conf', None),
                                  model_conf=self.configs.model_conf)
         if torch.cuda.device_count() > 1:
             self.model.to(self.local_rank)
@@ -487,7 +487,7 @@ class MASRTrainer(object):
                 labels = labels.to(self.device)
                 input_lens = input_lens.to(self.device)
                 loss_dict = eval_model(inputs, input_lens, labels, label_lens)
-                losses.append(loss_dict['loss'].cpu().detach().numpy())
+                losses.append(loss_dict['loss'].cpu().detach().numpy() / self.configs.train_conf.accum_grad)
                 # 获取模型编码器输出
                 ctc_probs, ctc_lens = eval_model.get_encoder_out(inputs, input_lens)
                 out_strings = self.__decoder_result(ctc_probs=ctc_probs, ctc_lens=ctc_lens)
@@ -495,16 +495,16 @@ class MASRTrainer(object):
                 labels = labels.cpu().detach().numpy().tolist()
                 labels = [list(filter(lambda x: x != -1, label)) for label in labels]
                 labels_str = self.tokenizer.ids2text(labels)
-                for out_string, label in zip(*(out_strings, labels_str)):
+                for label, out_string in zip(*(labels_str, out_strings)):
                     # 计算字错率或者词错率
                     if self.metrics_type == 'wer':
-                        error_rate = wer(out_string, label)
+                        error_rate = wer(label, out_string)
                     else:
-                        error_rate = cer(out_string, label)
+                        error_rate = cer(label, out_string)
                     error_results.append(error_rate)
                     if display_result:
-                        logger.info(f'预测结果为：{out_string}')
                         logger.info(f'实际标签为：{label}')
+                        logger.info(f'预测结果为：{out_string}')
                         logger.info(f'这条数据的{self.metrics_type}：{round(error_rate, 6)}，'
                                     f'当前{self.metrics_type}：{round(sum(error_results) / len(error_results), 6)}')
                         logger.info('-' * 70)

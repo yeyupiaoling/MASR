@@ -57,16 +57,14 @@ preprocess_conf:
 
 # Token处理方法参数
 tokenizer_conf:
-  # 支持：CharTokenizer、WordTokenizer、UnigramTokenizer
-  tokenizer: 'CharTokenizer'
-  # 方法参数
-  tokenizer_args:
-    # 词汇模型文件夹路径
-    vocab_model_dir: "dataset/vocab_model/"
-    # 非语言符号列表
-    non_linguistic_symbols: [ ]
-    # 是否移除非语言符号
-    remove_non_linguistic_symbols: False
+  # 词汇模型文件夹路径
+  vocab_model_dir: "dataset/vocab_model/"
+  # 制作词汇表的字符类型，支持：char、word、unigram
+  model_type: 'char'
+  # 非语言符号列表
+  non_linguistic_symbols: [ ]
+  # 是否移除非语言符号
+  remove_non_linguistic_symbols: False
 
 # 优化方法参数配置
 optimizer_conf:

@@ -38,7 +38,7 @@ class RNN(nn.Module):
             init_state_h = torch.zeros([self.num_state, x.size(0), self.rnn_size], device=x.device, dtype=x.dtype)
         if init_state_c.size(2) == 0:
             init_state_c = torch.zeros([self.num_state, x.size(0), self.rnn_size], device=x.device, dtype=x.dtype)
-        x = nn.utils.rnn.pack_padded_sequence(x, x_lens.cpu(), batch_first=True)
+        x = nn.utils.rnn.pack_padded_sequence(x, x_lens.cpu(), batch_first=True, enforce_sorted=False)
         x, (final_state_h, final_state_c) = self.rnn(x, (init_state_h, init_state_c))  # [B, T, D]
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
         x = self.layer_norm(x)
