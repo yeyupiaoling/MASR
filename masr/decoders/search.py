@@ -45,7 +45,6 @@ def ctc_prefix_beam_search(
         Returns:
             List[List[List[int]]]: nbest result for each utterance
     """
-    print("ctc_lens:", ctc_lens)
     batch_size = ctc_probs.shape[0]
     results = []
     # CTC prefix beam search can not be paralleled, so search one by one

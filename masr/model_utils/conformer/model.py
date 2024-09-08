@@ -215,6 +215,55 @@ class ConformerModel(torch.nn.Module):
         ctc_probs = self.ctc.softmax(xs)
         return ctc_probs, att_cache, cnn_cache
 
+    @torch.jit.export
+    def forward_attention_decoder(
+            self,
+            hyps: torch.Tensor,
+            hyps_lens: torch.Tensor,
+            encoder_out: torch.Tensor,
+            reverse_weight: float = 0,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Export interface for c++ call, forward decoder with multiple
+            hypothesis from ctc prefix beam search and one encoder output
+        Args:
+            hyps (torch.Tensor): hyps from ctc prefix beam search, already
+                pad sos at the begining
+            hyps_lens (torch.Tensor): length of each hyp in hyps
+            encoder_out (torch.Tensor): corresponding encoder output
+            r_hyps (torch.Tensor): hyps from ctc prefix beam search, already
+                pad eos at the begining which is used fo right to left decoder
+            reverse_weight: used for verfing whether used right to left decoder,
+            > 0 will use.
+
+        Returns:
+            torch.Tensor: decoder output
+        """
+        assert encoder_out.size(0) == 1
+        num_hyps = hyps.size(0)
+        assert hyps_lens.size(0) == num_hyps
+        encoder_out = encoder_out.repeat(num_hyps, 1, 1)
+        encoder_mask = torch.ones(num_hyps,
+                                  1,
+                                  encoder_out.size(1),
+                                  dtype=torch.bool,
+                                  device=encoder_out.device)
+        r_hyps_lens = hyps_lens - 1
+        r_hyps = hyps[:, 1:]
+        max_len = torch.max(r_hyps_lens)
+        index_range = torch.arange(0, max_len, 1).to(encoder_out.device)
+        seq_len_expand = r_hyps_lens.unsqueeze(1)
+        seq_mask = seq_len_expand > index_range  # (beam, max_len)
+        index = (seq_len_expand - 1) - index_range  # (beam, max_len)
+        index = index * seq_mask
+        r_hyps = torch.gather(r_hyps, 1, index)
+        r_hyps = torch.where(seq_mask, r_hyps, self.eos)
+        r_hyps = torch.cat([hyps[:, 0:1], r_hyps], dim=1)
+        decoder_out, r_decoder_out, _ = self.decoder(encoder_out, encoder_mask, hyps, hyps_lens, r_hyps,
+                                                     reverse_weight)  # (num_hyps, max_hyps_len, vocab_size)
+        decoder_out = torch.nn.functional.log_softmax(decoder_out, dim=-1)
+        r_decoder_out = torch.nn.functional.log_softmax(r_decoder_out, dim=-1)
+        return decoder_out, r_decoder_out
+
     @torch.no_grad()
     def export(self):
         static_model = torch.jit.script(self.eval())
