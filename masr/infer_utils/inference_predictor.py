@@ -27,14 +27,14 @@ class InferencePredictor:
         if use_gpu:
             assert (torch.cuda.is_available()), 'GPU不可用'
             self.device = torch.device("cuda")
-            self.predictor = torch.jit.load(model_path)
-            self.predictor.to(self.device)
+            self.model = torch.jit.load(model_path)
+            self.model.to(self.device)
         else:
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
             self.device = torch.device("cpu")
-            self.predictor = torch.jit.load(model_path, map_location='cpu')
-            self.predictor.to(self.device)
-        self.predictor.eval()
+            self.model = torch.jit.load(model_path, map_location='cpu')
+            self.model.to(self.device)
+        self.model.eval()
         logger.info(f'已加载模型：{model_path}')
 
         # 流式参数
@@ -58,8 +58,8 @@ class InferencePredictor:
         audio_len = speech_lengths.to(self.device)
 
         # 非流式模型的输入
-        ctc_probs, ctc_lens = self.predictor.get_encoder_out(speech=audio_data, speech_lengths=audio_len)
-        return ctc_probs, ctc_lens
+        encoder_outs, ctc_probs, ctc_lens = self.model.get_encoder_out(speech=audio_data, speech_lengths=audio_len)
+        return encoder_outs, ctc_probs, ctc_lens
 
     def predict_chunk_deepspeech(self, x_chunk):
         if not (self.model_name == 'deepspeech2' and self.streaming):
@@ -69,11 +69,11 @@ class InferencePredictor:
         audio_len = torch.tensor([x_chunk.shape[1]], dtype=torch.int64, device=self.device)
 
         output_chunk_probs, output_lens, self.output_state_h, self.output_state_c = \
-            self.predictor.get_encoder_out_chunk(speech=x_chunk,
-                                                 speech_lengths=audio_len,
-                                                 init_state_h=self.output_state_h,
-                                                 init_state_c=self.output_state_c)
-        return output_chunk_probs.cpu().detach().numpy(), output_lens.cpu().detach().numpy()
+            self.model.get_encoder_out_chunk(speech=x_chunk,
+                                             speech_lengths=audio_len,
+                                             init_state_h=self.output_state_h,
+                                             init_state_c=self.output_state_c)
+        return output_chunk_probs, output_lens
 
     def predict_chunk_conformer(self, x_chunk, required_cache_size):
         if not ('former' in self.model_name and self.streaming):
@@ -82,14 +82,14 @@ class InferencePredictor:
         required_cache_size = torch.tensor([required_cache_size], dtype=torch.int32, device=self.device)
 
         output_chunk_probs, self.att_cache, self.cnn_cache = \
-            self.predictor.get_encoder_out_chunk(speech=x_chunk,
-                                                 offset=self.offset,
-                                                 required_cache_size=required_cache_size,
-                                                 att_cache=self.att_cache,
-                                                 cnn_cache=self.cnn_cache)
+            self.model.get_encoder_out_chunk(speech=x_chunk,
+                                             offset=self.offset,
+                                             required_cache_size=required_cache_size,
+                                             att_cache=self.att_cache,
+                                             cnn_cache=self.cnn_cache)
 
         self.offset += output_chunk_probs.shape[1]
-        return output_chunk_probs.cpu().detach().numpy()
+        return output_chunk_probs
 
     # 重置流式识别，每次流式识别完成之后都要执行
     def reset_stream(self):

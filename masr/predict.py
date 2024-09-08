@@ -4,13 +4,12 @@ from io import BufferedReader
 
 import numpy as np
 import torch
-import yaml
 from loguru import logger
 from yeaudio.audio import AudioSegment
 
 from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.tokenizer import MASRTokenizer
-from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search
+from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search, attention_rescoring
 from masr.infer_utils.inference_predictor import InferencePredictor
 from masr.utils.utils import dict_to_object, print_arguments
 
@@ -42,6 +41,8 @@ class MASRPredictor:
         self.model_info = dict_to_object(configs)
         if decoder == "ctc_beam_search":
             assert decoder_configs is not None, '请配置ctc_beam_search解码器的参数'
+        if self.model_info.model_name == "DeepSpeech2Model":
+            assert decoder != "attention_rescoring", f'DeepSpeech2Model不支持使用{decoder}解码器！'
         self.decoder = decoder
         self.decoder_configs = decoder_configs
         self.running = False
@@ -56,8 +57,7 @@ class MASRPredictor:
         # 流式解码参数
         self.remained_wav = None
         self.cached_feat = None
-        self.greedy_last_max_prob_list = None
-        self.greedy_last_max_index_list = None
+        self.last_chunk_text = ""
         # 创建模型
         if not os.path.exists(model_path):
             raise Exception("模型文件不存在，请检查{}是否存在！".format(model_path))
@@ -78,7 +78,7 @@ class MASRPredictor:
         self.reset_stream()
 
     # 解码模型输出结果
-    def decode(self, ctc_probs, ctc_lens, use_pun, is_itn):
+    def decode(self, encoder_outs, ctc_probs, ctc_lens, use_pun, is_itn):
         """
         解码模型输出结果
         :param output_data: 模型输出结果
@@ -91,9 +91,14 @@ class MASRPredictor:
             result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self._tokenizer.blank_id)
         elif self.decoder == "ctc_prefix_beam_search":
             result = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self._tokenizer.blank_id)
+        elif self.decoder == "attention_rescoring":
+            ctc_prefix_results = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,
+                                                        blank_id=self._tokenizer.blank_id)
+            result = attention_rescoring(model=self.predictor.model, ctc_prefix_results=ctc_prefix_results,
+                                         encoder_outs=encoder_outs, encoder_lens=ctc_lens)
         else:
             raise ValueError(f"不支持该解码器：{self.decoder}")
-        text = self._tokenizer.ids2text(result)
+        text = self._tokenizer.ids2text(result[0].tokens)
 
         # 加标点符号
         if use_pun and len(text) > 0:
@@ -148,10 +153,11 @@ class MASRPredictor:
         audio_len = torch.tensor([audio_feature.size(1)], dtype=torch.int64)
 
         # 运行predictor
-        ctc_probs, ctc_lens = self.predictor.predict(audio_feature, audio_len)
+        encoder_outs, ctc_probs, ctc_lens = self.predictor.predict(audio_feature, audio_len)
 
         # 解码
-        text = self.decode(ctc_probs=ctc_probs, ctc_lens=ctc_lens, use_pun=use_pun, is_itn=is_itn)
+        text = self.decode(encoder_outs=encoder_outs, ctc_probs=ctc_probs, ctc_lens=ctc_lens,
+                           use_pun=use_pun, is_itn=is_itn)
         return text
 
     # 语音预测
@@ -287,33 +293,28 @@ class MASRPredictor:
                 required_cache_size = decoding_chunk_size * num_decoding_left_chunks
                 output_chunk_probs = self.predictor.predict_chunk_conformer(x_chunk=x_chunk,
                                                                             required_cache_size=required_cache_size)
-                output_lens = np.array([output_chunk_probs.shape[1]])
+                output_lens = torch.tensor([output_chunk_probs.size(1)], dtype=torch.int32,
+                                           device=output_chunk_probs.device)
             else:
                 raise Exception(f'当前模型不支持该方法，当前模型为：{self.model_info.model_name}')
             # 执行解码
-            if self.decoder == 'ctc_beam_search':
-                # 集束搜索解码策略
-                score, text = self.beam_search_decoder.decode_chunk(probs=output_chunk_probs, logits_lens=output_lens)
-            else:
-                # 贪心解码策略
-                score, text, self.greedy_last_max_prob_list, self.greedy_last_max_index_list = \
-                    greedy_decoder_chunk(probs_seq=output_chunk_probs[0], vocabulary=self._tokenizer.vocab_list,
-                                         last_max_index_list=self.greedy_last_max_index_list,
-                                         last_max_prob_list=self.greedy_last_max_prob_list)
+            chunk_result = ctc_greedy_search(ctc_probs=output_chunk_probs, ctc_lens=output_lens,
+                                             blank_id=self._tokenizer.blank_id)[0]
+            chunk_text = self._tokenizer.ids2text(chunk_result.tokens)
+            self.last_chunk_text = self.last_chunk_text + chunk_text
         # 更新特征缓存
         self.cached_feat = self.cached_feat[:, end - cached_feature_num:, :]
-
         # 加标点符号
-        if use_pun and is_end and len(text) > 0:
+        if use_pun and is_end and len(self.last_chunk_text) > 0:
             if self.pun_predictor is not None:
-                text = self.pun_predictor(text)
+                self.last_chunk_text = self.pun_predictor(self.last_chunk_text)
             else:
                 logger.warning('标点符号模型没有初始化！')
         # 是否对文本进行反标准化
         if is_itn:
-            text = self.inverse_text_normalization(text)
+            self.last_chunk_text = self.inverse_text_normalization(self.last_chunk_text)
 
-        result = {'text': text, 'score': score}
+        result = {'text': self.last_chunk_text}
         return result
 
     # 重置流式识别，每次流式识别完成之后都要执行
@@ -321,8 +322,7 @@ class MASRPredictor:
         self.predictor.reset_stream()
         self.remained_wav = None
         self.cached_feat = None
-        self.greedy_last_max_prob_list = None
-        self.greedy_last_max_index_list = None
+        self.last_chunk_text = ''
 
     # 对文本进行反标准化
     def inverse_text_normalization(self, text):

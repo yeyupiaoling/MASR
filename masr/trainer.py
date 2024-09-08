@@ -23,7 +23,7 @@ from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.data_utils.tokenizer import MASRTokenizer
 from masr.data_utils.utils import create_manifest, merge_audio
 from masr.data_utils.utils import create_manifest_binary
-from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search
+from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search, attention_rescoring
 from masr.model_utils import build_model
 from masr.optimizer import build_optimizer, build_lr_scheduler
 from masr.utils.checkpoint import save_checkpoint, load_pretrained, load_checkpoint
@@ -221,14 +221,19 @@ class MASRTrainer(object):
             self.scheduler = build_lr_scheduler(optimizer=self.optimizer, step_per_epoch=len(self.train_loader),
                                                 configs=self.configs)
 
-    def __decoder_result(self, ctc_probs, ctc_lens):
+    def __decoder_result(self, encoder_outs, ctc_probs, ctc_lens):
         if self.decoder == "ctc_greedy_search":
-            result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,blank_id=self.tokenizer.blank_id)
+            result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self.tokenizer.blank_id)
         elif self.decoder == "ctc_prefix_beam_search":
             result = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self.tokenizer.blank_id)
+        elif self.decoder == "attention_rescoring":
+            ctc_prefix_results = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,
+                                                        blank_id=self.tokenizer.blank_id)
+            result = attention_rescoring(model=self.model, ctc_prefix_results=ctc_prefix_results,
+                                         encoder_outs=encoder_outs, encoder_lens=ctc_lens)
         else:
             raise ValueError(f"不支持该解码器：{self.decoder}")
-        text = self.tokenizer.ids2text(result)
+        text = self.tokenizer.ids2text([r.tokens for r in result])
         return text
 
     def __train_epoch(self, epoch_id, save_model_path, writer):
@@ -291,7 +296,7 @@ class MASRTrainer(object):
                 if batch_id % self.configs.train_conf.log_interval == 0 and self.local_rank == 0:
                     # 计算每秒训练数据量
                     train_speed = self.configs.dataset_conf.batch_sampler.batch_size / (
-                                sum(train_times) / len(train_times) / 1000)
+                            sum(train_times) / len(train_times) / 1000)
                     # 计算剩余时间
                     self.train_eta_sec = (sum(train_times) / len(train_times)) * (
                             self.max_step - self.train_step) / 1000
@@ -489,8 +494,8 @@ class MASRTrainer(object):
                 loss_dict = eval_model(inputs, input_lens, labels, label_lens)
                 losses.append(loss_dict['loss'].cpu().detach().numpy() / self.configs.train_conf.accum_grad)
                 # 获取模型编码器输出
-                ctc_probs, ctc_lens = eval_model.get_encoder_out(inputs, input_lens)
-                out_strings = self.__decoder_result(ctc_probs=ctc_probs, ctc_lens=ctc_lens)
+                encoder_outs, ctc_probs, ctc_lens = eval_model.get_encoder_out(inputs, input_lens)
+                out_strings = self.__decoder_result(encoder_outs=encoder_outs, ctc_probs=ctc_probs, ctc_lens=ctc_lens)
                 # 移除每条数据的-1值
                 labels = labels.cpu().detach().numpy().tolist()
                 labels = [list(filter(lambda x: x != -1, label)) for label in labels]

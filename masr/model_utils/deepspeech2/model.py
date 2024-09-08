@@ -68,9 +68,9 @@ class DeepSpeech2Model(nn.Module):
 
     @torch.jit.export
     def get_encoder_out(self, speech, speech_lengths):
-        eouts, encoder_lens, _, _ = self.encoder(speech, speech_lengths)
-        ctc_probs = self.decoder.softmax(eouts)
-        return ctc_probs, encoder_lens
+        encoder_outs, encoder_lens, _, _ = self.encoder(speech, speech_lengths)
+        ctc_probs = self.decoder.softmax(encoder_outs)
+        return encoder_outs, ctc_probs, encoder_lens
 
     @torch.jit.export
     def get_encoder_out_chunk(self, speech, speech_lengths,

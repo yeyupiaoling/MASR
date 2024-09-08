@@ -4,10 +4,10 @@ from typing import Tuple
 import torch
 
 from masr.data_utils.normalizer import FeatureNormalizer
-from masr.model_utils.loss.ctc import CTCLoss
-from masr.model_utils.loss.label_smoothing_loss import LabelSmoothingLoss
 from masr.model_utils.transformer.decoder import *
 from masr.model_utils.conformer.encoder import *
+from masr.model_utils.loss.ctc import CTCLoss
+from masr.model_utils.loss.label_smoothing_loss import LabelSmoothingLoss
 from masr.model_utils.utils.cmvn import GlobalCMVN
 from masr.model_utils.utils.common import (IGNORE_ID, add_sos_eos, th_accuracy, reverse_pad_list)
 from masr.utils.utils import DictObject
@@ -158,7 +158,24 @@ class ConformerModel(torch.nn.Module):
         return loss_att, acc_att
 
     @torch.jit.export
-    def get_encoder_out(self, speech: torch.Tensor, speech_lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def subsampling_rate(self) -> int:
+        return self.encoder.embed.subsampling_rate
+
+    @torch.jit.export
+    def right_context(self) -> int:
+        return self.encoder.embed.right_context
+
+    @torch.jit.export
+    def sos_symbol(self) -> int:
+        return self.sos
+
+    @torch.jit.export
+    def eos_symbol(self) -> int:
+        return self.eos
+
+    @torch.jit.export
+    def get_encoder_out(self, speech: torch.Tensor, speech_lengths: torch.Tensor) -> \
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """ Get encoder output
 
         Args:
@@ -167,13 +184,13 @@ class ConformerModel(torch.nn.Module):
         Returns:
             Tensor: ctc softmax output
         """
-        encoder_out, encoder_mask = self.encoder(speech,
-                                      speech_lengths,
-                                      decoding_chunk_size=-1,
-                                      num_decoding_left_chunks=-1)  # (B, maxlen, encoder_dim)
-        ctc_probs = self.ctc.softmax(encoder_out)
+        encoder_outs, encoder_mask = self.encoder(speech,
+                                                  speech_lengths,
+                                                  decoding_chunk_size=-1,
+                                                  num_decoding_left_chunks=-1)  # (B, maxlen, encoder_dim)
+        ctc_probs = self.ctc.softmax(encoder_outs)
         encoder_lens = encoder_mask.squeeze(1).sum(1)
-        return ctc_probs, encoder_lens
+        return encoder_outs, ctc_probs, encoder_lens
 
     @torch.jit.export
     def get_encoder_out_chunk(self,

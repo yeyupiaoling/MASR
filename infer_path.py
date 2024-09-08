@@ -59,8 +59,8 @@ def real_time_predict_demo():
                                           channels=channels, samp_width=samp_width, sample_rate=sample_rate)
         data = d
         if result is None: continue
-        score, text = result['score'], result['text']
-        print(f"【实时结果】：消耗时间：{int((time.time() - start) * 1000)}ms, 识别结果: {text}, 得分: {int(score)}")
+        text = result['text']
+        print(f"【实时结果】：消耗时间：{int((time.time() - start) * 1000)}ms, 识别结果: {text}")
     # 重置流式识别
     predictor.reset_stream()
 
