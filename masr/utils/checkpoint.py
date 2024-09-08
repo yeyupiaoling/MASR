@@ -75,6 +75,7 @@ def load_checkpoint(configs, model, optimizer, amp_scaler, scheduler,
             amp_scaler.load_state_dict(torch.load(os.path.join(model_path, 'scaler.pth')))
         with open(os.path.join(model_path, 'model.state'), 'r', encoding='utf-8') as f:
             json_data = json.load(f)
+            error_rate = 1.0
             last_epoch = json_data['last_epoch']
             if 'cer' in json_data.keys():
                 error_rate = abs(json_data['cer'])
