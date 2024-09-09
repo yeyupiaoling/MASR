@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from loguru import logger
 from yeaudio.audio import AudioSegment
+from yeaudio.streaming_vad import StreamingVAD, VADState, VADParams
 
 from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.tokenizer import MASRTokenizer
@@ -49,7 +50,6 @@ class MASRPredictor:
         self.use_gpu = use_gpu
         self.inv_normalizer = None
         self.pun_predictor = None
-        self.vad_predictor = None
         vocab_model_dir = os.path.join(model_dir, 'vocab_model/')
         assert os.path.exists(vocab_model_dir), f'词表模型文件夹[{vocab_model_dir}]不存在，请检查该文件是否存在！'
         self._tokenizer = MASRTokenizer(vocab_model_dir=vocab_model_dir)
@@ -58,6 +58,8 @@ class MASRPredictor:
         self.remained_wav = None
         self.cached_feat = None
         self.last_chunk_text = ""
+        self.last_chunk_time = 0
+        self.reset_state_time = 30
         # 创建模型
         if not os.path.exists(model_path):
             raise Exception("模型文件不存在，请检查{}是否存在！".format(model_path))
@@ -70,11 +72,15 @@ class MASRPredictor:
                                             streaming=self.model_info.streaming,
                                             model_path=model_path,
                                             use_gpu=self.use_gpu)
+        # 加载流式VAD模型
+        if self.model_info.streaming:
+            self.streaming_vad = StreamingVAD(sample_rate=self.model_info.sample_rate,
+                                              params=VADParams(stop_secs=0.2))
         # 预热
         warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
         self.predict(audio_data=warmup_audio, is_itn=False)
         if self.model_info.streaming:
-            self.predict_stream(audio_data=warmup_audio[:8000], is_itn=False)
+            self.predict_stream(audio_data=warmup_audio[:16000], is_itn=False)
         self.reset_stream()
 
     # 解码模型输出结果
@@ -243,6 +249,8 @@ class MASRPredictor:
                                                      samp_width=samp_width, sample_rate=sample_rate)
         else:
             raise Exception(f'不支持该数据类型，当前数据类型为：{type(audio_data)}')
+        # 统计时间
+        self.last_chunk_time += audio_data.duration
         if self.remained_wav is None:
             self.remained_wav = audio_data
         else:
@@ -304,6 +312,16 @@ class MASRPredictor:
             self.last_chunk_text = self.last_chunk_text + chunk_text
         # 更新特征缓存
         self.cached_feat = self.cached_feat[:, end - cached_feature_num:, :]
+        # 检测VAD
+        if self.streaming_vad is not None:
+            state = VADState.SPEAKING
+            for ith_frame in range(0, len(audio_data.samples), self.streaming_vad.vad_frames):
+                buffer = audio_data.samples[ith_frame:ith_frame + self.streaming_vad.vad_frames]
+                state = self.streaming_vad(buffer)
+            # 如果是静音并且推理音频时间足够长，重置流式识别状态，以免显存不足
+            if state == VADState.QUIET and self.last_chunk_time > self.reset_state_time:
+                logger.info('检测到静音，重置流式识别状态！')
+                self.predictor.reset_stream()
         # 加标点符号
         if use_pun and is_end and len(self.last_chunk_text) > 0:
             if self.pun_predictor is not None:
