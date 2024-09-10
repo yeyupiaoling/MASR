@@ -267,6 +267,13 @@ class MASRPredictor:
             self.cached_feat = np.concatenate([self.cached_feat, x_chunk], axis=1)
         self.remained_wav._samples = self.remained_wav.samples[160 * x_chunk.shape[1]:]
 
+        # 实时检测VAD
+        state = VADState.SPEAKING
+        if self.streaming_vad is not None:
+            for ith_frame in range(0, len(audio_data.samples), self.streaming_vad.vad_frames):
+                buffer = audio_data.samples[ith_frame:ith_frame + self.streaming_vad.vad_frames]
+                state = self.streaming_vad(buffer)
+
         # 识别的数据块大小
         decoding_chunk_size = 16
         context = 7
@@ -312,16 +319,11 @@ class MASRPredictor:
             self.last_chunk_text = self.last_chunk_text + chunk_text
         # 更新特征缓存
         self.cached_feat = self.cached_feat[:, end - cached_feature_num:, :]
-        # 检测VAD
-        if self.streaming_vad is not None:
-            state = VADState.SPEAKING
-            for ith_frame in range(0, len(audio_data.samples), self.streaming_vad.vad_frames):
-                buffer = audio_data.samples[ith_frame:ith_frame + self.streaming_vad.vad_frames]
-                state = self.streaming_vad(buffer)
-            # 如果是静音并且推理音频时间足够长，重置流式识别状态，以免显存不足
-            if state == VADState.QUIET and self.last_chunk_time > self.reset_state_time:
-                logger.info('检测到静音，重置流式识别状态！')
-                self.predictor.reset_stream()
+        # 如果是静音并且推理音频时间足够长，重置流式识别状态，以免显存不足
+        if state == VADState.QUIET and self.last_chunk_time > self.reset_state_time:
+            logger.info('检测到静音，重置流式识别状态！')
+            self.predictor.reset_stream()
+            self.last_chunk_time = 0
         # 加标点符号
         if use_pun and is_end and len(self.last_chunk_text) > 0:
             if self.pun_predictor is not None:
@@ -338,6 +340,7 @@ class MASRPredictor:
     # 重置流式识别，每次流式识别完成之后都要执行
     def reset_stream(self):
         self.predictor.reset_stream()
+        self.last_chunk_time = 0
         self.remained_wav = None
         self.cached_feat = None
         self.last_chunk_text = ''
