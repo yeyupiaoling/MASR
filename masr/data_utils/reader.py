@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import torch
@@ -15,6 +15,31 @@ from masr.data_utils.tokenizer import MASRTokenizer
 
 # 音频数据加载器
 class MASRDataset(Dataset):
+    """数据读取
+
+    :param data_manifest: 数据列表或者数据列表文件路径
+    :type data_manifest: str or List
+    :param audio_featurizer: 音频特征化器
+    :type audio_featurizer: AudioFeaturizer
+    :param tokenizer: 文本分词器
+    :type tokenizer: MASRTokenizer
+    :param min_duration: 过滤的最小时长
+    :type min_duration: float
+    :param max_duration: 过滤的最大时长
+    :type max_duration: float
+    :param aug_conf: 数据增强配置
+    :type aug_conf: Any
+    :param manifest_type: 数据列表类型，只有文本格式和二进制格式两种
+    :type manifest_type: str
+    :param sample_rate: 采样率
+    :type sample_rate: int
+    :param use_dB_normalization: 是否使用dB归一化
+    :type use_dB_normalization: bool
+    :param target_dB: 归一化的目标音量
+    :type target_dB: int
+    :param mode: 数据模式，可选train、eval、test
+    :type mode: str
+    """
     def __init__(self,
                  data_manifest: [str or List],
                  audio_featurizer: AudioFeaturizer,
@@ -101,7 +126,17 @@ class MASRDataset(Dataset):
         return len(self.data_list)
 
     # 获取数据列表
-    def get_data_list(self, data_manifest, min_duration=0, max_duration=20):
+    def get_data_list(self, data_manifest, min_duration=0, max_duration=20) -> List[Dict]:
+        """
+        :param data_manifest: 数据列表或者数据列表文件路径
+        :type data_manifest: str or List
+        :param min_duration: 过滤的最小时长
+        :type min_duration: float
+        :param max_duration: 过滤的最大时长
+        :type max_duration: float
+        :return: 数据列表
+        :rtype: List[dict]
+        """
         data_list = []
         if isinstance(data_manifest, str):
             if self.manifest_type == 'txt':

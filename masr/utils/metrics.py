@@ -4,19 +4,18 @@ from masr.utils.utils import is_english_word
 
 
 def cer(reference, hypothesis, ignore_case=False, remove_space=False):
-    """Compute the levenshtein distance between reference sequence and
-    hypothesis sequence in char-level.
+    """计算字错率
 
-    :param reference: The reference sentence.
+    :param reference: 标注的文本
     :type reference: str
-    :param hypothesis: The hypothesis sentence.
+    :param hypothesis: 识别出来的文本
     :type hypothesis: str
-    :param ignore_case: Whether case-sensitive or not.
+    :param ignore_case: 是否忽略大小写
     :type ignore_case: bool
-    :param remove_space: Whether remove internal space characters
+    :param remove_space: 是否忽略空格
     :type remove_space: bool
-    :return: Levenshtein distance and length of reference sentence.
     :rtype: float
+    :raises ValueError: 如果输入的reference为空
     """
     # 是否要忽略大小写
     if ignore_case:
@@ -42,19 +41,18 @@ def cer(reference, hypothesis, ignore_case=False, remove_space=False):
 
 
 def wer(reference, hypothesis, ignore_case=False, delimiter=' '):
-    """Compute the levenshtein distance between reference sequence and
-    hypothesis sequence in word-level.
+    """计算词错率
 
-    :param reference: The reference sentence.
+    :param reference: 标注的文本
     :type reference: str
-    :param hypothesis: The hypothesis sentence.
+    :param hypothesis: 识别出来的文本
     :type hypothesis: str
-    :param ignore_case: Whether case-sensitive or not.
+    :param ignore_case: 是否忽略大小写
     :type ignore_case: bool
-    :param delimiter: Delimiter of input sentences.
+    :param delimiter: 每个单词之间的分隔符
     :type delimiter: char
-    :return: Levenshtein distance and word number of reference sentence.
     :rtype: float
+    :raises ValueError: 如果输入的reference为空
     """
     # 是否要忽略大小写
     if ignore_case:
@@ -80,19 +78,18 @@ def wer(reference, hypothesis, ignore_case=False, delimiter=' '):
 
 
 def mer(reference, hypothesis, ignore_case=False, delimiter=' '):
-    """Compute the levenshtein distance between reference sequence and
-    hypothesis sequence in char-level.
+    """计算中英文混合错错误率
 
-    :param reference: The reference sentence.
+    :param reference: 标注的文本
     :type reference: str
-    :param hypothesis: The hypothesis sentence.
+    :param hypothesis: 识别出来的文本
     :type hypothesis: str
-    :param ignore_case: Whether case-sensitive or not.
+    :param ignore_case: 是否忽略大小写
     :type ignore_case: bool
-    :param delimiter: Delimiter of input sentences.
+    :param delimiter: 每个单词之间的分隔符
     :type delimiter: char
-    :return: Levenshtein distance and length of reference sentence.
     :rtype: float
+    :raises ValueError: 如果输入的reference为空
     """
     # 是否要忽略大小写
     if ignore_case:

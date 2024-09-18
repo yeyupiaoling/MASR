@@ -56,16 +56,6 @@ def dict_to_object(dict_obj):
     return inst
 
 
-
-# 使用模糊删除方式删除文件
-def fuzzy_delete(dir, fuzzy_str):
-    if os.path.exists(dir):
-        for file in os.listdir(dir):
-            if fuzzy_str in file:
-                path = os.path.join(dir, file)
-                os.remove(path)
-
-
 # 解压ZIP文件
 def unzip_file(zip_src, dst_dir):
     r = zipfile.is_zipfile(zip_src)

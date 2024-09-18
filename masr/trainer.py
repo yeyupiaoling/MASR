@@ -42,11 +42,17 @@ class MASRTrainer(object):
         """ MASR集成工具类
 
         :param configs: 配置文件路径或者是yaml读取到的配置参数
+        :type configs: dict or str
         :param use_gpu: 是否使用GPU训练模型
-        :param metrics_type: 评估指标类型，中文用cer，英文用wer
+        :type use_gpu: bool
+        :param metrics_type: 评估指标类型，中文用cer，英文用wer，中英混合用mer
+        :type metrics_type: str
         :param decoder: 解码器，支持ctc_greedy、ctc_beam_search
+        :type decoder: str
         :param decoder_configs: 解码器配置参数
+        :type decoder_configs: dict or str
         :param data_augment_configs: 数据增强配置字典或者其文件路径
+        :type data_augment_configs: dict or str
         """
         if use_gpu:
             assert (torch.cuda.is_available()), 'GPU不可用'
@@ -99,6 +105,7 @@ class MASRTrainer(object):
         """ 获取数据加载器
 
         :param is_train: 是否获取训练数据
+        :type is_train: bool
         """
         # 获取特征器
         self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
@@ -111,6 +118,7 @@ class MASRTrainer(object):
         dataset_args = self.configs.dataset_conf.get('dataset', {})
         data_loader_args = self.configs.dataset_conf.get('dataLoader', {})
         if is_train:
+            # 获取训练数据
             self.train_dataset = MASRDataset(data_manifest=self.configs.dataset_conf.train_manifest,
                                              audio_featurizer=self.audio_featurizer,
                                              tokenizer=self.tokenizer,
@@ -145,13 +153,15 @@ class MASRTrainer(object):
         """ 提取特征保存文件
 
         :param save_dir: 保存路径
+        :type save_dir: str
         :param max_duration: 提取特征的最大时长，单位秒
+        :type max_duration: int
         """
         # 获取特征器
         self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
                                                 method_args=self.configs.preprocess_conf.get('method_args', {}))
-        for i, data_list_file in enumerate([self.configs.dataset_conf.train_manifest,
-                                            self.configs.dataset_conf.test_manifest]):
+        # 读取训练数据列表和测试数据列表
+        for data_list_file in [self.configs.dataset_conf.train_manifest, self.configs.dataset_conf.test_manifest]:
             save_dir1 = os.path.join(save_dir, data_list_file.split('.')[-1])
             os.makedirs(save_dir1, exist_ok=True)
             dataset_args = self.configs.dataset_conf.get('dataset', {})
@@ -160,12 +170,14 @@ class MASRTrainer(object):
                                        audio_featurizer=self.audio_featurizer,
                                        mode='eval',
                                        **dataset_args)
+            # 保存文件夹
             save_dir_num = f'{int(time.time())}'
             os.makedirs(os.path.join(str(save_dir1), save_dir_num), exist_ok=True)
             all_feature, time_sum, index = None, 0, 0
+            # 新的数据列表文件
             save_data_list = data_list_file.replace('manifest', 'manifest_features')
             with open(save_data_list, 'w', encoding='utf-8') as f:
-                for i in tqdm(range(len(test_dataset))):
+                for i in tqdm(range(len(test_dataset)), desc=f'[{data_list_file}]提取特征中...'):
                     feature = test_dataset[i]
                     data_list = test_dataset.get_one_list(idx=i)
                     time_sum += data_list['duration']
@@ -186,15 +198,24 @@ class MASRTrainer(object):
                                      "start_frame": all_feature.shape[0] - feature.shape[0],
                                      "end_frame": all_feature.shape[0]}
                     f.write(f'{json.dumps(new_data_list, ensure_ascii=False)}\n')
+                    # 把每10分钟的特征合并在一起
                     if time_sum > 600:
                         np.save(save_path, all_feature)
                         all_feature, time_sum = None, 0
                 if all_feature is not None:
                     np.save(save_path, all_feature)
-                    print(save_path)
             logger.info(f'[{data_list_file}]列表中的数据已提取特征完成，新列表为：[{save_data_list}]')
 
     def __setup_model(self, input_dim, tokenizer, is_train=False):
+        """初始化模型
+
+        :param input_dim: 模型的输入维度
+        :type input_dim: int
+        :param tokenizer: 文本分词器
+        :type tokenizer: MASRTokenizer
+        :param is_train: 是否是训练模式
+        :type is_train: bool
+        """
         # 获取模型
         self.model = build_model(input_size=input_dim,
                                  vocab_size=tokenizer.vocab_size,
@@ -213,6 +234,7 @@ class MASRTrainer(object):
             self.model = torch.compile(self.model, mode="reduce-overhead")
         # print(self.model)
         if is_train:
+            # 是否使用混合精度训练
             if self.configs.train_conf.enable_amp:
                 self.amp_scaler = torch.GradScaler(init_scale=1024)
             # 获取优化方法
@@ -222,6 +244,13 @@ class MASRTrainer(object):
                                                 configs=self.configs)
 
     def __decoder_result(self, encoder_outs, ctc_probs, ctc_lens):
+        """解码结果
+
+        :param encoder_outs: 编码器输出
+        :param ctc_probs: 模型输出的CTC概率
+        :param ctc_lens: 模型输出的CTC长度
+        :return: 解码结果
+        """
         if self.decoder == "ctc_greedy_search":
             result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self.tokenizer.blank_id)
         elif self.decoder == "ctc_prefix_beam_search":
@@ -237,6 +266,15 @@ class MASRTrainer(object):
         return text
 
     def __train_epoch(self, epoch_id, save_model_path, writer):
+        """训练一轮数据
+
+        :param epoch_id: 当前训练轮次
+        :type epoch_id: int
+        :param save_model_path: 保存模型路径
+        :type save_model_path: str
+        :param writer: 日志记录器
+        :type writer: LogWriter
+        """
         accum_grad = self.configs.train_conf.accum_grad
         grad_clip = self.configs.train_conf.grad_clip
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
@@ -329,15 +367,22 @@ class MASRTrainer(object):
                     only_build_vocab=False,
                     save_audio_path='dataset/audio/merge_audio',
                     max_duration=600):
-        """
-        创建数据列表和词汇表
+        """创建数据列表和词汇表模型等前期数据处理
+
         :param annotation_path: 标注文件的路径
+        :type annotation_path: str
         :param num_samples: 用于计算均值和标准值得音频数量，当为-1使用全部数据
+        :type num_samples: int
         :param max_test_manifest: 生成测试数据列表的最大数量，如果annotation_path包含了test.txt，就全部使用test.txt的数据
+        :type max_test_manifest: int
         :param only_build_vocab: 是否只生成词汇表模型文件，不进行其他操作
+        :type only_build_vocab: bool
         :param is_merge_audio: 是否将多个短音频合并成长音频，以减少音频文件数量，注意自动删除原始音频文件
+        :type is_merge_audio: bool
         :param save_audio_path: 合并音频的保存路径
+        :type save_audio_path: str
         :param max_duration: 合并音频的最大长度，单位秒
+        :type max_duration: int
         """
         if is_merge_audio:
             logger.info('开始合并音频...')
@@ -378,11 +423,14 @@ class MASRTrainer(object):
               save_model_path='models/',
               resume_model=None,
               pretrained_model=None):
-        """
-        训练模型
+        """训练模型
+
         :param save_model_path: 模型保存的路径
+        :type save_model_path: str
         :param resume_model: 恢复训练，当为None则不使用预训练模型
+        :type resume_model: str
         :param pretrained_model: 预训练模型的路径，当为None则不使用预训练模型
+        :type pretrained_model: str
         """
         # 获取有多少张显卡训练
         nranks = torch.cuda.device_count()
@@ -433,7 +481,7 @@ class MASRTrainer(object):
             if self.local_rank == 0:
                 if self.stop_eval: continue
                 logger.info('=' * 70)
-                self.eval_loss, self.eval_error_result = self.evaluate(resume_model=None)
+                self.eval_loss, self.eval_error_result = self.evaluate()
                 logger.info(
                     f'Test epoch: {epoch_id}, time/epoch: {str(timedelta(seconds=(time.time() - start_epoch)))}, '
                     f'loss: {self.eval_loss:.5f}, {self.metrics_type}: {self.eval_error_result:.5f}, '
@@ -457,16 +505,21 @@ class MASRTrainer(object):
                                 error_rate=self.eval_error_result, metrics_type=self.metrics_type)
 
     def evaluate(self, resume_model=None, display_result=False):
-        """
-        评估模型
+        """评估模型
+
         :param resume_model: 所使用的模型
+        :type resume_model: str
         :param display_result: 是否打印识别结果
+        :type display_result: bool
         :return: 评估结果
         """
         if self.test_loader is None:
+            # 获取测试数据
             self.__setup_dataloader()
         if self.model is None:
+            # 获取模型
             self.__setup_model(input_dim=self.audio_featurizer.feature_dim, tokenizer=self.tokenizer)
+        # 加载预训练模型
         if resume_model is not None:
             if os.path.isdir(resume_model):
                 resume_model = os.path.join(resume_model, 'model.pth')
@@ -522,11 +575,14 @@ class MASRTrainer(object):
                save_model_path='models/',
                resume_model='models/ConformerModel_fbank/best_model/',
                save_quant=False):
-        """
-        导出预测模型
+        """导出预测模型
+
         :param save_model_path: 模型保存的路径
+        :type save_model_path: str
         :param resume_model: 准备转换的模型路径
+        :type resume_model: str
         :param save_quant: 是否保存量化模型
+        :type save_quant: bool
         :return:
         """
         # 获取训练数据
@@ -567,7 +623,7 @@ class MASRTrainer(object):
             logger.info("量化模型已保存：{}".format(quant_model_path))
         # 复制词汇表模型
         shutil.copytree(tokenizer.vocab_model_dir, os.path.join(save_model_dir, 'vocab_model'))
-        # 配置信息
+        # 保存配置信息
         with open(os.path.join(save_model_path, save_model_name, 'inference.json'), 'w', encoding="utf-8") as f:
             self.configs.tokenizer_conf.token_list = tokenizer.vocab_list
             inference_config = {

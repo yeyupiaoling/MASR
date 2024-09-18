@@ -14,8 +14,7 @@ from masr.data_utils.binary import DatasetWriter
 
 
 def read_manifest(manifest_path, max_duration=float('inf'), min_duration=0.0):
-    """解析数据列表
-    持续时间在[min_duration, max_duration]之外的实例将被过滤。
+    """读取数据列表文件
 
     :param manifest_path: 数据列表的路径
     :type manifest_path: str
@@ -38,8 +37,18 @@ def read_manifest(manifest_path, max_duration=float('inf'), min_duration=0.0):
     return manifest
 
 
-# 创建数据列表
 def create_manifest(annotation_path, train_manifest_path, test_manifest_path, max_test_manifest=10000):
+    """创建数据列表
+
+    :param annotation_path: 标注列表文件夹路径
+    :type annotation_path: str
+    :param train_manifest_path: 训练数据列表路径
+    :type train_manifest_path: str
+    :param test_manifest_path: 测试数据列表路径
+    :type test_manifest_path: str
+    :param max_test_manifest: 测试数据列表最大数量
+    :type max_test_manifest: int
+    """
     data_list = []
     test_list = []
     durations = []
@@ -125,8 +134,18 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, ma
     logger.info("完成生成数据列表，数据集总长度为{:.2f}小时！".format(sum(durations) / 3600.))
 
 
-# 将多段短音频合并为长音频，减少文件数量
 def merge_audio(annotation_path, save_audio_path, max_duration=600, target_sr=16000):
+    """将多段短音频合并为长音频，减少文件数量
+
+    :param annotation_path: 标注列表文件夹路径
+    :type annotation_path: str
+    :param save_audio_path: 合并后的音频保存路径
+    :type save_audio_path: str
+    :param max_duration: 合并的最大音频长度
+    :type max_duration: int
+    :param target_sr: 目标采样率
+    :type target_sr: int
+    """
     # 合并数据列表
     train_list_path = os.path.join(annotation_path, 'merge_audio.json')
     if os.path.exists(train_list_path):
@@ -182,11 +201,12 @@ def merge_audio(annotation_path, save_audio_path, max_duration=600, target_sr=16
 
 
 def create_manifest_binary(train_manifest_path, test_manifest_path):
-    """
-    生成数据列表的二进制文件
+    """生成数据列表的二进制文件
+
     :param train_manifest_path: 训练列表的路径
+    :type train_manifest_path: str
     :param test_manifest_path: 测试列表的路径
-    :return:
+    :type test_manifest_path: str
     """
     for manifest_path in [train_manifest_path, test_manifest_path]:
         dataset_writer = DatasetWriter(manifest_path)

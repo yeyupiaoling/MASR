@@ -11,7 +11,9 @@ def load_pretrained(model, pretrained_model):
     """加载预训练模型
 
     :param model: 使用的模型
+    :type model: torch.nn.Module
     :param pretrained_model: 预训练模型路径
+    :type pretrained_model: str
     """
     # 加载预训练模型
     if pretrained_model is None: return model
@@ -50,13 +52,21 @@ def load_checkpoint(configs, model, optimizer, amp_scaler, scheduler,
     """加载模型
 
     :param configs: 配置信息
+    :type configs: dict | Any
     :param model: 使用的模型
+    :type model: torch.nn.Module
     :param optimizer: 使用的优化方法
+    :type optimizer: torch.optim.Optimizer
     :param amp_scaler: 使用的自动混合精度
+    :type amp_scaler: torch.GradScaler
     :param scheduler: 使用的学习率调整策略
+    :type scheduler: torch.optim.lr_scheduler.LRScheduler
     :param step_epoch: 每个epoch的step数量
+    :type step_epoch: int
     :param save_model_path: 模型保存路径
+    :type save_model_path: str
     :param resume_model: 恢复训练的模型路径
+    :type resume_model: str
     """
     last_epoch1 = 0
     error_rate1 = 1.0
@@ -110,14 +120,23 @@ def save_checkpoint(configs, model, optimizer, amp_scaler, save_model_path, epoc
     """保存模型
 
     :param configs: 配置信息
+    :type configs: dict | Any
     :param model: 使用的模型
+    :type model: torch.nn.Module
     :param optimizer: 使用的优化方法
+    :type optimizer: torch.optim.Optimizer
     :param amp_scaler: 使用的自动混合精度
+    :type amp_scaler: torch.GradScaler
     :param save_model_path: 模型保存路径
+    :type save_model_path: str
     :param epoch_id: 当前epoch
+    :type epoch_id: int
     :param error_rate: 当前的错误率
+    :type error_rate: float
     :param metrics_type: 当前使用的评估指标
+    :type metrics_type: str
     :param best_model: 是否为最佳模型
+    :type best_model: bool
     """
     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
         state_dict = model.module.state_dict()
