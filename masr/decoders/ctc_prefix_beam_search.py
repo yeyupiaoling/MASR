@@ -12,6 +12,14 @@ def ctc_prefix_beam_search(
         beam_size: int = 5,
         blank_id: int = 0,
 ) -> [List, List]:
+    """CTC prefix beam search
+
+    param ctc_probs: (B, maxlen, vocab_size) 模型编码器输出的概率分布
+    param ctc_lens: (B, ) 每个样本的实际长度
+    param beam_size: 解码搜索大小
+    param blank_id: 空白标签的id
+    return: 解码结果，和所有解码结果，用于attention_rescoring解码器使用
+    """
     batch_size = ctc_probs.shape[0]
     results, hyps_list = [], []
     # CTC prefix beam search can not be paralleled, so search one by one

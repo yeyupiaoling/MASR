@@ -18,6 +18,19 @@ def attention_rescoring(
         ctc_weight: float = 0.3,
         reverse_weight: float = 0.5,
 ) -> List:
+    """Attention rescoring
+
+    param model: 模型
+    param ctc_probs: (B, maxlen, vocab_size) 模型编码器输出的概率分布
+    param ctc_lens: (B, ) 每个样本的实际长度
+    param encoder_outs: (B, maxlen, encoder_dim) 编码器输出
+    param encoder_lens: (B, ) 每个样本的实际长度
+    param beam_size: 解码搜索大小
+    param blank_id: 空白标签的id
+    param ctc_weight: CTC解码器权重
+    param reverse_weight: 反向解码器权重
+    return: 解码结果，和所有解码结果，用于attention_rescoring解码器使用
+    """
     device = encoder_outs.device
     batch_size = encoder_outs.shape[0]
     sos, eos, ignore_id = model.sos_symbol(), model.eos_symbol(), model.ignore_symbol()
