@@ -35,7 +35,8 @@ def attention_rescoring(
     batch_size = encoder_outs.shape[0]
     sos, eos, ignore_id = model.sos_symbol(), model.eos_symbol(), model.ignore_symbol()
     # len(hyps) = beam_size, encoder_out: (1, maxlen, encoder_dim)
-    _, hyps_list = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=blank_id)
+    _, hyps_list = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=blank_id,
+                                          beam_size=beam_size)
     assert len(hyps_list[0]) == beam_size
 
     results = []
