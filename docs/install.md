@@ -1,10 +1,10 @@
 # 安装MASR环境
 
-本人用的就是本地环境和使用Anaconda，并创建了Python3.11的虚拟环境，出现安装问题，随时提[issue](https://github.com/yeyupiaoling/PPASR/issues)。
+本人用的就是本地环境和使用Anaconda，并创建了Python3.11的虚拟环境，出现安装问题，随时提[issue](https://github.com/yeyupiaoling/MASR/issues)。
 
- - 首先安装的是Pytorch 2.0.1的GPU版本，如果已经安装过了，请跳过。
+ - 首先安装的是Pytorch 2.4.0的GPU版本，如果已经安装过了，请跳过。
 ```shell
-conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.7 -c pytorch -c nvidia
+conda install pytorch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0  pytorch-cuda=11.8 -c pytorch -c nvidia
 ```
 
  - 安装MASR库。
@@ -23,39 +23,18 @@ pip install .
 
 **常见安装问题：** 
 
-1. LLVM版本错误，则执行下面的命令，然后重新执行上面的安装命令，否则不需要执行。
-```shell
-cd ~
-wget https://releases.llvm.org/9.0.0/llvm-9.0.0.src.tar.xz
-wget http://releases.llvm.org/9.0.0/cfe-9.0.0.src.tar.xz
-wget http://releases.llvm.org/9.0.0/clang-tools-extra-9.0.0.src.tar.xz
-tar xvf llvm-9.0.0.src.tar.xz
-tar xvf cfe-9.0.0.src.tar.xz
-tar xvf clang-tools-extra-9.0.0.src.tar.xz
-mv llvm-9.0.0.src llvm-src
-mv cfe-9.0.0.src llvm-src/tools/clang
-mv clang-tools-extra-9.0.0.src llvm-src/tools/clang/tools/extra
-sudo mkdir -p /usr/local/llvm
-sudo mkdir -p llvm-src/build
-cd llvm-src/build
-sudo cmake -G "Unix Makefiles" -DLLVM_TARGETS_TO_BUILD=X86 -DCMAKE_BUILD_TYPE="Release" -DCMAKE_INSTALL_PREFIX="/usr/local/llvm" ..
-sudo make -j8
-sudo make install
-export LLVM_CONFIG=/usr/local/llvm/bin/llvm-config
-```
-
-2. Linux 报错 OSError: sndfile library not found
+1. Linux 报错 OSError: sndfile library not found
 
 ```shell
 sudo apt-get install libsndfile1
 ```
 
-3. 如果提示缺少`it`依赖库，请安装。
+2. 如果提示缺少`it`依赖库，请安装。
 ```shell
-python -m pip install WeTextProcessing>=0.1.0
+python -m pip install WeTextProcessing>=1.0.4.1
 ```
 
-5. 安装pynini出错，可以执行下面命令安装。
+3. 安装pynini出错，可以执行下面命令安装。
 ```shell
 conda install -c conda-forge pynini
 ```

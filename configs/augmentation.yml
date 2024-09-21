@@ -42,7 +42,7 @@ noise:
 # 混响增强
 reverb:
   # 增强概率
-  prob: 0.5
+  prob: 0.2
   # 混响增强的混响文件夹
   reverb_dir: 'dataset/reverb'
 

@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg("target_dir", default="../dataset/audio/", type=str, help="存放音频文件的目录")
 add_arg("annotation_text", default="../dataset/annotation/", type=str, help="存放音频标注文件的目录")
+add_arg("filepath", default=None, type=str, help="提前下载好的数据集压缩文件")
 args = parser.parse_args()
 
 
@@ -31,7 +32,10 @@ def prepare_dataset(url, md5sum, target_dir, annotation_path):
     """Download, unpack and create manifest file."""
     data_dir = os.path.join(target_dir, 'ST-CMDS-20170001_1-OS')
     if not os.path.exists(data_dir):
-        filepath = download(url, md5sum, target_dir)
+        if args.filepath is None:
+            filepath = download(url, md5sum, target_dir)
+        else:
+            filepath = args.filepath
         unpack(filepath, target_dir)
         os.remove(filepath)
     else:
