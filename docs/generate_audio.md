@@ -7,6 +7,9 @@ cd tools/
 git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
 cd CosyVoice
 git submodule update --init --recursive
+# 建立独立的虚拟环境
+conda create -n cosyvoice python=3.8
+conda activate cosyvoice
 # 安装依赖库
 conda install -y -c conda-forge pynini==2.1.5
 sudo apt-get install sox libsox-dev
