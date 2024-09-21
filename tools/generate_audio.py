@@ -1,15 +1,15 @@
 import argparse
 import os
-import random
 from pathlib import Path
 
-from paddlespeech.cli.tts.infer import TTSExecutor
+import numpy as np
+import requests
+import torch
+import torchaudio
 from tqdm import tqdm
 
 
 def generate(args):
-    tts = TTSExecutor()
-
     # construct dataset for generate
     sentences = []
     with open(args.text, 'rt', encoding='utf-8') as f:
@@ -26,18 +26,24 @@ def generate(args):
         with open(args.annotation_path, 'r', encoding='utf-8') as f_ann:
             start_num = len(f_ann.readlines())
     f_ann = open(args.annotation_path, 'a', encoding='utf-8')
-    if 'aishell3' not in args.am:
-        num_speakers = 1
-    else:
-        num_speakers = 174
+
+    url = f"http://{args.host}:{args.port}/inference_sft"
     # 开始生成音频
     for i in tqdm(range(start_num, len(sentences))):
         utt_id, sentence = sentences[i]
-        # 随机说话人
-        spk_id = random.randint(0, num_speakers - 1)
         save_audio_path = str(output_dir / (utt_id + ".wav"))
-        tts(am=args.am, voc=args.voc, text=sentence, spk_id=spk_id, output=save_audio_path)
+        # 调用接口合成语音
+        payload = {
+            'tts_text': sentence,
+            'spk_id': args.spk_id
+        }
+        response = requests.request("GET", url, data=payload, stream=True)
+        tts_audio = b''
+        for r in response.iter_content(chunk_size=16000):
+            tts_audio += r
+        tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
         save_audio_path = save_audio_path[3:].replace('\\', '/')
+        torchaudio.save(save_audio_path, tts_speech, 22050)
         sentence = sentence.replace('。', '').replace('，', '').replace('！', '').replace('？', '')
         f_ann.write(f'{save_audio_path}\t{sentence}\n')
         f_ann.flush()
@@ -45,6 +51,15 @@ def generate(args):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--host',
+                        type=str,
+                        default='localhost')
+    parser.add_argument('--port',
+                        type=int,
+                        default='50000')
+    parser.add_argument('--spk_id',
+                        type=str,
+                        default='中文女')
     parser.add_argument("--text",
                         type=str,
                         default='generate_audio/corpus.txt',
