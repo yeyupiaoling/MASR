@@ -23,7 +23,9 @@ from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.data_utils.tokenizer import MASRTokenizer
 from masr.data_utils.utils import create_manifest, merge_audio
 from masr.data_utils.utils import create_manifest_binary
-from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search, attention_rescoring
+from masr.decoders.ctc_prefix_beam_search import ctc_prefix_beam_search
+from masr.decoders.attention_rescoring import attention_rescoring
+from masr.decoders.ctc_greedy_search import ctc_greedy_search
 from masr.model_utils import build_model
 from masr.optimizer import build_optimizer, build_lr_scheduler
 from masr.utils.checkpoint import save_checkpoint, load_pretrained, load_checkpoint
@@ -49,7 +51,7 @@ class MASRTrainer(object):
         :type metrics_type: str
         :param decoder: 解码器，支持ctc_greedy、ctc_beam_search
         :type decoder: str
-        :param decoder_configs: 解码器配置参数
+        :param decoder_configs: 解码器配置参数文件路径，支持yaml格式
         :type decoder_configs: dict or str
         :param data_augment_configs: 数据增强配置字典或者其文件路径
         :type data_augment_configs: dict or str
@@ -60,8 +62,6 @@ class MASRTrainer(object):
         else:
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
             self.device = torch.device("cpu")
-        if decoder == "ctc_beam_search":
-            assert decoder_configs is not None, '请配置ctc_beam_search解码器的参数'
         # 读取配置文件
         if isinstance(configs, str):
             with open(configs, 'r', encoding='utf-8') as f:
@@ -78,7 +78,12 @@ class MASRTrainer(object):
         self.use_gpu = use_gpu
         self.metrics_type = metrics_type
         self.decoder = decoder
-        self.decoder_configs = decoder_configs
+        # 读取解码器配置文件
+        if isinstance(decoder_configs, str) and os.path.exists(decoder_configs):
+            with open(decoder_configs, 'r', encoding='utf-8') as f:
+                decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+            print_arguments(configs=decoder_configs, title='解码器参数配置')
+        self.decoder_configs = decoder_configs if decoder_configs is not None else {}
         self.model = None
         self.model = None
         self.optimizer = None
@@ -254,15 +259,21 @@ class MASRTrainer(object):
         if self.decoder == "ctc_greedy_search":
             result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self.tokenizer.blank_id)
         elif self.decoder == "ctc_prefix_beam_search":
-            result = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self.tokenizer.blank_id)
+            decoder_args = self.decoder_configs.get('ctc_prefix_beam_search_args', {})
+            result, _ = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,
+                                               blank_id=self.tokenizer.blank_id, **decoder_args)
         elif self.decoder == "attention_rescoring":
-            ctc_prefix_results = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,
-                                                        blank_id=self.tokenizer.blank_id)
-            result = attention_rescoring(model=self.model, ctc_prefix_results=ctc_prefix_results,
-                                         encoder_outs=encoder_outs, encoder_lens=ctc_lens)
+            decoder_args = self.decoder_configs.get('attention_rescoring_args', {})
+            result = attention_rescoring(model=self.model,
+                                         ctc_probs=ctc_probs,
+                                         ctc_lens=ctc_lens,
+                                         blank_id=self.tokenizer.blank_id,
+                                         encoder_outs=encoder_outs,
+                                         encoder_lens=ctc_lens,
+                                         **decoder_args)
         else:
             raise ValueError(f"不支持该解码器：{self.decoder}")
-        text = self.tokenizer.ids2text([r.tokens for r in result])
+        text = self.tokenizer.ids2text([r for r in result])
         return text
 
     def __train_epoch(self, epoch_id, save_model_path, writer):

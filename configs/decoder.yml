@@ -1,0 +1,13 @@
+# 解码器参数
+ctc_prefix_beam_search_args:
+  # 集束搜索的大小
+  beam_size: 5
+
+# 解码器参数
+attention_rescoring_args:
+  # 集束搜索的大小
+  beam_size: 5
+  # CTC解码器权重
+  ctc_weight: 0.3
+  # 反向解码器权重
+  reverse_weight: 1.0

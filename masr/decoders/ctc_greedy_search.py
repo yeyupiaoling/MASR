@@ -5,8 +5,6 @@ from typing import List
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
-from masr.decoders.context_graph import ContextGraph
-from masr.decoders.decod_status import DecodeResult, PrefixScore
 from masr.decoders.utils import log_add
 from masr.decoders.utils import make_pad_mask
 from masr.decoders.utils import remove_duplicates_and_blank
@@ -17,7 +15,7 @@ __all__ = ["ctc_greedy_search", "ctc_prefix_beam_search", "attention_rescoring"]
 
 def ctc_greedy_search(ctc_probs: torch.Tensor,
                       ctc_lens: torch.Tensor,
-                      blank_id: int = 0) -> List[DecodeResult]:
+                      blank_id: int = 0) -> List:
     batch_size = ctc_probs.shape[0]
     maxlen = ctc_probs.size(1)
     topk_prob, topk_index = ctc_probs.topk(1, dim=2)  # (B, maxlen, 1)
@@ -29,7 +27,7 @@ def ctc_greedy_search(ctc_probs: torch.Tensor,
     scores = scores.cpu().detach().numpy().tolist()
     results = []
     for hyp, score in zip(hyps, scores):
-        r = DecodeResult(tokens=remove_duplicates_and_blank(hyp, blank_id), score=score[0])
+        r = remove_duplicates_and_blank(hyp, blank_id)
         results.append(r)
     return results
 
@@ -38,9 +36,9 @@ def ctc_prefix_beam_search(
         ctc_probs: torch.Tensor,
         ctc_lens: torch.Tensor,
         beam_size: int = 5,
-        context_graph: ContextGraph = None,
+        context_graph = None,
         blank_id: int = 0,
-) -> List[DecodeResult]:
+) -> List:
     """
         Returns:
             List[List[List[int]]]: nbest result for each utterance
@@ -147,12 +145,12 @@ def ctc_prefix_beam_search(
 
 def attention_rescoring(
         model,
-        ctc_prefix_results: List[DecodeResult],
+        ctc_prefix_results: List,
         encoder_outs: torch.Tensor,
         encoder_lens: torch.Tensor,
         ctc_weight: float = 0.3,
         reverse_weight: float = 0.5,
-) -> List[DecodeResult]:
+) -> List:
     """
         Args:
             ctc_prefix_results(List[DecodeResult]): ctc prefix beam search results

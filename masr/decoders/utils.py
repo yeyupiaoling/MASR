@@ -6,9 +6,14 @@ from typing import List
 import torch
 
 
-def log_add(*args) -> float:
-    """
-    Stable log add
+def log_add(args: List[float]) -> float:
+    """Stable log add
+
+    Args:
+        args (List[int]): log scores
+
+    Returns:
+        float: sum of log scores
     """
     if all(a == -float('inf') for a in args):
         return -float('inf')

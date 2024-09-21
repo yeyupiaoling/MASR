@@ -166,6 +166,10 @@ class ConformerModel(torch.nn.Module):
         return self.encoder.embed.right_context
 
     @torch.jit.export
+    def ignore_symbol(self) -> int:
+        return self.ignore_id
+
+    @torch.jit.export
     def sos_symbol(self) -> int:
         return self.sos
 
@@ -188,7 +192,7 @@ class ConformerModel(torch.nn.Module):
                                                   speech_lengths,
                                                   decoding_chunk_size=-1,
                                                   num_decoding_left_chunks=-1)  # (B, maxlen, encoder_dim)
-        ctc_probs = self.ctc.softmax(encoder_outs)
+        ctc_probs = self.ctc.log_softmax(encoder_outs)
         encoder_lens = encoder_mask.squeeze(1).sum(1)
         return encoder_outs, ctc_probs, encoder_lens
 

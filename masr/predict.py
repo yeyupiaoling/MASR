@@ -4,13 +4,16 @@ from io import BufferedReader
 
 import numpy as np
 import torch
+import yaml
 from loguru import logger
 from yeaudio.audio import AudioSegment
 from yeaudio.streaming_vad import StreamingVAD, VADState, VADParams
 
 from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.tokenizer import MASRTokenizer
-from masr.decoders.search import ctc_greedy_search, ctc_prefix_beam_search, attention_rescoring
+from masr.decoders.ctc_prefix_beam_search import ctc_prefix_beam_search
+from masr.decoders.attention_rescoring import attention_rescoring
+from masr.decoders.ctc_greedy_search import ctc_greedy_search
 from masr.infer_utils.inference_predictor import InferencePredictor
 from masr.utils.utils import dict_to_object, print_arguments
 
@@ -27,7 +30,7 @@ class MASRPredictor:
         语音识别预测工具
         :param model_dir: 导出的预测模型文件夹路径
         :param decoder: 解码器，支持ctc_greedy、ctc_beam_search
-        :param decoder_configs: 解码器配置参数
+        :param decoder_configs: 解码器配置参数文件路径，支持yaml格式
         :param use_pun: 是否使用加标点符号的模型
         :param pun_model_dir: 给识别结果加标点符号的模型文件夹路径
         :param use_gpu: 是否使用GPU预测
@@ -40,12 +43,15 @@ class MASRPredictor:
             configs = json.load(f)
             print_arguments(configs=configs, title="模型参数配置")
         self.model_info = dict_to_object(configs)
-        if decoder == "ctc_beam_search":
-            assert decoder_configs is not None, '请配置ctc_beam_search解码器的参数'
         if self.model_info.model_name == "DeepSpeech2Model":
             assert decoder != "attention_rescoring", f'DeepSpeech2Model不支持使用{decoder}解码器！'
         self.decoder = decoder
-        self.decoder_configs = decoder_configs
+        # 读取解码器配置文件
+        if isinstance(decoder_configs, str) and os.path.exists(decoder_configs):
+            with open(decoder_configs, 'r', encoding='utf-8') as f:
+                decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+            print_arguments(configs=decoder_configs, title='解码器参数配置')
+        self.decoder_configs = decoder_configs if decoder_configs is not None else {}
         self.running = False
         self.use_gpu = use_gpu
         self.inv_normalizer = None
@@ -85,9 +91,11 @@ class MASRPredictor:
 
     # 解码模型输出结果
     def decode(self, encoder_outs, ctc_probs, ctc_lens, use_pun, is_itn):
-        """
-        解码模型输出结果
-        :param output_data: 模型输出结果
+        """解码模型输出结果
+
+        :param encoder_outs: 编码器输出
+        :param ctc_probs: 模型输出的CTC概率
+        :param ctc_lens: 模型输出的CTC长度
         :param use_pun: 是否使用加标点符号的模型
         :param is_itn: 是否对文本进行反标准化
         :return:
@@ -96,15 +104,21 @@ class MASRPredictor:
         if self.decoder == "ctc_greedy_search":
             result = ctc_greedy_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self._tokenizer.blank_id)
         elif self.decoder == "ctc_prefix_beam_search":
-            result = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens, blank_id=self._tokenizer.blank_id)
+            decoder_args = self.decoder_configs.get('ctc_prefix_beam_search_args', {})
+            result, _ = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,
+                                               blank_id=self._tokenizer.blank_id, **decoder_args)
         elif self.decoder == "attention_rescoring":
-            ctc_prefix_results = ctc_prefix_beam_search(ctc_probs=ctc_probs, ctc_lens=ctc_lens,
-                                                        blank_id=self._tokenizer.blank_id)
-            result = attention_rescoring(model=self.predictor.model, ctc_prefix_results=ctc_prefix_results,
-                                         encoder_outs=encoder_outs, encoder_lens=ctc_lens)
+            decoder_args = self.decoder_configs.get('attention_rescoring_args', {})
+            result = attention_rescoring(model=self.predictor.model,
+                                         ctc_probs=ctc_probs,
+                                         ctc_lens=ctc_lens,
+                                         blank_id=self._tokenizer.blank_id,
+                                         encoder_outs=encoder_outs,
+                                         encoder_lens=ctc_lens,
+                                         **decoder_args)
         else:
             raise ValueError(f"不支持该解码器：{self.decoder}")
-        text = self._tokenizer.ids2text(result[0].tokens)
+        text = self._tokenizer.ids2text(result[0])
 
         # 加标点符号
         if use_pun and len(text) > 0:
@@ -315,7 +329,7 @@ class MASRPredictor:
             # 执行解码
             chunk_result = ctc_greedy_search(ctc_probs=output_chunk_probs, ctc_lens=output_lens,
                                              blank_id=self._tokenizer.blank_id)[0]
-            chunk_text = self._tokenizer.ids2text(chunk_result.tokens)
+            chunk_text = self._tokenizer.ids2text(chunk_result)
             self.last_chunk_text = self.last_chunk_text + chunk_text
         # 更新特征缓存
         self.cached_feat = self.cached_feat[:, end - cached_feature_num:, :]
