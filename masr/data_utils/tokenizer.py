@@ -107,10 +107,6 @@ class MASRTokenizer(object):
         return self.sp.unk_id()
 
     @property
-    def bos_id(self) -> int:
-        return self.sp.bos_id()
-
-    @property
     def eos_id(self) -> int:
         return self.sp.eos_id()
 
