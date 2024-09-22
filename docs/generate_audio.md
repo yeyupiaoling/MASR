@@ -32,12 +32,14 @@ unzip xiaohuangji50w_nofenci.conv.zip
 
 3. 接着执行下面命令生成中文语料数据集，生成的中文语料存放在`tools/corpus.txt`。
 ```shell
+# 注意路径
 cd tools/CosyVoice/
 python generate_corpus.py
 ```
 
 4. 最后执行以下命令即可自动合成语音，合成时会随机获取说话人进行合成语音，合成的语音会放在`dataset/audio/generate`， 标注文件会放在`dataset/annotation/generate.txt`。
 ```shell
+# 注意路径
 cd tools/CosyVoice/
 # 设置环境变量
 export PYTHONPATH=third_party/Matcha-TTS

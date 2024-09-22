@@ -2,9 +2,10 @@ import argparse
 import os
 import random
 from pathlib import Path
-
+from loguru import logger
 import torchaudio
 from cosyvoice.cli.cosyvoice import CosyVoice
+from modelscope import snapshot_download
 from tqdm import tqdm
 
 
@@ -26,16 +27,18 @@ def generate(args):
             start_num = len(f_ann.readlines())
     f_ann = open(args.annotation_path, 'a', encoding='utf-8')
 
+    snapshot_download('iic/CosyVoice-300M-SFT', local_dir='pretrained_models/CosyVoice-300M-SFT')
     cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT')
+    logger.info(f"支持说话人：{cosyvoice.list_avaliable_spks()}")
     # 开始生成音频
     for i in tqdm(range(start_num, len(sentences))):
         utt_id, sentence = sentences[i]
         save_audio_path = str(output_dir / (utt_id + ".wav"))
         # 执行合成语音
-        speaker = random.choice(cosyvoice.list_avaliable_spks())
-        model_output = cosyvoice.inference_sft(sentence, speaker)
-        save_audio_path = save_audio_path[6:].replace('\\', '/')
-        torchaudio.save(save_audio_path, model_output['tts_speech'], 22050)
+        speaker = random.choice(["中文男", "中文女"])
+        for j in cosyvoice.inference_sft(sentence, speaker):
+            save_audio_path = save_audio_path[6:].replace('\\', '/')
+            torchaudio.save(save_audio_path, j['tts_speech'], 22050)
         sentence = sentence.replace('。', '').replace('，', '').replace('！', '').replace('？', '')
         f_ann.write(f'{save_audio_path}\t{sentence}\n')
         f_ann.flush()
