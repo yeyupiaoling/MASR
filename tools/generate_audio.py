@@ -2,7 +2,6 @@ import argparse
 import os
 import random
 from pathlib import Path
-from loguru import logger
 import torchaudio
 from cosyvoice.cli.cosyvoice import CosyVoice
 from modelscope import snapshot_download
@@ -29,7 +28,7 @@ def generate(args):
 
     snapshot_download('iic/CosyVoice-300M-SFT', local_dir='pretrained_models/CosyVoice-300M-SFT')
     cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT')
-    logger.info(f"支持说话人：{cosyvoice.list_avaliable_spks()}")
+    print(f"支持说话人：{cosyvoice.list_avaliable_spks()}")
     # 开始生成音频
     for i in tqdm(range(start_num, len(sentences))):
         utt_id, sentence = sentences[i]
@@ -37,10 +36,10 @@ def generate(args):
         # 执行合成语音
         speaker = random.choice(["中文男", "中文女"])
         for j in cosyvoice.inference_sft(sentence, speaker):
-            save_audio_path = save_audio_path[6:].replace('\\', '/')
+            save_audio_path = save_audio_path.replace('\\', '/')
             torchaudio.save(save_audio_path, j['tts_speech'], 22050)
         sentence = sentence.replace('。', '').replace('，', '').replace('！', '').replace('？', '')
-        f_ann.write(f'{save_audio_path}\t{sentence}\n')
+        f_ann.write(f'{save_audio_path[6:]}\t{sentence}\n')
         f_ann.flush()
 
 
@@ -48,7 +47,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--text",
                         type=str,
-                        default='generate_audio/corpus.txt',
+                        default='./corpus.txt',
                         help="text to synthesize, a 'utt_id sentence' pair per line.")
     parser.add_argument("--output_dir",
                         type=str,
