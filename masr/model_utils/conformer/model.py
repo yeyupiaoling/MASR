@@ -21,7 +21,6 @@ class ConformerModel(torch.nn.Module):
             input_size: int,
             vocab_size: int,
             mean_istd_path: str,
-            sos_id: int,
             eos_id: int,
             streaming: bool = True,
             encoder_conf: DictObject = None,
@@ -58,8 +57,8 @@ class ConformerModel(torch.nn.Module):
                                     **decoder_conf.decoder_args if decoder_conf.decoder_args is not None else {})
 
         self.ctc = CTCLoss(vocab_size, self.encoder.output_size())
-        # note that eos is the same as sos (equivalent ID)
-        self.sos = sos_id
+        # sos 和 eos 使用相同的ID
+        self.sos = eos_id
         self.eos = eos_id
         self.vocab_size = vocab_size
         self.ignore_id = ignore_id

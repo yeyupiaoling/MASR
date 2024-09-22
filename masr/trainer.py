@@ -225,7 +225,6 @@ class MASRTrainer(object):
         self.model = build_model(input_size=input_dim,
                                  vocab_size=tokenizer.vocab_size,
                                  mean_istd_path=self.configs.dataset_conf.mean_istd_path,
-                                 sos_id=tokenizer.bos_id,
                                  eos_id=tokenizer.eos_id,
                                  encoder_conf=self.configs.get('encoder_conf', None),
                                  decoder_conf=self.configs.get('decoder_conf', None),
