@@ -13,7 +13,7 @@ def attention_rescoring(
         ctc_lens: torch.Tensor,
         encoder_outs: torch.Tensor,
         encoder_lens: torch.Tensor,
-        beam_size: int = 5,
+        beam_size: int = 10,
         blank_id: int = 0,
         ctc_weight: float = 0.3,
         reverse_weight: float = 0.5,

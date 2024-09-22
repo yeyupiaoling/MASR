@@ -9,7 +9,7 @@ from masr.decoders.utils import log_add
 def ctc_prefix_beam_search(
         ctc_probs: torch.Tensor,
         ctc_lens: torch.Tensor,
-        beam_size: int = 5,
+        beam_size: int = 10,
         blank_id: int = 0,
 ) -> [List, List]:
     """CTC prefix beam search
