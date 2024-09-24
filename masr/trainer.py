@@ -106,11 +106,13 @@ class MASRTrainer(object):
         self.test_log_step, self.train_log_step = 0, 0
         self.stop_train, self.stop_eval = False, False
 
-    def __setup_dataloader(self, is_train=False):
+    def __setup_dataloader(self, is_train=False, max_text_duration=None):
         """ 获取数据加载器
 
         :param is_train: 是否获取训练数据
         :type is_train: bool
+        :param max_text_duration: 测试过滤的最大音频时长，如果不指定，则使用配置文件里面的max_duration
+        :type max_text_duration: int
         """
         # 获取特征器
         self.audio_featurizer = AudioFeaturizer(feature_method=self.configs.preprocess_conf.feature_method,
@@ -142,6 +144,8 @@ class MASRTrainer(object):
                                            batch_sampler=self.train_batch_sampler,
                                            **data_loader_args)
         # 获取测试数据
+        if max_text_duration is not None:
+            dataset_args.max_duration = max_text_duration
         self.test_dataset = MASRDataset(data_manifest=self.configs.dataset_conf.test_manifest,
                                         audio_featurizer=self.audio_featurizer,
                                         tokenizer=self.tokenizer,
@@ -514,18 +518,20 @@ class MASRTrainer(object):
                                 amp_scaler=self.amp_scaler, save_model_path=save_model_path, epoch_id=epoch_id,
                                 error_rate=self.eval_error_result, metrics_type=self.metrics_type)
 
-    def evaluate(self, resume_model=None, display_result=False):
+    def evaluate(self, resume_model=None, display_result=False, max_text_duration=None):
         """评估模型
 
         :param resume_model: 所使用的模型
         :type resume_model: str
         :param display_result: 是否打印识别结果
         :type display_result: bool
+        :param max_text_duration: 测试过滤的最大音频时长，如果不指定，则使用配置文件里面的max_duration
+        :type max_text_duration: int
         :return: 评估结果
         """
         if self.test_loader is None:
             # 获取测试数据
-            self.__setup_dataloader()
+            self.__setup_dataloader(max_text_duration=max_text_duration)
         if self.model is None:
             # 获取模型
             self.__setup_model(input_dim=self.audio_featurizer.feature_dim, tokenizer=self.tokenizer)
