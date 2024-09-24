@@ -88,6 +88,7 @@ class MASRPredictor:
         if self.model_info.streaming:
             self.predict_stream(audio_data=warmup_audio[:16000], is_itn=False)
         self.reset_stream()
+        logger.info("预测器已准备完成！")
 
     # 解码模型输出结果
     def decode(self, encoder_outs, ctc_probs, ctc_lens, use_pun, is_itn):
@@ -344,8 +345,8 @@ class MASRPredictor:
                 self.last_chunk_text = self.pun_predictor(self.last_chunk_text)
             else:
                 logger.warning('标点符号模型没有初始化！')
-        # 是否对文本进行反标准化
-        if is_itn:
+        # 是否对文本进行逆标准化
+        if is_itn and is_end and len(self.last_chunk_text) > 0:
             self.last_chunk_text = self.inverse_text_normalization(self.last_chunk_text)
 
         result = {'text': self.last_chunk_text}
@@ -362,8 +363,13 @@ class MASRPredictor:
     # 对文本进行反标准化
     def inverse_text_normalization(self, text):
         if self.inv_normalizer is None:
-            # 需要安装WeTextProcessing>=0.1.0
+            # 需要安装WeTextProcessing>=1.0.4.1
             from itn.chinese.inverse_normalizer import InverseNormalizer
-            self.inv_normalizer = InverseNormalizer()
+            user_dir = os.path.expanduser('~')
+            cache_dir = os.path.join(user_dir, '.cache/itn_v1.0.4.1')
+            exists = os.path.exists(os.path.join(cache_dir, 'zh_itn_tagger.fst')) and \
+                     os.path.exists(os.path.join(cache_dir, 'zh_itn_verbalizer.fst'))
+            self.inv_normalizer = InverseNormalizer(cache_dir=cache_dir, enable_0_to_9=False,
+                                                    overwrite_cache=not exists)
         result_text = self.inv_normalizer.normalize(text)
         return result_text

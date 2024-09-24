@@ -21,20 +21,9 @@ cd MASR
 pip install .
 ```
 
-**常见安装问题：** 
-
-1. Linux 报错 OSError: sndfile library not found
+ - 推理时，使用文本逆标准化需要安装WeTextProcessing库。
 
 ```shell
-sudo apt-get install libsndfile1
-```
-
-2. 如果提示缺少`it`依赖库，请安装。
-```shell
+conda install pynini==2.1.6 -c conda-forge
 python -m pip install WeTextProcessing>=1.0.4.1
-```
-
-3. 安装pynini出错，可以执行下面命令安装。
-```shell
-conda install -c conda-forge pynini
 ```

@@ -15,4 +15,5 @@ build/
 dist/
 masr.egg-info/
 dataset_LibriSpeech/
+dataset_aishell/
 test*.py

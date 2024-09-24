@@ -39,7 +39,7 @@ dataset_conf:
     shuffle: True
   dataLoader:
     # 读取数据的线程数量
-    num_workers: 4
+    num_workers: 8
   # 训练数据的数据列表路径
   train_manifest: 'dataset/manifest.train'
   # 测试数据的数据列表路径
