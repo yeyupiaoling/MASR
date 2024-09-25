@@ -62,7 +62,7 @@ class InferencePredictor:
         return encoder_outs, ctc_probs, ctc_lens
 
     def predict_chunk_deepspeech(self, x_chunk):
-        if not (self.model_name == 'deepspeech2' and self.streaming):
+        if not (self.model_name == 'DeepSpeech2Model' and self.streaming):
             raise Exception(f'当前模型不支持该方法，当前模型为：{self.model_name}，参数streaming为：{self.streaming}')
 
         x_chunk = torch.tensor(x_chunk, dtype=torch.float32, device=self.device)

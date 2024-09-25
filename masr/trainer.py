@@ -78,6 +78,8 @@ class MASRTrainer(object):
         self.use_gpu = use_gpu
         self.metrics_type = metrics_type
         self.decoder = decoder
+        if self.configs.model_conf.model == 'DeepSpeech2Model':
+            assert self.decoder == "ctc_greedy_search", f'{self.configs.model_conf.model}模型不支持{self.decoder}解码器'
         # 读取解码器配置文件
         if isinstance(decoder_configs, str) and os.path.exists(decoder_configs):
             with open(decoder_configs, 'r', encoding='utf-8') as f:

@@ -170,4 +170,7 @@ visualdl --logdir=log --host=0.0.0.0
 
  - 然后再浏览器上访问`http://localhost:8040`可以查看结果显示，如下。
 
-![VisualDL](./images/visualdl.jpg)
+<div align="center">
+  <img src="./images/visualdl.jpg" alt="VisualDL" width="800">
+</div>
+
