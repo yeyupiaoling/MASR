@@ -89,8 +89,10 @@ def load_checkpoint(configs, model, optimizer, amp_scaler, scheduler,
             last_epoch = json_data['last_epoch']
             if 'cer' in json_data.keys():
                 error_rate = abs(json_data['cer'])
-            if 'test_wer' in json_data.keys():
+            if 'wer' in json_data.keys():
                 error_rate = abs(json_data['wer'])
+            if 'mer' in json_data.keys():
+                error_rate = abs(json_data['mer'])
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(model_path))
         optimizer.step()
         [scheduler.step() for _ in range(last_epoch * step_epoch)]
@@ -104,11 +106,11 @@ def load_checkpoint(configs, model, optimizer, amp_scaler, scheduler,
     if resume_model is not None or (os.path.exists(os.path.join(last_model_dir, 'model.pth'))
                                     and os.path.exists(os.path.join(last_model_dir, 'optimizer.pth'))):
         if resume_model is not None:
-            last_epoch1, accuracy1 = load_model(resume_model)
+            last_epoch1, error_rate1 = load_model(resume_model)
         else:
             try:
                 # 自动获取最新保存的模型
-                last_epoch1, accuracy1 = load_model(last_model_dir)
+                last_epoch1, error_rate1 = load_model(last_model_dir)
             except Exception as e:
                 logger.warning(f'尝试自动恢复最新模型失败，错误信息：{e}')
     return model, optimizer, amp_scaler, scheduler, last_epoch1, error_rate1
