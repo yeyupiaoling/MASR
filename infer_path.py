@@ -3,13 +3,14 @@ import functools
 import time
 import wave
 
+from yeaudio.audio import AudioSegment
 from masr.predict import MASRPredictor
 from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('model_dir',        str,    'models/ConformerModel_fbank/inference_model/', "导出的预测模型文件夹路径")
-add_arg('wav_path',         str,    'dataset/test.wav',            "预测音频的路径")
+add_arg('audio_path',       str,    'dataset/test.wav',            "预测音频的路径")
 add_arg('real_time_demo',   bool,   False,                         "是否使用实时语音识别演示")
 add_arg('use_gpu',          bool,   True,                          "是否使用GPU预测")
 add_arg('use_pun',          bool,   False,                         "是否给识别结果加标点符号")
@@ -33,7 +34,7 @@ predictor = MASRPredictor(model_dir=args.model_dir,
 # 短语音识别
 def predict_audio():
     start = time.time()
-    result = predictor.predict(audio_data=args.wav_path,
+    result = predictor.predict(audio_data=args.audio_path,
                                use_pun=args.use_pun,
                                is_itn=args.is_itn,
                                allow_use_vad=args.allow_use_vad)
@@ -46,18 +47,17 @@ def real_time_predict_demo():
     interval_time = 0.5
     CHUNK = int(16000 * interval_time)
     # 读取数据
-    wf = wave.open(args.wav_path, 'rb')
-    channels = wf.getnchannels()
-    samp_width = wf.getsampwidth()
-    sample_rate = wf.getframerate()
-    data = wf.readframes(CHUNK)
-    # 播放
-    while data != b'':
+    audio_segment = AudioSegment.from_file(args.audio_path)
+    audio_bytes = audio_segment.to_bytes(dtype='int16')
+    sample_rate = audio_segment.sample_rate
+    index = 0
+    # 流式识别
+    while index < len(audio_bytes):
         start = time.time()
-        d = wf.readframes(CHUNK)
-        result = predictor.predict_stream(audio_data=data, use_pun=args.use_pun, is_itn=args.is_itn, is_end=d == b'',
-                                          channels=channels, samp_width=samp_width, sample_rate=sample_rate)
-        data = d
+        data = audio_bytes[index:index + CHUNK]
+        result = predictor.predict_stream(audio_data=data, use_pun=args.use_pun, is_itn=args.is_itn,
+                                          is_end=len(data) < CHUNK, sample_rate=sample_rate)
+        index += CHUNK
         if result is None: continue
         text = result['text']
         print(f"【实时结果】：消耗时间：{int((time.time() - start) * 1000)}ms, 识别结果: {text}")
