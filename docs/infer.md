@@ -1,8 +1,8 @@
 # 本地预测
 
-我们可以使用这个脚本使用模型进行预测，如果如何还没导出模型，需要执行[导出模型](./export_model.md)操作把模型参数导出为预测模型，通过传递音频文件的路径进行识别，通过参数`--wav_path`指定需要预测的音频路径。支持中文数字转阿拉伯数字，将参数`--is_itn`设置为True即可。默认情况下，如果音频大于30秒，会通过VAD分割音频，再对短音频进行识别，拼接结果，最终得到长语音识别结果。
+我们可以使用这个脚本使用模型进行预测，如果如何还没导出模型，需要执行[导出模型](./export_model.md)操作把模型参数导出为预测模型，通过传递音频文件的路径进行识别，通过参数`--audio_path`指定需要预测的音频路径。支持中文数字转阿拉伯数字，将参数`--is_itn`设置为True即可。默认情况下，如果音频大于30秒，会通过VAD分割音频，再对短音频进行识别，拼接结果，最终得到长语音识别结果。
 ```shell script
-python infer_path.py --wav_path=./dataset/test.wav
+python infer_path.py --audio_path=./dataset/test.wav
 ```
 
 输出结果：
@@ -17,7 +17,7 @@ python infer_path.py --wav_path=./dataset/test.wav
 2024-09-21 15:35:48.566 | INFO     | masr.utils.utils:print_arguments:15 - real_time_demo: False
 2024-09-21 15:35:48.566 | INFO     | masr.utils.utils:print_arguments:15 - use_gpu: True
 2024-09-21 15:35:48.566 | INFO     | masr.utils.utils:print_arguments:15 - use_pun: False
-2024-09-21 15:35:48.566 | INFO     | masr.utils.utils:print_arguments:15 - wav_path: dataset/test.wav
+2024-09-21 15:35:48.566 | INFO     | masr.utils.utils:print_arguments:15 - audio_path: dataset/test.wav
 2024-09-21 15:35:48.566 | INFO     | masr.utils.utils:print_arguments:16 - ------------------------------------------------
 2024-09-21 15:35:48.567 | INFO     | masr.utils.utils:print_arguments:19 - ----------- 模型参数配置 -----------
 2024-09-21 15:35:48.567 | INFO     | masr.utils.utils:print_arguments:32 - model_name: ConformerModel

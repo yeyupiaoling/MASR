@@ -51,7 +51,7 @@ python create_data.py
 1. 执行`extract_features.py`，提取特征，特征会保存在`dataset/features`目录下，并生成新的数据列表`manifest_features.train`和`manifest_features.test`。
 
 ```shell
-python extract_features.py --configs=configs/cam++.yml --save_dir=dataset/features
+python extract_features.py --configs=configs/conformer.yml --save_dir=dataset/features
 ```
 
 2. 修改配置文件，将`dataset_conf.train_manifest`和`dataset_conf.test_manifest`修改为`manifest_features.train`和`manifest_features.test`。

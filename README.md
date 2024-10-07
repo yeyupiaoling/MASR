@@ -6,7 +6,7 @@
 
 # MASR流式与非流式语音识别项目（此分支尚未完成，请使用其他分支）
 
-MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神奇的自动语音识别框架（Magical Automatic Speech Recognition），当前为V3版本，如果想使用V1版本，请在这个分支[V2](https://github.com/yeyupiaoling/MASR/tree/release/2.3.x)。MASR致力于简单，实用的语音识别项目。可部署在服务器，Nvidia Jetson设备，未来还计划支持Android等移动设备。
+MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神奇的自动语音识别框架（Magical Automatic Speech Recognition），当前为V3版本，如果想使用V2版本，请在这个分支[V2](https://github.com/yeyupiaoling/MASR/tree/release/2.3.x)。MASR致力于简单，实用的语音识别项目。可部署在服务器，Nvidia Jetson设备，未来还计划支持Android等移动设备。
 
 
 **欢迎大家扫码入知识星球或者QQ群讨论，知识星球里面提供项目的模型文件和博主其他相关项目的模型文件，也包括其他一些资源。**
@@ -32,7 +32,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 ## 更新记录
 
- - 2024.09: 正式发布最终级的V3版本。
+ - 2024.10: 正式发布最终级的V3版本。
 
 ## 模型下载
 

@@ -21,7 +21,6 @@ if __name__ == "__main__":
     setup(
         name='masr',
         packages=find_packages(exclude='download_data/'),
-        package_data={'': ['infer_utils/silero_vad.onnx']},
         author='yeyupiaoling',
         version=MASR_VERSION,
         install_requires=parse_requirements('./requirements.txt'),
@@ -37,10 +36,12 @@ if __name__ == "__main__":
             'Operating System :: OS Independent',
             'Natural Language :: Chinese (Simplified)',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.5',
-            'Programming Language :: Python :: 3.6',
             'Programming Language :: Python :: 3.7',
-            'Programming Language :: Python :: 3.8', 'Topic :: Utilities'
+            'Programming Language :: Python :: 3.8',
+            'Programming Language :: Python :: 3.9',
+            'Programming Language :: Python :: 3.10',
+            'Programming Language :: Python :: 3.11',
+            'Topic :: Utilities'
         ],
         license='Apache License 2.0',
         ext_modules=[])

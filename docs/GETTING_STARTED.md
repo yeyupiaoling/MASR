@@ -44,5 +44,5 @@ python export_model.py --resume_model=models/ConformerModel_fbank/best_model/
 
 预测音频文件。
 ```shell script
-python infer_path.py --wav_path=./dataset/test.wav
+python infer_path.py --audio_path=./dataset/test.wav
 ```

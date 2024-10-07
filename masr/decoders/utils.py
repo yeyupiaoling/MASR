@@ -3,8 +3,6 @@
 import math
 from typing import List
 
-import torch
-
 
 def log_add(args: List[float]) -> float:
     """Stable log add
