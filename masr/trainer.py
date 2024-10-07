@@ -87,7 +87,6 @@ class MASRTrainer(object):
             print_arguments(configs=decoder_configs, title='解码器参数配置')
         self.decoder_configs = decoder_configs if decoder_configs is not None else {}
         self.model = None
-        self.model = None
         self.optimizer = None
         self.scheduler = None
         self.audio_featurizer = None
@@ -189,7 +188,7 @@ class MASRTrainer(object):
             save_data_list = data_list_file.replace('manifest', 'manifest_features')
             with open(save_data_list, 'w', encoding='utf-8') as f:
                 for i in tqdm(range(len(test_dataset)), desc=f'[{data_list_file}]提取特征中...'):
-                    feature = test_dataset[i]
+                    feature = test_dataset[i].numpy()
                     data_list = test_dataset.get_one_list(idx=i)
                     time_sum += data_list['duration']
                     if all_feature is None:
@@ -478,6 +477,7 @@ class MASRTrainer(object):
             self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.local_rank])
         if self.local_rank == 0:
             logger.info(f'训练数据：{len(self.train_dataset)}，词汇表大小：{self.tokenizer.vocab_size}')
+
         self.train_loss, self.eval_loss = None, None
         self.test_log_step, self.train_log_step = 0, 0
         self.train_batch_sampler.epoch = last_epoch
@@ -567,8 +567,8 @@ class MASRTrainer(object):
                 # 获取模型编码器输出
                 encoder_outs, ctc_probs, ctc_lens = eval_model.get_encoder_out(inputs, input_lens)
                 out_strings = self.__decoder_result(encoder_outs=encoder_outs, ctc_probs=ctc_probs, ctc_lens=ctc_lens)
-                # 移除每条数据的-1值
                 labels = labels.cpu().detach().numpy().tolist()
+                # 移除每条数据的-1值
                 labels = [list(filter(lambda x: x != -1, label)) for label in labels]
                 labels_str = self.tokenizer.ids2text(labels)
                 for label, out_string in zip(*(labels_str, out_strings)):
