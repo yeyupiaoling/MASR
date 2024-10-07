@@ -211,11 +211,18 @@ class MASRPredictor:
                       'sentences': [{'text': text, 'start': 0, 'end': audio_segment.duration}]}
             return result
         elif allow_use_vad and audio_segment.duration > 30:
+            last_audio_ndarray = None
             # 获取语音活动区域
             speech_timestamps = audio_segment.vad()
             texts, sentences = '', []
             for t in speech_timestamps:
                 audio_ndarray = audio_segment.samples[t['start']: t['end']]
+                # 如果语音片段小于0.5秒，则跳过推理，下次合并使用
+                if (t['end'] - t['start']) * audio_segment.sample_rate < 0.5 and last_audio_ndarray is None:
+                    continue
+                if last_audio_ndarray is not None:
+                    audio_ndarray = np.concatenate((last_audio_ndarray, audio_ndarray))
+                    last_audio_ndarray = None
                 # 执行识别
                 text = self._infer(audio_data=audio_ndarray, use_pun=False, is_itn=is_itn,
                                    sample_rate=audio_segment.sample_rate)

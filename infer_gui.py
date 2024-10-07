@@ -80,7 +80,7 @@ class SpeechRecognitionApp:
         # 对文本进行反标准化
         self.an_frame = Frame(self.window)
         self.check_var = BooleanVar(value=False)
-        self.is_itn_check = Checkbutton(self.an_frame, text='是否对文本进行反标准化', variable=self.check_var, command=self.is_itn_state)
+        self.is_itn_check = Checkbutton(self.an_frame, text='逆文本标准化', variable=self.check_var, command=self.is_itn_state)
         self.is_itn_check.grid(row=0)
         self.an_frame.grid(row=1)
         self.an_frame.place(x=700, y=10)

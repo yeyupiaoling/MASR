@@ -1,7 +1,6 @@
 import json
 import os
 import time
-import wave
 
 import numpy as np
 import soundfile

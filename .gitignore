@@ -5,8 +5,6 @@ dataset/*
 !dataset/test.wav
 !dataset/test_long.wav
 log/
-data/__pycache__/
-utils/__pycache__/
 lm/
 tools/generate_audio/*
 tools/generate_audio/generate_audio.py
