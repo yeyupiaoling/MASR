@@ -27,7 +27,7 @@ print(result)
 输出结果：
 ```
 Building prefix dict from the default dictionary ...
-Loading model from cache C:\Users\15696\AppData\Local\Temp\jieba.cache
+Loading model from cache C:\Users\test\AppData\Local\Temp\jieba.cache
 Loading model cost 0.502 seconds.
 Prefix dict has been built successfully.
 近几年，不但我用书给女儿儿压岁，也劝说亲朋，不要给女儿压岁钱而改送压岁书。
