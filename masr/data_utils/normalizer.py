@@ -98,7 +98,7 @@ def collate_fn(features):
             means = sums
         else:
             means += sums
-        square_sums = torch.sum(np.square(feature), dim=0)
+        square_sums = torch.sum(torch.square(feature), dim=0)
         if std is None:
             std = square_sums
         else:

@@ -6,34 +6,29 @@
 
 使用主要分为三4步：
 
-1. 首先是[下载五个标点的模型](https://download.csdn.net/download/qq_33200967/75664996)或者[下载三个标点符号的模型](https://download.csdn.net/download/qq_33200967/86539773)，并解压到`models/`目录下，注意这个模型只支持中文，如果想自己训练模型的话，可以在[PunctuationModel](https://github.com/yeyupiaoling/PunctuationModel)训练模型，然后导出模型复制到`models/`目录。
-
-
-2. 需要使用PaddleNLP工具，所以需要提前安装PaddleNLP，安装命令如下：
-
-```shell
-python -m pip install paddlenlp -i https://mirrors.aliyun.com/pypi/simple/ -U
-```
-
-3. 在使用时，将`use_pun`参数设置为True，输出的结果就自动加上了标点符号，如下。
+1. 首先是[下载标点的模型](https://pan.baidu.com/s/1GgPU753eJd4pZ1LxDjeyow?pwd=7wof)，放在`models/`目录下。
+2. 在使用时，将`use_punc`参数设置为True，输出的结果就自动加上了标点符号，如下。
 
 ```
-消耗时间：101, 识别结果: 近几年，不但我用输给女儿压岁，也劝说亲朋，不要给女儿压岁钱，而改送压岁书。, 得分: 94
+消耗时间：101, 识别结果: 近几年，不但我用书给女儿儿压岁，也劝说亲朋，不要给女儿压岁钱而改送压岁书。
 ```
 
 # 单独使用标点符号模型
 
 如果只是使用标点符号模型的话，可以参考一下代码。
 ```python
-from masr.infer_utils.pun_predictor import PunctuationPredictor
+from masr.infer_utils.punc_predictor import PunctuationPredictor
 
-pun_predictor = PunctuationPredictor(model_dir='models/pun_models')
-result = pun_predictor('近几年不但我用书给女儿儿压岁也劝说亲朋不要给女儿压岁钱而改送压岁书')
+pun_predictor = PunctuationPredictor(model_dir='models/punc_models')
+result = pun_predictor('近几年不但我用书给女儿儿压岁也劝说亲朋不要给女儿压岁钱而改送压岁书')[0]
 print(result)
 ```
 
 输出结果：
 ```
-[2022-01-13 15:27:11,194] [    INFO] - Found C:\Users\test\.paddlenlp\models\ernie-1.0\vocab.txt
-近几年，不但我用书给女儿儿压岁，也劝说亲朋，不要给女儿压岁钱，而改送压岁书。
+Building prefix dict from the default dictionary ...
+Loading model from cache C:\Users\15696\AppData\Local\Temp\jieba.cache
+Loading model cost 0.502 seconds.
+Prefix dict has been built successfully.
+近几年，不但我用书给女儿儿压岁，也劝说亲朋，不要给女儿压岁钱而改送压岁书。
 ```

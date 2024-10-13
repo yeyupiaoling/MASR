@@ -59,7 +59,7 @@ async def recognition(audio: UploadFile = File(..., description="音频文件"))
         await out_file.write(content)
     try:
         start = time.time()
-        result = predictor.predict(audio_data=file_path, use_pun=args.use_pun, is_itn=args.is_itn)
+        result = predictor.predict(audio_data=file_path, use_punc=args.use_pun, is_itn=args.is_itn)
         end = time.time()
         logger.info(f"识别时间：{round((end - start) * 1000)}ms，识别结果：{result}")
         result = {"code": 0, "msg": "success", "result": result}
@@ -92,7 +92,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     is_end = True
                     data = data[:-3]
                 # 开始预测
-                result = predictor.predict_stream(audio_data=data, use_pun=args.use_pun, is_itn=args.is_itn,
+                result = predictor.predict_stream(audio_data=data, use_punc=args.use_pun, is_itn=args.is_itn,
                                                   is_end=is_end)
                 if result is not None:
                     score, text = result['score'], result['text']

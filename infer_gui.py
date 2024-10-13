@@ -179,7 +179,7 @@ class SpeechRecognitionApp:
                 except queue.Empty:
                     continue
                 # 在这里处理数据
-                result = self.predictor.predict_stream(audio_data=data, use_pun=args.use_pun, is_itn=self.is_itn,
+                result = self.predictor.predict_stream(audio_data=data, use_punc=args.use_pun, is_itn=self.is_itn,
                                                        is_end=not self.recording, sample_rate=self.sample_rate)
                 if result is None: continue
                 score, text = result['score'], result['text']
@@ -208,7 +208,7 @@ class SpeechRecognitionApp:
             # 判断使用本地识别还是调用服务接口
             if not self.use_server:
                 result = self.predictor.predict(audio_data=wav_file,
-                                                use_pun=args.use_pun,
+                                                use_punc=args.use_pun,
                                                 is_itn=self.is_itn)
             else:
                 # 调用用服务接口识别
