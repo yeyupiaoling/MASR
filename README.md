@@ -129,4 +129,5 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
  - https://github.com/yeyupiaoling/PPASR
  - https://github.com/jiwidi/DeepSpeech-pytorch
  - https://github.com/wenet-e2e/WenetSpeech
+ - https://github.com/wenet-e2e/wenet
  - https://github.com/SeanNaren/deepspeech.pytorch

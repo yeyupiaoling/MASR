@@ -11,7 +11,7 @@ add_arg('configs',              str,    'configs/conformer.yml',    '配置文�
 add_arg('data_augment_configs', str,    'configs/augmentation.yml', '数据增强配置文件')
 add_arg("local_rank",           int,    0,                          '多卡训练的本地GPU')
 add_arg("use_gpu",              bool,   True,                       '是否使用GPU训练')
-add_arg('metrics_type',         str,    'cer',                      '评估指标类型，中文用cer，英文用wer')
+add_arg('metrics_type',         str,    'cer',                      '评估指标类型，中文用cer，英文用wer，中英混合用mer')
 add_arg('save_model_path',      str,    'models/',                  '模型保存的路径')
 add_arg('resume_model',         str,    None,                       '恢复训练，当为None则不使用预训练模型')
 add_arg('pretrained_model',     str,    None,                       '预训练模型的路径，当为None则不使用预训练模型')

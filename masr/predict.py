@@ -16,7 +16,6 @@ from masr.decoders.ctc_prefix_beam_search import ctc_prefix_beam_search
 from masr.decoders.attention_rescoring import attention_rescoring
 from masr.decoders.ctc_greedy_search import ctc_greedy_search
 from masr.infer_utils.inference_predictor import InferencePredictor
-from masr.infer_utils.punc_predictor import PunctuationPredictor, PunctuationOnlinePredictor
 from masr.utils.utils import dict_to_object, print_arguments
 
 
@@ -80,10 +79,12 @@ class MASRPredictor:
             raise Exception("模型文件不存在，请检查{}是否存在！".format(model_path))
         # 加载标点符号模型
         if punc_model_dir:
+            from masr.infer_utils.punc_predictor import PunctuationPredictor
             self.punc_predictor = PunctuationPredictor(model_dir=punc_model_dir, device_id=punc_device_id)
             logger.info("标点符号模型已加载完成")
         # 加载在线标点符号模型，仅在流式模式下使用
         if punc_online_model_dir and self.model_info.streaming:
+            from masr.infer_utils.punc_predictor import PunctuationOnlinePredictor
             self.pun_online_predictor = PunctuationOnlinePredictor(model_dir=punc_online_model_dir,
                                                                    device_id=punc_device_id)
             logger.info("在线标点符号模型已加载完成")
@@ -97,10 +98,15 @@ class MASRPredictor:
             self.vad_online_model = VadOnlineModel(device_id=punc_device_id)
             logger.info("流式VAD模型已加载完成")
         # 预热
-        warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(134240,))
+        logger.info("开始预热预测器...")
+        warmup_audio = np.random.uniform(low=-2.0, high=2.0, size=(130000,))
         self.predict(audio_data=warmup_audio, is_itn=False)
         if self.model_info.streaming:
-            self.predict_stream(audio_data=warmup_audio[:16000], is_itn=False)
+            for i in range(0, warmup_audio.shape[0], 1600):
+                chunk_waveform = warmup_audio[i:i + 1600]
+                self.predict_stream(audio_data=chunk_waveform, is_itn=False)
+            self.reset_predictor()
+            self.reset_stream_state()
         logger.info("预测器已准备完成！")
 
     # 解码模型输出结果
@@ -181,9 +187,8 @@ class MASRPredictor:
         :return: 识别的文本结果和解码的得分数
         """
         # 提取音频特征
-        audio_data = torch.tensor(audio_data, dtype=torch.float32)
         audio_feature = self._audio_featurizer.featurize(waveform=audio_data, sample_rate=sample_rate)
-        audio_feature = audio_feature.unsqueeze(0)
+        audio_feature = torch.tensor(audio_feature, dtype=torch.float32).unsqueeze(0)
         audio_len = torch.tensor([audio_feature.size(1)], dtype=torch.int64)
 
         # 运行predictor
@@ -361,7 +366,7 @@ class MASRPredictor:
         # 预处理语音块
         x_chunk = self._audio_featurizer.featurize(waveform=self.remained_wav.samples,
                                                    sample_rate=self.remained_wav.sample_rate)
-        x_chunk = np.array(x_chunk).astype(np.float32)[np.newaxis, :]
+        x_chunk = x_chunk.astype(np.float32)[np.newaxis, :]
         if self.cached_feat is None:
             self.cached_feat = x_chunk
         else:

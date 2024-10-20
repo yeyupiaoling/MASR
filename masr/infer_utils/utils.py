@@ -6,18 +6,15 @@ from typing import Dict, Iterable, List, Union
 
 import numpy as np
 import yaml
-
-try:
-    from onnxruntime import (
-        GraphOptimizationLevel,
-        InferenceSession,
-        SessionOptions,
-        get_available_providers,
-        get_device,
-    )
-except:
-    print("please pip3 install onnxruntime")
 import jieba
+
+from onnxruntime import (
+    GraphOptimizationLevel,
+    InferenceSession,
+    SessionOptions,
+    get_available_providers,
+    get_device,
+)
 
 
 class TokenIDConverter:
@@ -71,13 +68,13 @@ class OrtInferSession:
             "arena_extend_strategy": "kSameAsRequested",
         }
 
-        EP_list = []
+        ep_list = []
         if device_id != "-1" and get_device() == "GPU" and cuda_ep in get_available_providers():
-            EP_list = [(cuda_ep, cuda_provider_options)]
-        EP_list.append((cpu_ep, cpu_provider_options))
+            ep_list = [(cuda_ep, cuda_provider_options)]
+        ep_list.append((cpu_ep, cpu_provider_options))
 
         self._verify_model(model_file)
-        self.session = InferenceSession(model_file, sess_options=sess_opt, providers=EP_list)
+        self.session = InferenceSession(model_file, sess_options=sess_opt, providers=ep_list)
 
         if device_id != "-1" and cuda_ep not in self.session.get_providers():
             logger.warning(
@@ -94,14 +91,10 @@ class OrtInferSession:
         except Exception as e:
             raise ONNXRuntimeError("ONNXRuntime inferece failed.") from e
 
-    def get_input_names(
-            self,
-    ):
+    def get_input_names(self, ):
         return [v.name for v in self.session.get_inputs()]
 
-    def get_output_names(
-            self,
-    ):
+    def get_output_names(self, ):
         return [v.name for v in self.session.get_outputs()]
 
     def get_character_list(self, key: str = "character"):

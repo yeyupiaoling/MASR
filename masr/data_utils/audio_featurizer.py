@@ -1,6 +1,5 @@
 import kaldi_native_fbank as knf
 import numpy as np
-import torch
 
 
 class AudioFeaturizer(object):
@@ -55,11 +54,11 @@ class AudioFeaturizer(object):
         """计算音频特征
 
         :param waveform: 音频数据
-        :type waveform: torch.Tensor
+        :type waveform: np.ndarray
         :param sample_rate: 音频采样率
         :type sample_rate: int
         :return: 二维的音频特征
-        :rtype: torch.Tensor
+        :rtype: np.ndarray
         """
         if waveform.ndim != 1:
             assert waveform.ndim == 1, f'输入的音频数据必须是一维的，但是现在是{waveform.ndim}维'

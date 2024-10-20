@@ -23,9 +23,9 @@ from masr.data_utils.sampler import DSRandomSampler, DSElasticDistributedSampler
 from masr.data_utils.tokenizer import MASRTokenizer
 from masr.data_utils.utils import create_manifest, merge_audio
 from masr.data_utils.utils import create_manifest_binary
-from masr.decoders.ctc_prefix_beam_search import ctc_prefix_beam_search
 from masr.decoders.attention_rescoring import attention_rescoring
 from masr.decoders.ctc_greedy_search import ctc_greedy_search
+from masr.decoders.ctc_prefix_beam_search import ctc_prefix_beam_search
 from masr.model_utils import build_model
 from masr.optimizer import build_optimizer, build_lr_scheduler
 from masr.utils.checkpoint import save_checkpoint, load_pretrained, load_checkpoint

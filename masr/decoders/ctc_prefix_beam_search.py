@@ -80,7 +80,7 @@ def ctc_prefix_beam_search(ctc_probs: torch.Tensor,
         result, hyps = run_ctc_prefix_beam_search(ctc_prob, num_t, beam_size, blank_id)
         return [result], [hyps]
     # Windows系统不支持多进程
-    if platform.system() == 'Windows':
+    if platform.system() == 'Windows' or num_workers <= 1:
         results, hyps_list = [], []
         for i in range(batch_size):
             ctc_prob = ctc_probs[i].tolist()
