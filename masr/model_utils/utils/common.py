@@ -1,10 +1,11 @@
-import math
 from typing import List, Tuple
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
 IGNORE_ID = -1
+
+T_CACHE = Tuple[torch.Tensor, torch.Tensor]
 
 
 class Swish(torch.nn.Module):
@@ -140,16 +141,12 @@ def th_accuracy(pad_outputs: torch.Tensor, pad_targets: torch.Tensor,
     return float(numerator) / float(denominator)
 
 
-def get_activation(act):
-
-    """Return activation function."""
-    activation_funcs = {
-        "hardtanh": torch.nn.Hardtanh,
-        "tanh": torch.nn.Tanh,
-        "relu": torch.nn.ReLU,
-        "selu": torch.nn.SELU,
-        "swish": getattr(torch.nn, "SiLU", Swish),
-        "gelu": torch.nn.GELU
-    }
-
-    return activation_funcs[act]()
+def mask_to_bias(mask: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    assert mask.dtype == torch.bool
+    assert dtype in [torch.float32, torch.bfloat16, torch.float16]
+    mask = mask.to(dtype)
+    # attention mask bias
+    # NOTE(Mddct): torch.finfo jit issues
+    #     chunk_masks = (1.0 - chunk_masks) * torch.finfo(dtype).min
+    mask = (1.0 - mask) * -1.0e+10
+    return mask

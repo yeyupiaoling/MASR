@@ -1,17 +1,282 @@
-from typing import List
-from typing import Optional, Tuple
+import logging
+import os
+from typing import Dict, Tuple, List, Optional
 
 import torch
+import torch.utils.checkpoint as ckpt
 from torch import nn
-from typeguard import typechecked
 
-from masr.model_utils.conformer.attention import MultiHeadedAttention
-from masr.model_utils.conformer.embedding import PositionalEncoding
-from masr.model_utils.conformer.positionwise import PositionwiseFeedForward
-from masr.model_utils.utils.mask import (subsequent_mask, make_pad_mask)
+from masr.model_utils.utils.common import T_CACHE
+from masr.model_utils.utils.common import mask_to_bias
+from masr.model_utils.utils.mask import subsequent_mask, make_pad_mask
+from masr.model_utils.utils.utils import emb_classes, attention_classes, activation_classes, mlp_classes, norm_classes
 
 
-class BiTransformerDecoder(nn.Module):
+class TransformerDecoder(torch.nn.Module):
+    """Base class of Transfomer decoder module.
+    Args:
+        vocab_size: output dim
+        encoder_output_size: dimension of attention
+        attention_heads: the number of heads of multi head attention
+        linear_units: the hidden units number of position-wise feedforward
+        num_blocks: the number of decoder blocks
+        dropout_rate: dropout rate
+        self_attention_dropout_rate: dropout rate for attention
+        input_layer: input layer type
+        use_output_layer: whether to use output layer
+        pos_enc_class: PositionalEncoding or ScaledPositionalEncoding
+        normalize_before:
+            True: use layer_norm before each sub-block of a layer.
+            False: use layer_norm after each sub-block of a layer.
+        src_attention: if false, encoder-decoder cross attention is not
+                       applied, such as CIF model
+        query_bias: whether use bias in attention.linear_q
+        key_bias: whether use bias in attention.linear_k, False for whisper models.
+        value_bias: whether use bias in attention.linear_v
+        gradient_checkpointing: rerunning a forward-pass segment for each
+            checkpointed segment during backward.
+        tie_word_embedding: Tie or clone module weights depending of whether we are
+            using TorchScript or not
+    """
+
+    def __init__(
+            self,
+            vocab_size: int,
+            encoder_output_size: int,
+            attention_heads: int = 4,
+            linear_units: int = 2048,
+            num_blocks: int = 6,
+            dropout_rate: float = 0.1,
+            positional_dropout_rate: float = 0.1,
+            self_attention_dropout_rate: float = 0.0,
+            src_attention_dropout_rate: float = 0.0,
+            input_layer: str = "embed",
+            use_output_layer: bool = True,
+            normalize_before: bool = True,
+            src_attention: bool = True,
+            query_bias: bool = True,
+            key_bias: bool = True,
+            value_bias: bool = True,
+            activation_type: str = "relu",
+            gradient_checkpointing: bool = False,
+            tie_word_embedding: bool = False,
+            use_sdpa: bool = False,
+            layer_norm_type: str = 'layer_norm',
+            norm_eps: float = 1e-5,
+            n_kv_head: Optional[int] = None,
+            head_dim: Optional[int] = None,
+            mlp_type: str = 'position_wise_feed_forward',
+            mlp_bias: bool = True,
+            n_expert: int = 8,
+            n_expert_activated: int = 2,
+    ):
+        super().__init__()
+        attention_dim = encoder_output_size
+        activation = activation_classes[activation_type]()
+
+        self.embed = torch.nn.Sequential(
+            torch.nn.Identity() if input_layer == "no_pos" else
+            torch.nn.Embedding(vocab_size, attention_dim),
+            emb_classes[input_layer](attention_dim, positional_dropout_rate), )
+
+        assert layer_norm_type in ['layer_norm', 'rms_norm']
+        self.normalize_before = normalize_before
+        self.after_norm = norm_classes[layer_norm_type](attention_dim, eps=norm_eps)
+        self.use_output_layer = use_output_layer
+        if use_output_layer:
+            self.output_layer = torch.nn.Linear(attention_dim, vocab_size)
+        else:
+            self.output_layer = torch.nn.Identity()
+        self.num_blocks = num_blocks
+
+        mlp_class = mlp_classes[mlp_type]
+        self.decoders = torch.nn.ModuleList([
+            DecoderLayer(
+                attention_dim,
+                attention_classes["selfattn"](
+                    attention_heads, attention_dim,
+                    self_attention_dropout_rate, query_bias, key_bias,
+                    value_bias, use_sdpa, n_kv_head, head_dim),
+                attention_classes["crossattn"](
+                    attention_heads, attention_dim, src_attention_dropout_rate,
+                    query_bias, key_bias, value_bias, use_sdpa, n_kv_head,
+                    head_dim) if src_attention else None,
+                mlp_class(attention_dim,
+                          linear_units,
+                          dropout_rate,
+                          activation,
+                          mlp_bias,
+                          n_expert=n_expert,
+                          n_expert_activated=n_expert_activated),
+                dropout_rate,
+                normalize_before,
+                layer_norm_type,
+                norm_eps,
+            ) for _ in range(self.num_blocks)
+        ])
+
+        self.gradient_checkpointing = gradient_checkpointing
+        self.tie_word_embedding = tie_word_embedding
+        self.use_sdpa = use_sdpa
+
+    def forward(
+            self,
+            memory: torch.Tensor,
+            memory_mask: torch.Tensor,
+            ys_in_pad: torch.Tensor,
+            ys_in_lens: torch.Tensor,
+            r_ys_in_pad: torch.Tensor = torch.empty(0),
+            reverse_weight: float = 0.0,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Forward decoder.
+        Args:
+            memory: encoded memory, float32  (batch, maxlen_in, feat)
+            memory_mask: encoder memory mask, (batch, 1, maxlen_in)
+            ys_in_pad: padded input token ids, int64 (batch, maxlen_out)
+            ys_in_lens: input lengths of this batch (batch)
+            r_ys_in_pad: not used in transformer decoder, in order to unify api
+                with bidirectional decoder
+            reverse_weight: not used in transformer decoder, in order to unify
+                api with bidirectional decode
+        Returns:
+            (tuple): tuple containing:
+                x: decoded token score before softmax (batch, maxlen_out,
+                    vocab_size) if use_output_layer is True,
+                torch.tensor(0.0), in order to unify api with bidirectional decoder
+                olens: (batch, )
+        NOTE(xcsong):
+            We pass the `__call__` method of the modules instead of `forward` to the
+            checkpointing API because `__call__` attaches all the hooks of the module.
+            https://discuss.pytorch.org/t/any-different-between-model-input-and-model-forward-input/3690/2
+        """
+        tgt = ys_in_pad
+        maxlen = tgt.size(1)
+        # tgt_mask: (B, 1, L)
+        tgt_mask = ~make_pad_mask(ys_in_lens, maxlen).unsqueeze(1)
+        tgt_mask = tgt_mask.to(tgt.device)
+        # m: (1, L, L)
+        m = subsequent_mask(tgt_mask.size(-1), device=tgt_mask.device).unsqueeze(0)
+        # tgt_mask: (B, L, L)
+        tgt_mask = tgt_mask & m
+        if self.use_sdpa:
+            tgt_mask = mask_to_bias(tgt_mask, memory.dtype)
+            memory_mask = mask_to_bias(memory_mask, memory.dtype)
+
+        x, _ = self.embed(tgt)
+        if self.gradient_checkpointing and self.training:
+            x = self.forward_layers_checkpointed(x, tgt_mask, memory, memory_mask)
+        else:
+            x = self.forward_layers(x, tgt_mask, memory, memory_mask)
+        if self.normalize_before:
+            x = self.after_norm(x)
+        if self.use_output_layer:
+            x = self.output_layer(x)
+        olens = tgt_mask.sum(1)
+        return x, torch.tensor(0.0), olens
+
+    def forward_layers(self, x: torch.Tensor, tgt_mask: torch.Tensor,
+                       memory: torch.Tensor, memory_mask: torch.Tensor) -> torch.Tensor:
+        for layer in self.decoders:
+            x, tgt_mask, memory, memory_mask = layer(x, tgt_mask, memory, memory_mask)
+        return x
+
+    @torch.jit.unused
+    def forward_layers_checkpointed(self, x: torch.Tensor,
+                                    tgt_mask: torch.Tensor,
+                                    memory: torch.Tensor,
+                                    memory_mask: torch.Tensor) -> torch.Tensor:
+        for layer in self.decoders:
+            x, tgt_mask, memory, memory_mask = ckpt.checkpoint(
+                layer.__call__,
+                x,
+                tgt_mask,
+                memory,
+                memory_mask,
+                use_reentrant=False)
+        return x
+
+    def forward_one_step(
+            self,
+            memory: torch.Tensor,
+            memory_mask: torch.Tensor,
+            tgt: torch.Tensor,
+            tgt_mask: torch.Tensor,
+            cache: Dict[str, Dict[str, T_CACHE]],
+    ) -> torch.Tensor:
+        """Forward one step.
+            This is only used for decoding.
+        Args:
+            memory: encoded memory, float32  (batch, maxlen_in, feat)
+            memory_mask: encoded memory mask, (batch, 1, maxlen_in)
+            tgt: input token ids, int64 (batch, maxlen_out)
+            tgt_mask: input token mask,  (batch, maxlen_out)
+                      dtype=torch.uint8 in PyTorch 1.2-
+                      dtype=torch.bool in PyTorch 1.2+ (include 1.2)
+            cache: cached output list of (batch, max_time_out-1, size)
+        Returns:
+            y, cache: NN output value and cache per `self.decoders`.
+            y.shape` is (batch, maxlen_out, token)
+        """
+        x, _ = self.embed(tgt)
+        update_cross_att_cache = True
+        if len(cache['cross_att_cache']) != 0:
+            assert len(cache['cross_att_cache']) == self.num_blocks
+            update_cross_att_cache = False
+        for i, decoder in enumerate(self.decoders):
+            layer_i = 'layer_{}'.format(i)
+            self_att_cache = cache['self_att_cache'].get(layer_i, None)
+            cross_att_cache = cache['cross_att_cache'].get(layer_i, None)
+            c = {'self_att_cache': self_att_cache, 'cross_att_cache': cross_att_cache}
+
+            x, tgt_mask, memory, memory_mask = decoder(x, tgt_mask, memory, memory_mask, cache=c)
+
+            # update cache dict
+            assert c['self_att_cache'] is not None
+            assert c['cross_att_cache'] is not None
+            cache['self_att_cache'][layer_i] = c['self_att_cache']
+            if update_cross_att_cache:
+                cache['cross_att_cache'][layer_i] = c['cross_att_cache']
+
+        if self.normalize_before:
+            y = self.after_norm(x[:, -1])
+        else:
+            y = x[:, -1]
+        if self.use_output_layer:
+            y = torch.log_softmax(self.output_layer(y), dim=-1)
+        return y
+
+    def tie_or_clone_weights(self, jit_mode: bool = True):
+        """Tie or clone module weights (between word_emb and output_layer)
+            depending of whether we are using TorchScript or not"""
+        rank = int(os.environ.get('RANK', 0))
+        if not self.use_output_layer:
+            return
+        if not self.tie_word_embedding:
+            return
+        if jit_mode:
+            if rank == 0:
+                logging.info("clone emb.weight to output.weight")
+            self.output_layer.weight = torch.nn.Parameter(
+                self.embed[0].weight.clone())
+        else:
+            if rank == 0:
+                logging.info("tie emb.weight with output.weight")
+            self.output_layer.weight = self.embed[0].weight
+
+        if getattr(self.output_layer, "bias", None) is not None:
+            self.output_layer.bias.data = torch.nn.functional.pad(
+                self.output_layer.bias.data,
+                (
+                    0,
+                    self.output_layer.weight.shape[0] -
+                    self.output_layer.bias.shape[0],
+                ),
+                "constant",
+                0,
+            )
+
+
+class BiTransformerDecoder(torch.nn.Module):
     """Base class of Transfomer decoder module.
     Args:
         vocab_size: output dim
@@ -28,42 +293,103 @@ class BiTransformerDecoder(nn.Module):
         normalize_before:
             True: use layer_norm before each sub-block of a layer.
             False: use layer_norm after each sub-block of a layer.
-        concat_after: whether to concat attention layer's input and output
-            True: x -> x + linear(concat(x, att(x)))
-            False: x -> x + att(x)
+        key_bias: whether use bias in attention.linear_k, False for whisper models.
     """
 
-    @typechecked
-    def __init__(self,
-                 vocab_size: int,
-                 encoder_output_size: int,
-                 attention_heads: int = 4,
-                 linear_units: int = 2048,
-                 num_blocks: int = 6,
-                 r_num_blocks: int = 0,
-                 dropout_rate: float = 0.1,
-                 positional_dropout_rate: float = 0.1,
-                 self_attention_dropout_rate: float = 0.0,
-                 src_attention_dropout_rate: float = 0.0,
-                 input_layer: str = "embed",
-                 use_output_layer: bool = True,
-                 normalize_before: bool = True,
-                 concat_after: bool = False,
-                 max_len: int = 5000):
+    def __init__(
+            self,
+            vocab_size: int,
+            encoder_output_size: int,
+            attention_heads: int = 4,
+            linear_units: int = 2048,
+            num_blocks: int = 6,
+            r_num_blocks: int = 0,
+            dropout_rate: float = 0.1,
+            positional_dropout_rate: float = 0.1,
+            self_attention_dropout_rate: float = 0.0,
+            src_attention_dropout_rate: float = 0.0,
+            input_layer: str = "embed",
+            use_output_layer: bool = True,
+            normalize_before: bool = True,
+            src_attention: bool = True,
+            query_bias: bool = True,
+            key_bias: bool = True,
+            value_bias: bool = True,
+            activation_type: str = "relu",
+            gradient_checkpointing: bool = False,
+            tie_word_embedding: bool = False,
+            use_sdpa: bool = False,
+            layer_norm_type: str = 'layer_norm',
+            norm_eps: float = 1e-5,
+            n_kv_head: Optional[int] = None,
+            head_dim: Optional[int] = None,
+            mlp_type: str = 'position_wise_feed_forward',
+            mlp_bias: bool = True,
+            n_expert: int = 8,
+            n_expert_activated: int = 2,
+    ):
         super().__init__()
+        self.use_sdpa = use_sdpa
+        self.tie_word_embedding = tie_word_embedding
         self.left_decoder = TransformerDecoder(
-            vocab_size, encoder_output_size, attention_heads, linear_units,
-            num_blocks, dropout_rate, positional_dropout_rate,
-            self_attention_dropout_rate, src_attention_dropout_rate,
-            input_layer, use_output_layer, normalize_before, concat_after,
-            max_len)
+            vocab_size,
+            encoder_output_size,
+            attention_heads,
+            linear_units,
+            num_blocks,
+            dropout_rate,
+            positional_dropout_rate,
+            self_attention_dropout_rate,
+            src_attention_dropout_rate,
+            input_layer,
+            use_output_layer,
+            normalize_before,
+            src_attention=src_attention,
+            query_bias=query_bias,
+            key_bias=key_bias,
+            value_bias=value_bias,
+            activation_type=activation_type,
+            gradient_checkpointing=gradient_checkpointing,
+            tie_word_embedding=tie_word_embedding,
+            use_sdpa=use_sdpa,
+            layer_norm_type=layer_norm_type,
+            norm_eps=norm_eps,
+            n_kv_head=n_kv_head,
+            head_dim=head_dim,
+            mlp_type=mlp_type,
+            mlp_bias=mlp_bias,
+            n_expert=n_expert,
+            n_expert_activated=n_expert_activated)
 
         self.right_decoder = TransformerDecoder(
-            vocab_size, encoder_output_size, attention_heads, linear_units,
-            r_num_blocks, dropout_rate, positional_dropout_rate,
-            self_attention_dropout_rate, src_attention_dropout_rate,
-            input_layer, use_output_layer, normalize_before, concat_after,
-            max_len)
+            vocab_size,
+            encoder_output_size,
+            attention_heads,
+            linear_units,
+            r_num_blocks,
+            dropout_rate,
+            positional_dropout_rate,
+            self_attention_dropout_rate,
+            src_attention_dropout_rate,
+            input_layer,
+            use_output_layer,
+            normalize_before,
+            src_attention=src_attention,
+            query_bias=query_bias,
+            key_bias=key_bias,
+            value_bias=value_bias,
+            activation_type=activation_type,
+            gradient_checkpointing=gradient_checkpointing,
+            tie_word_embedding=tie_word_embedding,
+            use_sdpa=use_sdpa,
+            layer_norm_type=layer_norm_type,
+            norm_eps=norm_eps,
+            n_kv_head=n_kv_head,
+            head_dim=head_dim,
+            mlp_type=mlp_type,
+            mlp_bias=mlp_bias,
+            n_expert=n_expert,
+            n_expert_activated=n_expert_activated)
 
     def forward(
             self,
@@ -93,7 +419,7 @@ class BiTransformerDecoder(nn.Module):
                 olens: (batch, )
         """
         l_x, _, olens = self.left_decoder(memory, memory_mask, ys_in_pad, ys_in_lens)
-        r_x = torch.zeros([1])
+        r_x = torch.tensor(0.0)
         if reverse_weight > 0.0:
             r_x, _, olens = self.right_decoder(memory, memory_mask, r_ys_in_pad, ys_in_lens)
         return l_x, r_x, olens
@@ -112,211 +438,65 @@ class BiTransformerDecoder(nn.Module):
             memory: encoded memory, float32  (batch, maxlen_in, feat)
             memory_mask: encoded memory mask, (batch, 1, maxlen_in)
             tgt: input token ids, int64 (batch, maxlen_out)
-            tgt_mask: input token mask,  (batch, maxlen_out, maxlen_out)
-                      dtype=torch.bool
+            tgt_mask: input token mask,  (batch, maxlen_out)
+                      dtype=torch.uint8 in PyTorch 1.2-
+                      dtype=torch.bool in PyTorch 1.2+ (include 1.2)
             cache: cached output list of (batch, max_time_out-1, size)
         Returns:
             y, cache: NN output value and cache per `self.decoders`.
             y.shape` is (batch, maxlen_out, token)
         """
-        return self.left_decoder.forward_one_step(memory, memory_mask, tgt_mask, cache)
+        return self.left_decoder.forward_one_step(memory, memory_mask, tgt, tgt_mask, cache)
 
-
-class TransformerDecoder(nn.Module):
-    """Base class of Transfomer decoder module.
-    Args:
-        vocab_size: output dim
-        encoder_output_size: dimension of attention
-        attention_heads: the number of heads of multi head attention
-        linear_units: the hidden units number of position-wise feedforward
-        num_blocks: the number of decoder blocks
-        dropout_rate: dropout rate
-        self_attention_dropout_rate: dropout rate for attention
-        input_layer: input layer type, `embed`
-        use_output_layer: whether to use output layer
-        pos_enc_class: PositionalEncoding module
-        normalize_before:
-            True: use layer_norm before each sub-block of a layer.
-            False: use layer_norm after each sub-block of a layer.
-        concat_after: whether to concat attention layer's input and output
-            True: x -> x + linear(concat(x, att(x)))
-            False: x -> x + att(x)
-    """
-
-    @typechecked
-    def __init__(self,
-                 vocab_size: int,
-                 encoder_output_size: int,
-                 attention_heads: int = 4,
-                 linear_units: int = 2048,
-                 num_blocks: int = 6,
-                 dropout_rate: float = 0.1,
-                 positional_dropout_rate: float = 0.1,
-                 self_attention_dropout_rate: float = 0.0,
-                 src_attention_dropout_rate: float = 0.0,
-                 input_layer: str = "embed",
-                 use_output_layer: bool = True,
-                 normalize_before: bool = True,
-                 concat_after: bool = False,
-                 max_len: int = 5000):
-        super().__init__()
-        attention_dim = encoder_output_size
-
-        if input_layer == "embed":
-            self.embed = nn.Sequential(
-                nn.Embedding(vocab_size, attention_dim),
-                PositionalEncoding(attention_dim, positional_dropout_rate, max_len=max_len), )
-        else:
-            raise ValueError(f"only 'embed' is supported: {input_layer}")
-
-        self.normalize_before = normalize_before
-        self.after_norm = nn.LayerNorm(attention_dim, eps=1e-12)
-        self.use_output_layer = use_output_layer
-        self.output_layer = nn.Linear(attention_dim, vocab_size)
-
-        self.decoders = nn.ModuleList([
-            DecoderLayer(
-                size=attention_dim,
-                self_attn=MultiHeadedAttention(attention_heads, attention_dim, self_attention_dropout_rate),
-                src_attn=MultiHeadedAttention(attention_heads, attention_dim, src_attention_dropout_rate),
-                feed_forward=PositionwiseFeedForward(attention_dim, linear_units, dropout_rate),
-                dropout_rate=dropout_rate,
-                normalize_before=normalize_before,
-                concat_after=concat_after, ) for _ in range(num_blocks)
-        ])
-
-    def forward(
-            self,
-            memory: torch.Tensor,
-            memory_mask: torch.Tensor,
-            ys_in_pad: torch.Tensor,
-            ys_in_lens: torch.Tensor,
-            r_ys_in_pad: torch.Tensor = torch.empty([0]),
-            reverse_weight: float = 0.0) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Forward decoder.
-        Args:
-            memory: encoded memory, float32  (batch, maxlen_in, feat)
-            memory_mask: encoder memory mask, (batch, 1, maxlen_in)
-            ys_in_pad: padded input token ids, int64 (batch, maxlen_out)
-            ys_in_lens: input lengths of this batch (batch)
-            r_ys_in_pad: not used in transformer decoder, in order to unify api
-                with bidirectional decoder
-            reverse_weight: not used in transformer decoder, in order to unify
-                api with bidirectional decode
-        Returns:
-            (tuple): tuple containing:
-                x: decoded token score before softmax (batch, maxlen_out, vocab_size)
-                    if use_output_layer is True,
-                olens: (batch, )
-        """
-        tgt = ys_in_pad
-        maxlen = tgt.size(1)
-        # tgt_mask: (B, 1, L)
-        tgt_mask = ~make_pad_mask(ys_in_lens, maxlen).unsqueeze(1)
-        tgt_mask = tgt_mask.to(tgt.device)
-        # m: (1, L, L)
-        m = subsequent_mask(tgt_mask.size(-1), device=tgt_mask.device).unsqueeze(0)
-        # tgt_mask: (B, L, L)
-        tgt_mask = tgt_mask & m
-
-        x, _ = self.embed(tgt)
-        for layer in self.decoders:
-            x, tgt_mask, memory, memory_mask = layer(x, tgt_mask, memory, memory_mask)
-        if self.normalize_before:
-            x = self.after_norm(x)
-        if self.use_output_layer:
-            x = self.output_layer(x)
-
-        olens = tgt_mask.sum(1)
-        return x, torch.tensor(0.0), olens
-
-    def forward_one_step(
-            self,
-            memory: torch.Tensor,
-            memory_mask: torch.Tensor,
-            tgt: torch.Tensor,
-            tgt_mask: torch.Tensor,
-            cache: Optional[List[torch.Tensor]] = None,
-    ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
-        """Forward one step.
-            This is only used for decoding.
-        Args:
-            memory: encoded memory, float32  (batch, maxlen_in, feat)
-            memory_mask: encoded memory mask, (batch, 1, maxlen_in)
-            tgt: input token ids, int64 (batch, maxlen_out)
-            tgt_mask: input token mask,  (batch, maxlen_out, maxlen_out)
-                      dtype=torch.bool
-            cache: cached output list of (batch, max_time_out-1, size)
-        Returns:
-            y, cache: NN output value and cache per `self.decoders`.
-                y.shape` is (batch, token)
-        """
-        x, _ = self.embed(tgt)
-        new_cache = []
-        for i, decoder in enumerate(self.decoders):
-            if cache is None:
-                c = None
-            else:
-                c = cache[i]
-            x, tgt_mask, memory, memory_mask = decoder(
-                x, tgt_mask, memory, memory_mask, cache=c)
-            new_cache.append(x)
-        if self.normalize_before:
-            y = self.after_norm(x[:, -1])
-        else:
-            y = x[:, -1]
-        if self.use_output_layer:
-            y = torch.nn.functional.log_softmax(self.output_layer(y), dim=-1)
-        return y, new_cache
+    def tie_or_clone_weights(self, jit_mode: bool = True):
+        """Tie or clone module weights (between word_emb and output_layer)
+            depending of whether we are using TorchScript or not"""
+        self.left_decoder.tie_or_clone_weights(jit_mode)
+        self.right_decoder.tie_or_clone_weights(jit_mode)
 
 
 class DecoderLayer(nn.Module):
     """Single decoder layer module.
+
     Args:
         size (int): Input dimension.
-        self_attn (nn.Module): Self-attention module instance.
+        self_attn (torch.nn.Module): Self-attention module instance.
             `MultiHeadedAttention` instance can be used as the argument.
-        src_attn (nn.Module): Self-attention module instance.
+        src_attn (torch.nn.Module): Inter-attention module instance.
             `MultiHeadedAttention` instance can be used as the argument.
-        feed_forward (nn.Module): Feed-forward module instance.
+            If `None` is passed, Inter-attention is not used, such as
+            CIF, GPT, and other decoder only model.
+        feed_forward (torch.nn.Module): Feed-forward module instance.
             `PositionwiseFeedForward` instance can be used as the argument.
         dropout_rate (float): Dropout rate.
         normalize_before (bool):
             True: use layer_norm before each sub-block.
             False: to use layer_norm after each sub-block.
-        concat_after (bool): Whether to concat attention layer's input
-            and output.
-            True: x -> x + linear(concat(x, att(x)))
-            False: x -> x + att(x)
     """
 
     def __init__(
             self,
             size: int,
             self_attn: nn.Module,
-            src_attn: nn.Module,
+            src_attn: Optional[nn.Module],
             feed_forward: nn.Module,
             dropout_rate: float,
             normalize_before: bool = True,
-            concat_after: bool = False, ):
+            layer_norm_type: str = 'layer_norm',
+            norm_eps: float = 1e-5,
+    ):
         """Construct an DecoderLayer object."""
         super().__init__()
         self.size = size
         self.self_attn = self_attn
         self.src_attn = src_attn
         self.feed_forward = feed_forward
-        self.norm1 = nn.LayerNorm(size, eps=1e-12)
-        self.norm2 = nn.LayerNorm(size, eps=1e-12)
-        self.norm3 = nn.LayerNorm(size, eps=1e-12)
+        assert layer_norm_type in ['layer_norm', 'rms_norm']
+        self.norm1 = norm_classes[layer_norm_type](size, eps=norm_eps)
+        self.norm2 = norm_classes[layer_norm_type](size, eps=norm_eps)
+        self.norm3 = norm_classes[layer_norm_type](size, eps=norm_eps)
         self.dropout = nn.Dropout(dropout_rate)
         self.normalize_before = normalize_before
-        self.concat_after = concat_after
-        if self.concat_after:
-            self.concat_linear1 = nn.Linear(size + size, size)
-            self.concat_linear2 = nn.Linear(size + size, size)
-        else:
-            self.concat_linear1 = nn.Identity()
-            self.concat_linear2 = nn.Identity()
 
     def forward(
             self,
@@ -324,9 +504,10 @@ class DecoderLayer(nn.Module):
             tgt_mask: torch.Tensor,
             memory: torch.Tensor,
             memory_mask: torch.Tensor,
-            cache: Optional[torch.Tensor] = None
+            cache: Optional[Dict[str, Optional[T_CACHE]]] = None
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute decoded features.
+
         Args:
             tgt (torch.Tensor): Input tensor (#batch, maxlen_out, size).
             tgt_mask (torch.Tensor): Mask for input tensor
@@ -337,49 +518,62 @@ class DecoderLayer(nn.Module):
                 (#batch, maxlen_in).
             cache (torch.Tensor): cached tensors.
                 (#batch, maxlen_out - 1, size).
+
         Returns:
             torch.Tensor: Output tensor (#batch, maxlen_out, size).
             torch.Tensor: Mask for output tensor (#batch, maxlen_out).
             torch.Tensor: Encoded memory (#batch, maxlen_in, size).
             torch.Tensor: Encoded memory mask (#batch, maxlen_in).
+
         """
+        if cache is not None:
+            att_cache = cache['self_att_cache']
+            cross_att_cache = cache['cross_att_cache']
+        else:
+            att_cache, cross_att_cache = None, None
+
         residual = tgt
         if self.normalize_before:
             tgt = self.norm1(tgt)
 
-        if cache is None:
+        if att_cache is None:
             tgt_q = tgt
             tgt_q_mask = tgt_mask
+            att_cache = (torch.empty(0, 0, 0, 0), torch.empty(0, 0, 0, 0))
         else:
-            # compute only the last frame query keeping dim: max_time_out -> 1
-            assert cache.shape == [
-                tgt.shape[0],
-                tgt.shape[1] - 1,
-                self.size,
-            ], f"{cache.shape} == {[tgt.shape[0], tgt.shape[1] - 1, self.size]}"
             tgt_q = tgt[:, -1:, :]
             residual = residual[:, -1:, :]
             tgt_q_mask = tgt_mask[:, -1:, :]
 
-        if self.concat_after:
-            tgt_concat = torch.concat((tgt_q, self.self_attn(tgt_q, tgt, tgt, tgt_q_mask)[0]), dim=-1)
-            x = residual + self.concat_linear1(tgt_concat)
-        else:
-            x = residual + self.dropout(self.self_attn(tgt_q, tgt, tgt, tgt_q_mask)[0])
+        x, new_att_cache = self.self_attn(
+            tgt_q,
+            tgt_q,
+            tgt_q,
+            tgt_q_mask,
+            cache=att_cache,
+        )
+        if cache is not None:
+            cache['self_att_cache'] = new_att_cache
+        x = residual + self.dropout(x)
         if not self.normalize_before:
             x = self.norm1(x)
 
-        residual = x
-        if self.normalize_before:
-            x = self.norm2(x)
-        if self.concat_after:
-            x_concat = torch.concat((x, self.src_attn(x, memory, memory, memory_mask)[0]), dim=-1)
-            x = residual + self.concat_linear2(x_concat)
-        else:
-            x = residual + self.dropout(
-                self.src_attn(x, memory, memory, memory_mask)[0])
-        if not self.normalize_before:
-            x = self.norm2(x)
+        if self.src_attn is not None:
+            residual = x
+            if self.normalize_before:
+                x = self.norm2(x)
+            if cross_att_cache is None:
+                cross_att_cache = (torch.empty(0, 0, 0, 0), torch.empty(0, 0, 0, 0))
+            x, new_cross_cache = self.src_attn(x,
+                                               memory,
+                                               memory,
+                                               memory_mask,
+                                               cache=cross_att_cache)
+            if cache is not None:
+                cache['cross_att_cache'] = new_cross_cache
+            x = residual + self.dropout(x)
+            if not self.normalize_before:
+                x = self.norm2(x)
 
         residual = x
         if self.normalize_before:
@@ -387,8 +581,5 @@ class DecoderLayer(nn.Module):
         x = residual + self.dropout(self.feed_forward(x))
         if not self.normalize_before:
             x = self.norm3(x)
-
-        if cache is not None:
-            x = torch.concat([cache, x], dim=1)
 
         return x, tgt_mask, memory, memory_mask
