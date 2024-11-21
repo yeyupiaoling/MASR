@@ -46,6 +46,9 @@ class BeamSearchDecoder:
         logger.info("初始化解码器完成!")
         logger.info('=' * 70)
 
+    def reset_params(self, alpha, beta):
+        self._ext_scorer.reset_params(alpha, beta)
+
     def ctc_beam_search_decoder(self, ctc_probs):
         if not isinstance(ctc_probs, list):
             ctc_probs = ctc_probs.tolist()
