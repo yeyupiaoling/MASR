@@ -147,7 +147,7 @@ class MASRPredictor:
                                          **decoder_args)
             text = self._tokenizer.ids2text(result[0])
         elif self.decoder == "ctc_beam_search":
-            text = self.beam_search_decoder.ctc_beam_search_decoder_batch(ctc_probs=ctc_probs, ctc_lens=ctc_lens)
+            text = self.beam_search_decoder.ctc_beam_search_decoder(ctc_probs=ctc_probs)
         else:
             raise ValueError(f"不支持该解码器：{self.decoder}")
 
