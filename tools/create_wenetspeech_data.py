@@ -1,49 +1,21 @@
 import argparse
 import json
 import os
-import threading
 
 import ijson
 from loguru import logger
-from pydub import AudioSegment
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--wenetspeech_json',  type=str,    default='/media/wenetspeech/WenetSpeech.json',  help="WenetSpeech的标注json文件路径")
+parser.add_argument('--wenetspeech_json',  type=str,    default='/media/WenetSpeech.json',  help="WenetSpeech的标注json文件路径")
 parser.add_argument('--dataset_dir',       type=str,    default='dataset/',    help="存放数量列表的文件夹路径")
-parser.add_argument('--to_wav',            type=bool,   default=False,         help="是否把opus格式转换为wav格式，以空间换时间")
 parser.add_argument('--num_workers',       type=int,    default=8,             help="把opus格式转换为wav格式的线程数量")
 args = parser.parse_args()
 
 
-class Opus2WavThread(threading.Thread):
-    def __init__(self, thread_id, data_sub):
-        threading.Thread.__init__(self)
-        self.thread_id = thread_id
-        self.data_sub = data_sub
-
-    def run(self):
-        logger.info(f"开启线程：{self.thread_id}，数据大小为：{len(self.data_sub)}")
-        for i, data in enumerate(self.data_sub):
-            long_audio_path = data[0]
-            logger.info(f'线程：{self.thread_id} 正在处理：[{i + 1}/{len(self.data_sub)}]')
-            save_audio_path = long_audio_path.replace('.opus', '.wav')
-            if not os.path.exists(long_audio_path):
-                continue
-            if not os.path.exists(save_audio_path):
-                source_wav = AudioSegment.from_file(long_audio_path)
-                target_audio = source_wav.set_frame_rate(16000)
-                target_audio.export(save_audio_path, format="wav")
-        logger.info(f"线程：{self.thread_id} 已完成")
-
-
 # 处理WenetSpeech数据
 def process_wenetspeech(long_audio_path, segments_lists):
-    # 优先使用wav格式，如果没有，则使用opus格式
-    save_audio_path = long_audio_path.replace('.opus', '.wav')
-    if not os.path.exists(save_audio_path):
-        save_audio_path = long_audio_path
-    if not os.path.exists(save_audio_path):
+    if not os.path.exists(long_audio_path):
         return None
     data = []
     for segment_file in segments_lists:
@@ -57,7 +29,7 @@ def process_wenetspeech(long_audio_path, segments_lists):
             logger.warning(f'{segment_file} something is wrong, skipped')
             continue
         else:
-            line = dict(audio_filepath=save_audio_path,
+            line = dict(audio_filepath=long_audio_path,
                         text=text,
                         duration=round(end_time - start_time, 3),
                         start_time=round(start_time, 3),
@@ -102,32 +74,10 @@ def get_data(wenetspeech_json):
 def main():
     all_data = get_data(args.wenetspeech_json)
     logger.info(f'总数据量为：{len(all_data)}')
-    if args.to_wav:
-        text = input(f'音频文件将会转换为wav格式，这个过程可能很长，而且最终文件大小接近5.5T，是否继续？(y/n)')
-        if text is None or text != 'y':
-            return
-        threads = []
-        chunk_len = len(all_data) // args.num_workers
-        for i in range(args.num_workers):
-            sub_data = all_data[i * chunk_len: (i + 1) * chunk_len]
-            thread = Opus2WavThread(i, sub_data)
-            thread.start()
-            threads.append(thread)
-        # 等待所有线程完成
-        for t in threads:
-            t.join()
     # 写入到数据列表
     train_data, test_net_data, test_meeting_data = [], [], []
     for long_audio_path, segments_lists in tqdm(all_data):
         data_type = long_audio_path.split('/')[-4]
-        # 测试数据必须转换为wav格式
-        if data_type == 'test_net' or data_type == 'test_meeting':
-            save_audio_path = long_audio_path.replace('.opus', '.wav')
-            if not os.path.exists(save_audio_path):
-                source_wav = AudioSegment.from_file(long_audio_path)
-                target_audio = source_wav.set_frame_rate(16000)
-                target_audio.export(save_audio_path, format="wav")
-            long_audio_path = save_audio_path
         result = process_wenetspeech(long_audio_path, segments_lists)
         if result is None:
             logger.error(f'获取不到{long_audio_path}，已跳过')
