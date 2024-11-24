@@ -58,10 +58,10 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 |  Conformer  | True  | fbank |   ctc_greedy_search    | 0.06134 | 加入知识星球获取 |
 |  Conformer  | True  | fbank | ctc_prefix_beam_search | 0.06132 | 加入知识星球获取 |
 |  Conformer  | True  | fbank |  attention_rescoring   | 0.05366 | 加入知识星球获取 |
-|  Conformer  | True  | fbank |    ctc_beam_search     | 0.06138 | 加入知识星球获取 |
+|  Conformer  | True  | fbank |    ctc_beam_search     | 0.04409 | 加入知识星球获取 |
 | DeepSpeech2 | True  | fbank |   ctc_greedy_search    | 0.12000 | 加入知识星球获取 |
 | DeepSpeech2 | True  | fbank | ctc_prefix_beam_search | 0.12016 | 加入知识星球获取 |
-| DeepSpeech2 | True  | fbank |    ctc_beam_search     | 0.12015 | 加入知识星球获取 |
+| DeepSpeech2 | True  | fbank |    ctc_beam_search     | 0.08748 | 加入知识星球获取 |
 
 
 3. [Librispeech](https://openslr.magicdatatech.com/resources/12) (960小时，英语) 的预训练模型列表，错误率类型为词错率（WER）：
@@ -71,7 +71,10 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 |  Conformer  | True  | fbank |   ctc_greedy_search    | 0.07432 | 加入知识星球获取 |
 |  Conformer  | True  | fbank | ctc_prefix_beam_search | 0.07418 | 加入知识星球获取 |
 |  Conformer  | True  | fbank |  attention_rescoring   | 0.06549 | 加入知识星球获取 |
+|  Conformer  | True  | fbank |    ctc_beam_search     |         | 加入知识星球获取 |
 | DeepSpeech2 | True  | fbank |   ctc_greedy_search    | 0.15491 | 加入知识星球获取 |
+| DeepSpeech2 | True  | fbank | ctc_prefix_beam_search | 0.15307 | 加入知识星球获取 |
+| DeepSpeech2 | True  | fbank |    ctc_beam_search     |         | 加入知识星球获取 |
 
 
 4. 其他数据集的预训练模型列表，错误率类型，如果是中文就是字错率（CER），英文则是词错率（WER），中英混合为混合错误率（MER）：

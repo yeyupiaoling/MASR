@@ -67,3 +67,10 @@ model = kenlm.Model('kenlm1/build/model/test.klm')
 result = model.score('近几年不但我用书给女儿儿压岁也劝说亲朋不要给女儿压岁钱而改送压岁书', bos=True, eos=True)
 print(result)
 ```
+
+# 寻找最优的参数
+
+在解码的时候设置不同的参数可以获得不同的结果，alpha和beta参数值对解码的影响很大，所以需要尝试不同参数值来找到最优的参数。执行下面脚本可以找到最优的参数。
+```shell
+python tools/tune_beam_search.py
+```
