@@ -604,8 +604,8 @@ class MASRTrainer(object):
                 labels = [list(filter(lambda x: x != -1, label)) for label in labels]
                 labels_str = self.tokenizer.ids2text(labels)
                 if only_ctc_probs:
-                    all_ctc_probs.append(ctc_probs)
-                    all_ctc_lens.append(ctc_lens)
+                    all_ctc_probs.append(ctc_probs.cpu().detach().numpy())
+                    all_ctc_lens.append(ctc_lens.cpu().detach().numpy().astype(np.int32))
                     all_label.append(labels_str)
                     continue
                 out_strings = self.__decoder_result(encoder_outs=encoder_outs, ctc_probs=ctc_probs, ctc_lens=ctc_lens)
