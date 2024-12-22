@@ -1,11 +1,6 @@
 import argparse
 import functools
-import os
 import time
-
-current_dir = os.path.dirname(__file__)
-parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
-os.chdir(parent_dir)
 
 import numpy as np
 from loguru import logger

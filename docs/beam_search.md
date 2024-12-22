@@ -63,7 +63,7 @@ bin/build_binary trie -a 22 -q 8 -b 8 ../../../lm/my_lm.arpa ../../../lm/my_lm.k
 ```python
 import kenlm
 
-model = kenlm.Model('kenlm1/build/model/test.klm')
+model = kenlm.Model('../../../lm/my_lm.klm')
 result = model.score('近几年不但我用书给女儿儿压岁也劝说亲朋不要给女儿压岁钱而改送压岁书', bos=True, eos=True)
 print(result)
 ```
@@ -72,5 +72,6 @@ print(result)
 
 在解码的时候设置不同的参数可以获得不同的结果，alpha和beta参数值对解码的影响很大，所以需要尝试不同参数值来找到最优的参数。执行下面脚本可以找到最优的参数。
 ```shell
-python tools/tune_beam_search.py
+cp tools/tune_beam_search.py .
+python tune_beam_search.py
 ```

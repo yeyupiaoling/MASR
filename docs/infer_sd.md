@@ -42,6 +42,12 @@ python infer_sd_asr.py --audio_path=./dataset/test_long.wav
 2024-10-13 15:09:51.103 | INFO     | masr.utils.utils:print_arguments:23 - ctc_prefix_beam_search_args:
 2024-10-13 15:09:51.103 | INFO     | masr.utils.utils:print_arguments:30 - 	beam_size: 10
 2024-10-13 15:09:51.103 | INFO     | masr.utils.utils:print_arguments:33 - ------------------------------------------------
+2024-10-13 15:09:51.103 | INFO     | masr.decoders.beam_search_decoder:__init__:37 - ======================================================================
+2024-10-13 15:09:51.103 | INFO     | masr.decoders.beam_search_decoder:__init__:38 - 初始化解码器...
+2024-10-13 15:09:51.103 | INFO     | masr.decoders.beam_search_decoder:__init__:44 - language model: model path = lm/zh_giga.no_cna_cmn.prune01244.klm, is_character_based = True, max_order = 5, dict_size = 0
+2024-10-13 15:09:51.103 | INFO     | masr.decoders.beam_search_decoder:__init__:49 - 初始化解码器完成!
+2024-10-13 15:09:51.103 | INFO     | masr.decoders.beam_search_decoder:__init__:50 - ======================================================================
+2024-10-13 15:09:51.103 | INFO     | masr.infer_utils.inference_predictor:__init__:38 - 已加载模型：models/ConformerModel_fbank/inference_model/inference.pth
 2024-10-13 15:09:51.744 | INFO     | masr.infer_utils.inference_predictor:__init__:38 - 已加载模型：models/ConformerModel_fbank/inference_model/inference.pth
 2024-10-13 15:09:51.789 | INFO     | masr.predict:__init__:98 - 流式VAD模型已加载完成
 2024-10-13 15:09:52.749 | INFO     | masr.predict:__init__:104 - 预测器已准备完成！
@@ -111,22 +117,22 @@ python infer_sd_asr.py --audio_path=./dataset/test_long.wav
 2024-10-13 15:09:53.698 | INFO     | mvector.models:build_model:20 - 成功创建模型：CAMPPlus，参数为：{'embd_dim': 192}
 2024-10-13 15:09:53.993 | INFO     | mvector.utils.checkpoint:load_pretrained:50 - 成功加载预训练模型：models/CAMPPlus_Fbank/best_model/model.pth
 2024-10-13 15:09:53.995 | INFO     | mvector.predict:__init__:62 - 成功加载模型参数：models/CAMPPlus_Fbank/best_model/model.pth
-2024-10-13 15:09:55.789 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 0, 'text': '一个一辆破及布买车沟两个钻次出满人东摘', 'start': 0.0, 'end': 4.29}
-2024-10-13 15:10:01.500 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 1, 'text': '先生就只有医疗记不测', 'start': 4.79, 'end': 7.42}
-2024-10-13 15:10:07.551 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 0, 'text': '太秀了邱着一辆急护货车还绑在他里大高的谷上我们都斯营救', 'start': 7.42, 'end': 14.92}
-2024-10-13 15:10:13.462 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 1, 'text': '理刚刚的党个原则谁是一把水', 'start': 15.44, 'end': 19.61}
-2024-10-13 15:10:13.662 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 2, 'text': '据哈东的统志捡了里达救市事作县长现场着一把手数据是发手', 'start': 20.04, 'end': 28.13}
-2024-10-13 15:10:13.738 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 1, 'text': '的手长爱特平他的', 'start': 30.36, 'end': 33.73}
-2024-10-13 15:10:13.771 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 3, 'text': '对反对', 'start': 33.73, 'end': 35.23}
-2024-10-13 15:10:13.804 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 2, 'text': '他的生长还藏的了吧板不班怎么说他老婆', 'start': 35.23, 'end': 40.48}
-2024-10-13 15:10:13.840 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 1, 'text': '来籍欧阳街值得的前妻', 'start': 40.48, 'end': 45.51}
-2024-10-13 15:10:13.888 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 4, 'text': '最后再说女儿个少马受那敬专访这救', 'start': 50.2, 'end': 64.34}
-2024-10-13 15:10:13.934 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 3, 'text': '陈请泉更上来', 'start': 64.62, 'end': 68.24}
-2024-10-13 15:10:13.972 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 4, 'text': '我不认为整个', 'start': 68.82, 'end': 71.62}
-2024-10-13 15:10:14.009 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 3, 'text': '那么你管这么快干嘛而真已产下危机人', 'start': 71.62, 'end': 76.72}
-2024-10-13 15:10:14.065 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 4, 'text': '与天下为己任那的网就可以人在上眼伤你们瞒在这个山水撞元抓的了让我人很没面子我求着能姆的板人发', 'start': 77.49, 'end': 94.28}
-2024-10-13 15:10:14.100 | INFO     | masr.predict:predict_sd_asr:308 - 说话人识别结果：{'speaker': 3, 'text': '在镇说娃华施已经开过会员的决定', 'start': 107.03, 'end': 113.04}
-消耗时间：21352ms, 识别结果: [{'speaker': 0, 'text': '一个一辆破及布买车沟两个钻次出满人东摘', 'start': 0.0, 'end': 4.29}, {'speaker': 1, 'text': '先生就只有医疗记不测', 'start': 4.79, 'end': 7.42}, {'speaker': 0, 'text': '太秀了邱着一辆急护货车还绑在他里大高的谷上我们都斯营救', 'start': 7.42, 'end': 14.92}, {'speaker': 1, 'text': '理刚刚的党个原则谁是一把水', 'start': 15.44, 'end': 19.61}, {'speaker': 2, 'text': '据哈东的统志捡了里达救市事作县长现场着一把手数据是发手', 'start': 20.04, 'end': 28.13}, {'speaker': 1, 'text': '的手长爱特平他的', 'start': 30.36, 'end': 33.73}, {'speaker': 3, 'text': '对反对', 'start': 33.73, 'end': 35.23}, {'speaker': 2, 'text': '他的生长还藏的了吧板不班怎么说他老婆', 'start': 35.23, 'end': 40.48}, {'speaker': 1, 'text': '来籍欧阳街值得的前妻', 'start': 40.48, 'end': 45.51}, {'speaker': 4, 'text': '最后再说女儿个少马受那敬专访这救', 'start': 50.2, 'end': 64.34}, {'speaker': 3, 'text': '陈请泉更上来', 'start': 64.62, 'end': 68.24}, {'speaker': 4, 'text': '我不认为整个', 'start': 68.82, 'end': 71.62}, {'speaker': 3, 'text': '那么你管这么快干嘛而真已产下危机人', 'start': 71.62, 'end': 76.72}, {'speaker': 4, 'text': '与天下为己任那的网就可以人在上眼伤你们瞒在这个山水撞元抓的了让我人很没面子我求着能姆的板人发', 'start': 77.49, 'end': 94.28}, {'speaker': 3, 'text': '在镇说娃华施已经开过会员的决定', 'start': 107.03, 'end': 113.04}]
+2024-12-22 16:22:38.464 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 0, 'text': '破集部满山沟里面乱钻四出骂人都占', 'start': 0.0, 'end': 4.29}
+2024-12-22 16:22:44.534 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 1, 'text': '你们身上就只有一辆吉普车', 'start': 4.79, 'end': 7.42}
+2024-12-22 16:22:50.758 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 0, 'text': '太穷了就这一辆吉普车还绑在她李大刚的屁股上我们都是骑自行车', 'start': 7.42, 'end': 14.92}
+2024-12-22 16:22:57.076 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 1, 'text': '李大刚知不知道党的组织原则谁是一把手', 'start': 15.44, 'end': 19.61}
+2024-12-22 16:22:57.463 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 2, 'text': '据汉农同志讲李达康就是这么强势他说县长县长是一把手他做书记书记是一把手', 'start': 20.04, 'end': 28.13}
+2024-12-22 16:22:57.613 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 1, 'text': '那他太又当了省长我还得听他的老', 'start': 30.36, 'end': 33.73}
+2024-12-22 16:22:57.729 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 3, 'text': '', 'start': 33.73, 'end': 35.23}
+2024-12-22 16:22:57.975 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 2, 'text': '他这个省长还当得了吗不管怎么说他老婆总是出现', 'start': 35.23, 'end': 40.48}
+2024-12-22 16:22:58.187 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 1, 'text': '便是前妻欧阳军使得前期', 'start': 40.48, 'end': 45.51}
+2024-12-22 16:22:58.672 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 4, 'text': '哥哥我最后我再说一句啊能不能帮我个小忙说把那人就全放了别再追究了', 'start': 50.2, 'end': 64.34}
+2024-12-22 16:22:58.809 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 3, 'text': '这陈青泉跟你有商务往来', 'start': 64.62, 'end': 68.24}
+2024-12-22 16:22:58.940 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 4, 'text': '我不认这人他是个有钱的人', 'start': 68.82, 'end': 71.62}
+2024-12-22 16:22:59.134 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 3, 'text': '那你管这么快干嘛呀真以天下为己任', 'start': 71.62, 'end': 76.72}
+2024-12-22 16:22:59.720 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 4, 'text': '以天下为己任那是你们的事儿我就是一商人在商言商你们在这个山水庄园抓走人了让我这个人很没面子所以我求求你能不能把人放', 'start': 77.49, 'end': 94.28}
+2024-12-22 16:22:59.952 | INFO     | masr.predict:predict_sd_asr:324 - 说话人识别结果：{'speaker': 3, 'text': '这事你还真说完了是成为已经开过会员的决定', 'start': 107.03, 'end': 113.04}
+消耗时间：25434ms, 识别结果: [{'speaker': 0, 'text': '破集部满山沟里面乱钻四出骂人都占', 'start': 0.0, 'end': 4.29}, {'speaker': 1, 'text': '你们身上就只有一辆吉普车', 'start': 4.79, 'end': 7.42}, {'speaker': 0, 'text': '太穷了就这一辆吉普车还绑在她李大刚的屁股上我们都是骑自行车', 'start': 7.42, 'end': 14.92}, {'speaker': 1, 'text': '李大刚知不知道党的组织原则谁是一把手', 'start': 15.44, 'end': 19.61}, {'speaker': 2, 'text': '据汉农同志讲李达康就是这么强势他说县长县长是一把手他做书记书记是一把手', 'start': 20.04, 'end': 28.13}, {'speaker': 1, 'text': '那他太又当了省长我还得听他的老', 'start': 30.36, 'end': 33.73}, {'speaker': 3, 'text': '', 'start': 33.73, 'end': 35.23}, {'speaker': 2, 'text': '他这个省长还当得了吗不管怎么说他老婆总是出现', 'start': 35.23, 'end': 40.48}, {'speaker': 1, 'text': '便是前妻欧阳军使得前期', 'start': 40.48, 'end': 45.51}, {'speaker': 4, 'text': '哥哥我最后我再说一句啊能不能帮我个小忙说把那人就全放了别再追究了', 'start': 50.2, 'end': 64.34}, {'speaker': 3, 'text': '这陈青泉跟你有商务往来', 'start': 64.62, 'end': 68.24}, {'speaker': 4, 'text': '我不认这人他是个有钱的人', 'start': 68.82, 'end': 71.62}, {'speaker': 3, 'text': '那你管这么快干嘛呀真以天下为己任', 'start': 71.62, 'end': 76.72}, {'speaker': 4, 'text': '以天下为己任那是你们的事儿我就是一商人在商言商你们在这个山水庄园抓走人了让我这个人很没面子所以我求求你能不能把人放', 'start': 77.49, 'end': 94.28}, {'speaker': 3, 'text': '这事你还真说完了是成为已经开过会员的决定', 'start': 107.03, 'end': 113.04}]
 
 进程已结束，退出代码为 0
 ```
