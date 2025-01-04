@@ -7,17 +7,18 @@ from masr.data_utils.normalizer import FeatureNormalizer
 # noinspection PyUnresolvedReferences
 from masr.model_utils.transformer.decoder import *
 # noinspection PyUnresolvedReferences
-from masr.model_utils.conformer.encoder import *
+from masr.model_utils.efficient_conformer.encoder import *
 from masr.model_utils.loss.ctc import CTCLoss
 from masr.model_utils.loss.label_smoothing_loss import LabelSmoothingLoss
 from masr.model_utils.utils.cmvn import GlobalCMVN
 from masr.model_utils.utils.common import (IGNORE_ID, add_sos_eos, th_accuracy, reverse_pad_list)
+
 from masr.utils.utils import DictObject
 
-__all__ = ["ConformerModel"]
+__all__ = ["EfficientConformerModel"]
 
 
-class ConformerModel(torch.nn.Module):
+class EfficientConformerModel(torch.nn.Module):
     def __init__(
             self,
             input_size: int,

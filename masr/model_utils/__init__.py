@@ -4,6 +4,8 @@ from loguru import logger
 
 from masr.model_utils.conformer.model import ConformerModel
 from masr.model_utils.deepspeech2.model import DeepSpeech2Model
+from masr.model_utils.efficient_conformer.model import EfficientConformerModel
+from masr.model_utils.squeezeformer.model import SqueezeformerModel
 
 __all__ = ['build_model']
 

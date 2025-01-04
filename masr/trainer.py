@@ -574,12 +574,7 @@ class MASRTrainer(object):
             if os.path.isdir(resume_model):
                 resume_model = os.path.join(resume_model, 'model.pth')
             assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
-            if self.use_gpu:
-                model_state_dict = torch.load(resume_model, weights_only=True)
-            else:
-                model_state_dict = torch.load(resume_model, map_location='cpu', weights_only=True)
-            self.model.load_state_dict(model_state_dict)
-            logger.info(f'成功加载模型：{resume_model}')
+            self.model = load_pretrained(model=self.model, pretrained_model=resume_model)
         self.model.eval()
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
             eval_model = self.model.module

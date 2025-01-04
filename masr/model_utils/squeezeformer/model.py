@@ -4,20 +4,20 @@ from typing import Tuple
 import torch
 
 from masr.data_utils.normalizer import FeatureNormalizer
-# noinspection PyUnresolvedReferences
-from masr.model_utils.transformer.decoder import *
-# noinspection PyUnresolvedReferences
-from masr.model_utils.conformer.encoder import *
 from masr.model_utils.loss.ctc import CTCLoss
 from masr.model_utils.loss.label_smoothing_loss import LabelSmoothingLoss
+# noinspection PyUnresolvedReferences
+from masr.model_utils.squeezeformer.encoder import *
+# noinspection PyUnresolvedReferences
+from masr.model_utils.transformer.decoder import *
 from masr.model_utils.utils.cmvn import GlobalCMVN
 from masr.model_utils.utils.common import (IGNORE_ID, add_sos_eos, th_accuracy, reverse_pad_list)
 from masr.utils.utils import DictObject
 
-__all__ = ["ConformerModel"]
+__all__ = ["SqueezeformerModel"]
 
 
-class ConformerModel(torch.nn.Module):
+class SqueezeformerModel(torch.nn.Module):
     def __init__(
             self,
             input_size: int,
@@ -37,9 +37,11 @@ class ConformerModel(torch.nn.Module):
         self.input_size = input_size
         # 设置是否为流式模型
         self.streaming = streaming
+        time_reduction_layer_type: str = 'conv1d'
         use_dynamic_chunk = False
         causal = False
         if self.streaming:
+            time_reduction_layer_type: str = 'stream'
             use_dynamic_chunk = True
             causal = True
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
@@ -48,9 +50,11 @@ class ConformerModel(torch.nn.Module):
         # 创建编码器和解码器
         mod = importlib.import_module(__name__)
         self.encoder = getattr(mod, encoder_conf.encoder_name)
+        print(encoder_conf.encoder_args)
         self.encoder = self.encoder(input_size=input_size,
                                     global_cmvn=global_cmvn,
                                     use_dynamic_chunk=use_dynamic_chunk,
+                                    time_reduction_layer_type=time_reduction_layer_type,
                                     causal=causal,
                                     **encoder_conf.encoder_args if encoder_conf.encoder_args is not None else {})
         self.decoder = getattr(mod, decoder_conf.decoder_name)
@@ -145,7 +149,8 @@ class ConformerModel(torch.nn.Module):
         r_ys_in_pad, r_ys_out_pad = add_sos_eos(r_ys_pad, self.sos, self.eos, self.ignore_id)
         # 1. Forward decoder
         decoder_out, r_decoder_out, _ = self.decoder(
-            encoder_out, encoder_mask, ys_in_pad, ys_in_lens, r_ys_in_pad, self.reverse_weight)
+            encoder_out, encoder_mask, ys_in_pad, ys_in_lens, r_ys_in_pad,
+            self.reverse_weight)
 
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)
@@ -153,9 +158,11 @@ class ConformerModel(torch.nn.Module):
         if self.reverse_weight > 0.0:
             r_loss_att = self.criterion_att(r_decoder_out, r_ys_out_pad)
         loss_att = loss_att * (1 - self.reverse_weight) + r_loss_att * self.reverse_weight
-        acc_att = th_accuracy(decoder_out.view(-1, self.vocab_size),
-                              ys_out_pad,
-                              ignore_label=self.ignore_id)
+        acc_att = th_accuracy(
+            decoder_out.view(-1, self.vocab_size),
+            ys_out_pad,
+            ignore_label=self.ignore_id,
+        )
         return loss_att, acc_att
 
     @torch.jit.export
