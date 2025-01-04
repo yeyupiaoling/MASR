@@ -201,7 +201,8 @@ class MASRTrainer(object):
             # 新的数据列表文件
             save_data_list = data_list_file.replace('manifest', 'manifest_features')
             with open(save_data_list, 'w', encoding='utf-8') as f:
-                for inputs, labels, input_lens, label_lens in tqdm(test_loader, desc=f'[{data_list_file}]提取特征中...'):
+                for inputs, labels, input_lens, label_lens in tqdm(test_loader,
+                                                                   desc=f'[{data_list_file}]提取特征中...'):
                     for i in range(len(labels)):
                         feature, label, input_len, label_len = inputs[i], labels[i], input_lens[i], label_lens[i]
                         feature = feature.numpy()[:input_len]
@@ -574,7 +575,20 @@ class MASRTrainer(object):
             if os.path.isdir(resume_model):
                 resume_model = os.path.join(resume_model, 'model.pth')
             assert os.path.exists(resume_model), f"{resume_model} 模型不存在！"
-            self.model = load_pretrained(model=self.model, pretrained_model=resume_model)
+            if self.use_gpu:
+                model_state_dict = torch.load(resume_model, weights_only=True)
+            else:
+                model_state_dict = torch.load(resume_model, map_location='cpu', weights_only=True)
+            missing_keys, unexpected_keys = self.model.load_state_dict(model_state_dict, strict=False)
+            if len(unexpected_keys) > 0:
+                logger.error('Unexpected key(s) in state_dict: {}. '
+                             .format(', '.join('"{}"'.format(k) for k in unexpected_keys)))
+            if len(missing_keys) > 0:
+                logger.error('Missing key(s) in state_dict: {}. '
+                             .format(', '.join('"{}"'.format(k) for k in missing_keys)))
+            if len(unexpected_keys) > 0 or len(missing_keys) > 0:
+                raise ValueError("模型有误，请检查模型。")
+            logger.info(f'成功加载模型：{resume_model}')
         self.model.eval()
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
             eval_model = self.model.module
@@ -650,7 +664,15 @@ class MASRTrainer(object):
             model_state_dict = torch.load(resume_model, weights_only=True)
         else:
             model_state_dict = torch.load(resume_model, map_location='cpu', weights_only=True)
-        self.model.load_state_dict(model_state_dict)
+        missing_keys, unexpected_keys = self.model.load_state_dict(model_state_dict, strict=False)
+        if len(unexpected_keys) > 0:
+            logger.error('Unexpected key(s) in state_dict: {}. '
+                         .format(', '.join('"{}"'.format(k) for k in unexpected_keys)))
+        if len(missing_keys) > 0:
+            logger.error('Missing key(s) in state_dict: {}. '
+                         .format(', '.join('"{}"'.format(k) for k in missing_keys)))
+        if len(unexpected_keys) > 0 or len(missing_keys) > 0:
+            raise ValueError("模型有误，请检查模型。")
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(resume_model))
         self.model.eval()
         # 获取静态模型
