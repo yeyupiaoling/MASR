@@ -28,13 +28,12 @@ class ConvolutionModule(nn.Module):
             bias (bool): Whether Conv with bias or not
         """
         super().__init__()
-        self.pointwise_conv1 = nn.Conv1d(
-            channels,
-            2 * channels,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-            bias=bias)
+        self.pointwise_conv1 = nn.Conv1d(channels,
+                                         2 * channels,
+                                         kernel_size=1,
+                                         stride=1,
+                                         padding=0,
+                                         bias=bias)
 
         # self.lorder is used to distinguish if it's a causal convolution,
         # if self.lorder > 0:

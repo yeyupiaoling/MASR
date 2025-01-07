@@ -4,7 +4,23 @@ from typing import Tuple
 import torch
 from torch import nn
 
-__all__ = ["PositionalEncoding", "RelPositionalEncoding"]
+__all__ = ["NoPositionalEncoding", "PositionalEncoding", "RelPositionalEncoding"]
+
+
+class NoPositionalEncoding(nn.Module):
+    def __init__(self,
+                 d_model: int,
+                 dropout_rate: float,
+                 max_len: int = 5000,
+                 reverse: bool = False):
+        super().__init__()
+
+    def forward(self, x: torch.Tensor, offset: int = 0) -> Tuple[torch.Tensor, torch.Tensor]:
+        pos_emb = torch.zeros(1, x.size(1), self.d_model).to(x.device)
+        return self.dropout(x), pos_emb
+
+    def position_encoding(self, offset: int, size: int) -> torch.Tensor:
+        return torch.zeros(1, size, self.d_model)
 
 
 class PositionalEncoding(nn.Module):
@@ -99,19 +115,3 @@ class RelPositionalEncoding(PositionalEncoding):
         self.pe = self.pe.to(x.device)
         pos_emb = self.pe[:, offset:offset + x.shape[1]]
         return self.dropout(x), self.dropout(pos_emb)
-
-
-class NoPositionalEncoding(nn.Module):
-    def __init__(self,
-                 d_model: int,
-                 dropout_rate: float,
-                 max_len: int = 5000,
-                 reverse: bool = False):
-        super().__init__()
-
-    def forward(self, x: torch.Tensor, offset: int = 0) -> Tuple[torch.Tensor, torch.Tensor]:
-        pos_emb = torch.zeros(1, x.size(1), self.d_model).to(x.device)
-        return self.dropout(x), pos_emb
-
-    def position_encoding(self, offset: int, size: int) -> torch.Tensor:
-        return torch.zeros(1, size, self.d_model)
