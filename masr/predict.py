@@ -245,7 +245,7 @@ class MASRPredictor:
             speech_timestamps = audio_segment.vad()
             texts, sentences = '', []
             for t in speech_timestamps:
-                audio_ndarray = audio_segment.samples[t['start']: t['end']]
+                audio_ndarray = audio_segment.samples[int(t['start']): int(t['end'])]
                 # 如果语音片段小于0.5秒，则跳过推理，下次合并使用
                 if (t['end'] - t['start']) * audio_segment.sample_rate < 0.5 and last_audio_ndarray is None:
                     continue

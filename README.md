@@ -46,10 +46,10 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 |    使用模型     | 是否为流式 | 预处理方式 |          解码方式          | test_net | test_meeting | aishell_test |   下载地址   |
 |:-----------:|:-----:|:-----:|:----------------------:|:--------:|:------------:|:------------:|:--------:|
-|  Conformer  | True  | fbank |   ctc_greedy_search    | 0.18136  |   0.21432    |   0.09805    | 加入知识星球获取 |
-|  Conformer  | True  | fbank | ctc_prefix_beam_search | 0.18070  |   0.21291    |   0.09806    | 加入知识星球获取 |
-|  Conformer  | True  | fbank |  attention_rescoring   | 0.16532  |   0.20383    |   0.08002    | 加入知识星球获取 |
-|  Conformer  | True  | fbank |    ctc_beam_search     | 0.24400  |   0.28751    |   0.06466    | 加入知识星球获取 |
+|  Conformer  | True  | fbank |   ctc_greedy_search    | 0.14391  |   0.18665    |   0.06751    | 加入知识星球获取 |
+|  Conformer  | True  | fbank | ctc_prefix_beam_search | 0.14326  |   0.18488    |   0.06763    | 加入知识星球获取 |
+|  Conformer  | True  | fbank |  attention_rescoring   | 0.13523  |   0.18069    |   0.06079    | 加入知识星球获取 |
+|  Conformer  | True  | fbank |    ctc_beam_search     | 0.18227  |   0.21586    |   0.04981    | 加入知识星球获取 |
 | DeepSpeech2 | True  | fbank |   ctc_greedy_search    |          |              |              | 加入知识星球获取 |
 | DeepSpeech2 | True  | fbank | ctc_prefix_beam_search |          |              |              | 加入知识星球获取 |
 | DeepSpeech2 | True  | fbank |    ctc_beam_search     |          |              |              | 加入知识星球获取 |
