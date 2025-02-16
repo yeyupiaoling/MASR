@@ -82,20 +82,20 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 4. 其他数据集的预训练模型列表，错误率类型，如果是中文就是字错率（CER），英文则是词错率（WER），中英混合为混合错误率（MER）：
 
-|   使用模型    | 是否为流式 | 预处理方式 |       数据集       | 语言  |          解码方式          | 测试数据 |   下载地址   |
-|:---------:|:-----:|:-----:|:---------------:|:---:|:----------------------:|:----:|:--------:|
-| Conformer | True  | fbank |      粤语数据集      | 粤语  |   ctc_greedy_search    |      | 加入知识星球获取 |
-| Conformer | True  | fbank |      粤语数据集      | 粤语  | ctc_prefix_beam_search |      | 加入知识星球获取 |
-| Conformer | True  | fbank |      粤语数据集      | 粤语  |  attention_rescoring   |      | 加入知识星球获取 |
-| Conformer | True  | fbank |      粤语数据集      | 粤语  |    ctc_beam_search     |      | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |   ctc_greedy_search    |      | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 | ctc_prefix_beam_search |      | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |  attention_rescoring   |      | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |    ctc_beam_search     |      | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 |   ctc_greedy_search    |      | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 | ctc_prefix_beam_search |      | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 |  attention_rescoring   |      | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 |    ctc_beam_search     |      | 加入知识星球获取 |
+|   使用模型    | 是否为流式 | 预处理方式 |       数据集       | 语言  |          解码方式          |  测试数据   |   下载地址   |
+|:---------:|:-----:|:-----:|:---------------:|:---:|:----------------------:|:-------:|:--------:|
+| Conformer | True  | fbank |      粤语数据集      | 粤语  |   ctc_greedy_search    | 0.05596 | 加入知识星球获取 |
+| Conformer | True  | fbank |      粤语数据集      | 粤语  | ctc_prefix_beam_search | 0.05595 | 加入知识星球获取 |
+| Conformer | True  | fbank |      粤语数据集      | 粤语  |  attention_rescoring   | 0.04846 | 加入知识星球获取 |
+| Conformer | True  | fbank |      粤语数据集      | 粤语  |    ctc_beam_search     | 0.05280 | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |   ctc_greedy_search    |         | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 | ctc_prefix_beam_search |         | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |  attention_rescoring   |         | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |    ctc_beam_search     |         | 加入知识星球获取 |
+| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 |   ctc_greedy_search    |         | 加入知识星球获取 |
+| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 | ctc_prefix_beam_search |         | 加入知识星球获取 |
+| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 |  attention_rescoring   |         | 加入知识星球获取 |
+| Conformer | True  | fbank | 更大数据集（13000+小时） | 普通话 |    ctc_beam_search     |         | 加入知识星球获取 |
 
 
 **说明：** 
