@@ -15,6 +15,7 @@ add_arg('metrics_type',         str,    'cer',                      '评估指�
 add_arg('save_model_path',      str,    'models/',                  '模型保存的路径')
 add_arg('resume_model',         str,    None,                       '恢复训练，当为None则不使用预训练模型')
 add_arg('pretrained_model',     str,    None,                       '预训练模型的路径，当为None则不使用预训练模型')
+add_arg('overwrites',           str,    None,    '覆盖配置文件中的参数，比如"train_conf.max_epoch=100"，多个用逗号隔开')
 args = parser.parse_args()
 
 if int(os.environ.get('LOCAL_RANK', 0)) == 0:
@@ -24,7 +25,8 @@ if int(os.environ.get('LOCAL_RANK', 0)) == 0:
 trainer = MASRTrainer(configs=args.configs,
                       use_gpu=args.use_gpu,
                       metrics_type=args.metrics_type,
-                      data_augment_configs=args.data_augment_configs)
+                      data_augment_configs=args.data_augment_configs,
+                      overwrites=args.overwrites)
 
 trainer.train(save_model_path=args.save_model_path,
               resume_model=args.resume_model,

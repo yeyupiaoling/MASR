@@ -14,6 +14,7 @@ add_arg('decoder',           str,   'ctc_greedy_search',           "解码器，
 add_arg('decoder_configs',   str,   'configs/decoder.yml',         "解码器配置参数文件路径")
 add_arg("max_text_duration", int,   50,                            "测试过滤的最大音频时长，如果不指定，则使用配置文件里面的max_duration")
 add_arg('resume_model',      str,   'models/ConformerModel_fbank/best_model/',  "模型的路径")
+add_arg('overwrites',        str,    None,    '覆盖配置文件中的参数，比如"train_conf.max_epoch=100"，多个用逗号隔开')
 args = parser.parse_args()
 print_arguments(args=args)
 
@@ -23,7 +24,8 @@ trainer = MASRTrainer(configs=args.configs,
                       use_gpu=args.use_gpu,
                       metrics_type=args.metrics_type,
                       decoder=args.decoder,
-                      decoder_configs=args.decoder_configs)
+                      decoder_configs=args.decoder_configs,
+                      overwrites=args.overwrites)
 
 # 开始评估
 start = time.time()
