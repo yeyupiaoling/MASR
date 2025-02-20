@@ -30,7 +30,7 @@ from masr.model_utils import build_model
 from masr.optimizer import build_optimizer, build_lr_scheduler
 from masr.utils.checkpoint import save_checkpoint, load_pretrained, load_checkpoint
 from masr.utils.metrics import cer, wer
-from masr.utils.utils import dict_to_object, print_arguments
+from masr.utils.utils import dict_to_object, print_arguments, convert_string_based_on_type
 
 
 class MASRTrainer(object):
@@ -74,12 +74,13 @@ class MASRTrainer(object):
         if overwrites:
             overwrites = overwrites.split(",")
             for overwrite in overwrites:
-                keys, v = overwrite.strip().split("=")
+                keys, value = overwrite.strip().split("=")
                 attrs = keys.split('.')
                 current_level = self.configs
                 for attr in attrs[:-1]:
                     current_level = getattr(current_level, attr)
-                setattr(current_level, attrs[-1], eval(v))
+                before_value = getattr(current_level, attrs[-1])
+                setattr(current_level, attrs[-1], convert_string_based_on_type(before_value, value))
         # 打印配置信息
         print_arguments(configs=self.configs)
         # 读取数据增强配置文件
