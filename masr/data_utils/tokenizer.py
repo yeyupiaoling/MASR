@@ -29,7 +29,8 @@ class MASRTokenizer(object):
                  build_vocab_size: int = None,
                  non_linguistic_symbols: List[str] = None,
                  remove_non_linguistic_symbols: bool = False,
-                 is_build_vocab: bool = False):
+                 is_build_vocab: bool = False,
+                 **kwargs):
         self.vocab_model_dir = vocab_model_dir
         self.build_vocab_size = build_vocab_size
         self.non_linguistic_symbols = non_linguistic_symbols
@@ -57,8 +58,11 @@ class MASRTokenizer(object):
                                  unk_piece="<unk>",
                                  eos_piece="<eos>",
                                  input_sentence_size=1e8,
-                                 character_coverage=0.9995,
+                                 character_coverage=1.0,
                                  minloglevel=4)
+            # 使用kwargs更新smp_args
+            for key, value in kwargs.items():
+                self.smp_args[key] = value
             if self.build_vocab_size is not None:
                 self.smp_args["vocab_size"] = self.build_vocab_size
             if model_type == "unigram":

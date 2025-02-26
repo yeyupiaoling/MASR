@@ -95,8 +95,8 @@ class MASRTrainer(object):
         self.decoder = decoder
         if self.configs.model_conf.model == 'DeepSpeech2Model':
             assert self.decoder != "attention_rescoring", f'DeepSpeech2Model不支持使用{decoder}解码器！'
-        if self.configs.tokenizer_conf.model_type != "char":
-            assert self.decoder == "ctc_beam_search", f'目前只有tokenizer_conf.model_type=char时，才能使用解码器为ctc_beam_search！'
+        if self.decoder == "ctc_beam_search":
+            assert self.configs.tokenizer_conf.model_type == "char", f'目前只有tokenizer_conf.model_type=char时，才能使用解码器为ctc_beam_search！'
         # 读取解码器配置文件
         if isinstance(decoder_configs, str) and os.path.exists(decoder_configs):
             with open(decoder_configs, 'r', encoding='utf-8') as f:
