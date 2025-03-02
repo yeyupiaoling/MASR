@@ -77,15 +77,15 @@ def load_checkpoint(configs, model, optimizer, amp_scaler, scheduler,
     def load_model(model_path):
         assert os.path.exists(os.path.join(model_path, 'model.pth')), "模型参数文件不存在！"
         assert os.path.exists(os.path.join(model_path, 'optimizer.pth')), "优化方法参数文件不存在！"
-        state_dict = torch.load(os.path.join(model_path, 'model.pth'), weights_only=True)
+        state_dict = torch.load(os.path.join(model_path, 'model.pth'), weights_only=False)
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model.module.load_state_dict(state_dict)
         else:
             model.load_state_dict(state_dict)
-        optimizer.load_state_dict(torch.load(os.path.join(model_path, 'optimizer.pth'), weights_only=True))
+        optimizer.load_state_dict(torch.load(os.path.join(model_path, 'optimizer.pth'), weights_only=False))
         # 自动混合精度参数
         if amp_scaler is not None and os.path.exists(os.path.join(model_path, 'scaler.pth')):
-            amp_scaler.load_state_dict(torch.load(os.path.join(model_path, 'scaler.pth'), weights_only=True))
+            amp_scaler.load_state_dict(torch.load(os.path.join(model_path, 'scaler.pth'), weights_only=False))
         with open(os.path.join(model_path, 'model.state'), 'r', encoding='utf-8') as f:
             json_data = json.load(f)
             error_rate = 1.0

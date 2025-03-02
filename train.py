@@ -13,6 +13,7 @@ add_arg("local_rank",           int,    0,                          '多卡训�
 add_arg("use_gpu",              bool,   True,                       '是否使用GPU训练')
 add_arg('metrics_type',         str,    'cer',                      '评估指标类型，中文用cer，英文用wer，中英混合用mer')
 add_arg('save_model_path',      str,    'models/',                  '模型保存的路径')
+add_arg('log_dir',              str,    'log/',                     '保存VisualDL日志文件的路径')
 add_arg('resume_model',         str,    None,                       '恢复训练，当为None则不使用预训练模型')
 add_arg('pretrained_model',     str,    None,                       '预训练模型的路径，当为None则不使用预训练模型')
 add_arg('overwrites',           str,    None,    '覆盖配置文件中的参数，比如"train_conf.max_epoch=100"，多个用逗号隔开')
@@ -29,5 +30,6 @@ trainer = MASRTrainer(configs=args.configs,
                       overwrites=args.overwrites)
 
 trainer.train(save_model_path=args.save_model_path,
+              log_dir=args.log_dir,
               resume_model=args.resume_model,
               pretrained_model=args.pretrained_model)

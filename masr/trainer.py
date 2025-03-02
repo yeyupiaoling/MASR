@@ -2,6 +2,7 @@ import json
 import os
 import platform
 import shutil
+import sys
 import time
 from contextlib import nullcontext
 from datetime import timedelta
@@ -41,10 +42,11 @@ class MASRTrainer(object):
                  decoder="ctc_greedy_search",
                  decoder_configs=None,
                  data_augment_configs=None,
-                 overwrites=None):
-        """ MASR集成工具类
+                 overwrites=None,
+                 log_level="error"):
+        """MASR语音识别训练工具类
 
-        :param configs: 配置文件路径或者是yaml读取到的配置参数
+        :param configs: 配置文件路径，或者模型名称，如果是模型名称则会使用默认的配置文件
         :type configs: dict or str
         :param use_gpu: 是否使用GPU训练模型
         :type use_gpu: bool
@@ -58,6 +60,8 @@ class MASRTrainer(object):
         :type data_augment_configs: dict or str
         :param overwrites: 覆盖配置文件中的参数，比如"train_conf.max_epoch=100"，多个用逗号隔开
         :type overwrites: str
+        :param log_level: 打印的日志等级，可选值有："debug", "info", "warning", "error"
+        :type log_level: str
         """
         if use_gpu:
             assert (torch.cuda.is_available()), 'GPU不可用'
@@ -65,8 +69,16 @@ class MASRTrainer(object):
         else:
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
             self.device = torch.device("cpu")
+        self.log_level = log_level.upper()
+        logger.remove()
+        logger.add(sink=sys.stdout, level=self.log_level)
         # 读取配置文件
         if isinstance(configs, str):
+            # 获取当前程序绝对路径
+            absolute_path = os.path.dirname(__file__)
+            # 获取默认配置文件路径
+            config_path = os.path.join(absolute_path, f"configs/{configs}.yml")
+            configs = config_path if os.path.exists(config_path) else configs
             with open(configs, 'r', encoding='utf-8') as f:
                 configs = yaml.load(f.read(), Loader=yaml.FullLoader)
         self.configs = dict_to_object(configs)
@@ -480,6 +492,8 @@ class MASRTrainer(object):
 
     def train(self,
               save_model_path='models/',
+              log_dir='log/',
+              max_epoch=None,
               resume_model=None,
               pretrained_model=None):
         """训练模型
@@ -488,6 +502,10 @@ class MASRTrainer(object):
         :type save_model_path: str
         :param resume_model: 恢复训练，当为None则不使用预训练模型
         :type resume_model: str
+        :param log_dir: 保存VisualDL日志文件的路径
+        :type log_dir: str
+        :param max_epoch: 最大训练轮数，对应配置文件中的train_conf.max_epoch
+        :type max_epoch: int
         :param pretrained_model: 预训练模型的路径，当为None则不使用预训练模型
         :type pretrained_model: str
         """
@@ -500,7 +518,7 @@ class MASRTrainer(object):
         writer = None
         if self.local_rank == 0:
             # 日志记录器
-            writer = LogWriter(logdir='log')
+            writer = LogWriter(logdir=log_dir)
 
         # 获取数据
         self.__setup_dataloader(is_train=True)
@@ -529,6 +547,8 @@ class MASRTrainer(object):
         self.train_batch_sampler.epoch = last_epoch
         if self.local_rank == 0:
             writer.add_scalar('Train/lr', self.scheduler.get_last_lr()[0], last_epoch)
+        if max_epoch is not None:
+            self.configs.train_conf.max_epoch = max_epoch
         # 最大步数
         self.max_step = len(self.train_loader) * self.configs.train_conf.max_epoch
         self.train_step = max(last_epoch, 0) * len(self.train_loader)

@@ -1,8 +1,14 @@
+import shutil
+
 from setuptools import setup, find_packages
 
 import masr
 
 MASR_VERSION = masr.__version__
+
+# 复制配置文件到项目目录下
+shutil.rmtree('./masr/configs/', ignore_errors=True)
+shutil.copytree('./configs/', './masr/configs/')
 
 
 def readme():
@@ -21,6 +27,7 @@ if __name__ == "__main__":
     setup(
         name='masr',
         packages=find_packages(exclude='download_data/'),
+        package_data={'': ['configs/*']},
         author='yeyupiaoling',
         version=MASR_VERSION,
         install_requires=parse_requirements('./requirements.txt'),
@@ -45,3 +52,4 @@ if __name__ == "__main__":
         ],
         license='Apache License 2.0',
         ext_modules=[])
+    shutil.rmtree('./masr/configs/', ignore_errors=True)
