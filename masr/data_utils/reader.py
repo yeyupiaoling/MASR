@@ -6,7 +6,8 @@ import torch
 from torch.utils.data import Dataset
 from yeaudio.audio import AudioSegment
 from yeaudio.augmentation import ReverbPerturbAugmentor, SpecAugmentor, SpecSubAugmentor
-from yeaudio.augmentation import SpeedPerturbAugmentor, VolumePerturbAugmentor, NoisePerturbAugmentor
+from yeaudio.augmentation import SpeedPerturbAugmentor, VolumePerturbAugmentor, NoisePerturbAugmentor, \
+    ShiftPerturbAugmentor, ResampleAugmentor
 
 from masr.data_utils.audio_featurizer import AudioFeaturizer
 from masr.data_utils.binary import DatasetReader
