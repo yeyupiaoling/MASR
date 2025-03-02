@@ -1,7 +1,7 @@
 numpy>=1.19.2
 scipy>=1.6.3
 python-Levenshtein>=0.25.1
-visualdl>=2.5.3
+visualdl==2.5.3
 soundfile>=0.12.1
 soundcard>=0.4.2
 resampy>=0.2.2
@@ -13,6 +13,6 @@ typeguard>=2.13.3
 onnxruntime>=1.17.1
 sentencepiece>=0.2.0
 loguru>=0.7.2
-yeaudio>=0.0.6
+yeaudio>=0.0.7
 kaldi_native_fbank>=1.20.0
 tqdm
