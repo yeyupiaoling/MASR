@@ -88,10 +88,10 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 | Conformer | True  | fbank |      粤语数据集      | 粤语  | ctc_prefix_beam_search | 0.05595 | 加入知识星球获取 |
 | Conformer | True  | fbank |      粤语数据集      | 粤语  |  attention_rescoring   | 0.04846 | 加入知识星球获取 |
 | Conformer | True  | fbank |      粤语数据集      | 粤语  |    ctc_beam_search     | 0.05280 | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |   ctc_greedy_search    |         | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 | ctc_prefix_beam_search |         | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |  attention_rescoring   |         | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |    ctc_beam_search     |         | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |   ctc_greedy_search    | 0.09582 | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 | ctc_prefix_beam_search | 0.09523 | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |  attention_rescoring   | 0.08470 | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |    ctc_beam_search     |    /    | 加入知识星球获取 |
 | Conformer | True  | fbank | 更大数据集（13000+小时） | 中英文 |   ctc_greedy_search    |         | 加入知识星球获取 |
 | Conformer | True  | fbank | 更大数据集（13000+小时） | 中英文 | ctc_prefix_beam_search |         | 加入知识星球获取 |
 | Conformer | True  | fbank | 更大数据集（13000+小时） | 中英文 |  attention_rescoring   |         | 加入知识星球获取 |
