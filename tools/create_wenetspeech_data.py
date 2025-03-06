@@ -94,21 +94,21 @@ def main():
                     test_meeting_data.append(line)
     os.makedirs(args.dataset_dir, exist_ok=True)
     # 训练数据列表
-    with open(os.path.join(args.dataset_dir, 'wenetspeech.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(args.dataset_dir, 'wenetspeech.jsonl'), 'w', encoding='utf-8') as f:
         train_data.sort(key=lambda x: x["duration"], reverse=False)
         for line in train_data:
             f.write(json.dumps(line, ensure_ascii=False) + '\n')
     # 测试数据列表
-    with open(os.path.join(args.dataset_dir, 'test_net.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(args.dataset_dir, 'test_net.jsonl'), 'w', encoding='utf-8') as f:
         test_net_data.sort(key=lambda x: x["duration"], reverse=False)
         for line in test_net_data:
             f.write(json.dumps(line, ensure_ascii=False) + '\n')
-    with open(os.path.join(args.dataset_dir, 'test_meeting.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(args.dataset_dir, 'test_meeting.jsonl'), 'w', encoding='utf-8') as f:
         test_meeting_data.sort(key=lambda x: x["duration"], reverse=False)
         for line in test_meeting_data:
             f.write(json.dumps(line, ensure_ascii=False) + '\n')
     test_data = test_net_data + test_meeting_data
-    with open(os.path.join(args.dataset_dir, 'test.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(args.dataset_dir, 'test.jsonl'), 'w', encoding='utf-8') as f:
         test_data.sort(key=lambda x: x["duration"], reverse=False)
         for line in test_data:
             f.write(json.dumps(line, ensure_ascii=False) + '\n')

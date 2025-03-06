@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 
 def create_data():
-    with open('../dataset/manifest.train', 'r', encoding='utf-8') as f:
+    with open('../dataset/train.jsonl', 'r', encoding='utf-8') as f:
         lines = f.readlines()
     fp = open('../dataset/corpus.txt', 'w', encoding='utf-8')
     for line in tqdm(lines):

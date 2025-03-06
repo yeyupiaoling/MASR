@@ -38,7 +38,7 @@ dataset/audio/wav/0175/H0175A0171.wav   今天是 sunday 明天就要 go to scho
 dataset/audio/wav/0175/H0175A0377.wav   ok 今天天气不错
 ```
 
-3. 最后执行下面的数据集处理程序，详细参数请查看该程序。这个程序是把我们的数据集生成JSON格式的训练和测试数据列表，分别是`manifest.test、manifest.train`。然后使用Sentencepiece建立词汇表模型，建立的词汇表模型默认存放子在`dataset/vocab_model`目录下。最后计算均值和标准差用于归一化，默认使用全部的语音计算均值和标准差，并将结果保存在`mean_istd.json`中。以上生成的文件都存放在`dataset/`目录下。数据划分说明，如果`dataset/annotation`存在`test.txt`，那全部测试数据都使用这个数据，否则使用全部数据的1/500的数据，直到指定的最大测试数据量。
+3. 最后执行下面的数据集处理程序，详细参数请查看该程序。这个程序是把我们的数据集生成JSON格式的训练和测试数据列表，分别是`test.jsonl、train.jsonl`。然后使用Sentencepiece建立词汇表模型，建立的词汇表模型默认存放子在`dataset/vocab_model`目录下。最后计算均值和标准差用于归一化，默认使用全部的语音计算均值和标准差，并将结果保存在`mean_istd.json`中。以上生成的文件都存放在`dataset/`目录下。数据划分说明，如果`dataset/annotation`存在`test.txt`，那全部测试数据都使用这个数据，否则使用全部数据的1/500的数据，直到指定的最大测试数据量。
 ```shell
 python create_data.py
 ```

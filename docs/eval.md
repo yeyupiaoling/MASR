@@ -32,8 +32,8 @@ python eval.py --resume_model=models/ConformerModel_fbank/best_model/
 2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:28 - 		target_dB: -20
 2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:28 - 		use_dB_normalization: True
 2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:30 - 	mean_istd_path: dataset/mean_istd.json
-2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:30 - 	test_manifest: dataset/manifest.test
-2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:30 - 	train_manifest: dataset/manifest.train
+2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:30 - 	test_manifest: dataset/test.jsonl
+2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:30 - 	train_manifest: dataset/train.jsonl
 2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:23 - decoder_conf:
 2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:26 - 	decoder_args:
 2024-09-21 15:10:05.630 | INFO     | masr.utils.utils:print_arguments:28 - 		attention_heads: 4
