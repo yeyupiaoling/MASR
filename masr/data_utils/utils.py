@@ -76,7 +76,7 @@ def create_manifest(annotation_path, train_manifest_path, test_manifest_path, ma
                             duration=duration,
                             start_time=start_time,
                             end_time=end_time)
-                if annotation_text == 'test.jsonl':
+                if annotation_text == 'test.json':
                     test_list.append(line)
                 else:
                     data_list.append(line)
