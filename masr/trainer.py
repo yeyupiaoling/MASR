@@ -43,7 +43,7 @@ class MASRTrainer(object):
                  decoder_configs=None,
                  data_augment_configs=None,
                  overwrites=None,
-                 log_level="error"):
+                 log_level="info"):
         """MASR语音识别训练工具类
 
         :param configs: 配置文件路径，或者模型名称，如果是模型名称则会使用默认的配置文件

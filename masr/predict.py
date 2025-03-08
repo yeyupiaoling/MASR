@@ -23,17 +23,17 @@ from masr.utils.utils import dict_to_object, print_arguments
 class MASRPredictor:
     def __init__(self,
                  model_dir: str = 'models/ConformerModel_fbank/inference_model/',
-                 decoder: str = "ctc_greedy",
+                 decoder: str = "ctc_greedy_search",
                  decoder_configs: Union[str, dict] = None,
                  punc_model_dir: str = None,
                  punc_online_model_dir: str = None,
                  punc_device_id: Union[str, int] = "-1",
                  use_gpu: bool = True,
-                 log_level: str = "error"):
+                 log_level: str = "info"):
         """MASR语音识别识别工具类
 
         :param model_dir: 导出的预测模型文件夹路径
-        :param decoder: 解码器，支持ctc_greedy、ctc_beam_search
+        :param decoder: 解码器，支持 ctc_greedy_search、ctc_prefix_beam_search、attention_rescoring、ctc_beam_search
         :param decoder_configs: 解码器配置参数文件路径，支持yaml格式
         :param punc_model_dir: 离线标点符号的模型文件夹路径
         :param punc_online_model_dir: 在线标点符号的模型文件夹路径
@@ -56,9 +56,14 @@ class MASRPredictor:
         if self.model_info.model_name == "DeepSpeech2Model":
             assert self.decoder != "attention_rescoring", f'DeepSpeech2Model不支持使用{decoder}解码器！'
         # 读取解码器配置文件
-        if isinstance(decoder_configs, str) and os.path.exists(decoder_configs):
-            with open(decoder_configs, 'r', encoding='utf-8') as f:
-                decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+        if isinstance(decoder_configs, str):
+            # 获取默认解码配置文件路径
+            decoder_configs_path = os.path.join(os.path.dirname(__file__), f"configs/{decoder_configs}.yml")
+            decoder_configs = decoder_configs_path if os.path.exists(decoder_configs_path) else decoder_configs
+            if os.path.exists(decoder_configs):
+                with open(decoder_configs, 'r', encoding='utf-8') as f:
+                    decoder_configs = yaml.load(f.read(), Loader=yaml.FullLoader)
+                print_arguments(configs=decoder_configs, title='解码器参数配置')
             print_arguments(configs=decoder_configs, title='解码器参数配置')
         self.decoder_configs = decoder_configs if decoder_configs is not None else {}
         self.running = False
