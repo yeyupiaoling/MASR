@@ -3,6 +3,7 @@ from typing import List, Dict
 
 import numpy as np
 import torch
+from loguru import logger
 from torch.utils.data import Dataset
 from yeaudio.audio import AudioSegment
 from yeaudio.augmentation import ReverbPerturbAugmentor, SpecAugmentor, SpecSubAugmentor
@@ -66,6 +67,8 @@ class MASRDataset(Dataset):
         self.dataset_reader = None
         self.speed_augment = None
         self.volume_augment = None
+        self.shift_augment = None
+        self.resample_augment = None
         self.noise_augment = None
         self.reverb_augment = None
         self.spec_augment = None
@@ -78,47 +81,51 @@ class MASRDataset(Dataset):
 
     def __getitem__(self, idx):
         data_list = self.get_one_list(idx)
-        # 分割音频路径和标签
-        audio_file, transcript = data_list["audio_filepath"], data_list["text"]
-        # 如果后缀名为.npy的文件，那么直接读取
-        if audio_file.endswith('.npy'):
-            start_frame, end_frame = data_list["start_frame"], data_list["end_frame"]
-            feature = np.load(audio_file)
-            feature = feature[start_frame:end_frame, :]
-        else:
-            if 'start_time' not in data_list.keys():
-                # 读取音频
-                audio_segment = AudioSegment.from_file(audio_file)
+        try:
+            # 分割音频路径和标签
+            audio_file, transcript = data_list["audio_filepath"], data_list["text"]
+            # 如果后缀名为.npy的文件，那么直接读取
+            if audio_file.endswith('.npy'):
+                start_frame, end_frame = data_list["start_frame"], data_list["end_frame"]
+                feature = np.load(audio_file)
+                feature = feature[start_frame:end_frame, :]
             else:
-                start_time, end_time = data_list["start_time"], data_list["end_time"]
-                # 分割读取音频
-                audio_segment = AudioSegment.slice_from_file(audio_file, start=start_time, end=end_time)
-            # 音频增强
+                if 'start_time' not in data_list.keys():
+                    # 读取音频
+                    audio_segment = AudioSegment.from_file(audio_file)
+                else:
+                    start_time, end_time = data_list["start_time"], data_list["end_time"]
+                    # 分割读取音频
+                    audio_segment = AudioSegment.slice_from_file(audio_file, start=start_time, end=end_time)
+                # 音频增强
+                if self.mode == 'train':
+                    audio_segment = self.augment_audio(audio_segment)
+                # 重采样
+                if audio_segment.sample_rate != self._target_sample_rate:
+                    audio_segment.resample(self._target_sample_rate)
+                # 音量归一化
+                if self._use_dB_normalization:
+                    audio_segment.normalize(target_db=self._target_dB)
+                # 预处理，提取特征
+                feature = self._audio_featurizer.featurize(waveform=audio_segment.samples,
+                                                           sample_rate=audio_segment.sample_rate)
+            # 特征增强
             if self.mode == 'train':
-                audio_segment = self.augment_audio(audio_segment)
-            # 重采样
-            if audio_segment.sample_rate != self._target_sample_rate:
-                audio_segment.resample(self._target_sample_rate)
-            # 音量归一化
-            if self._use_dB_normalization:
-                audio_segment.normalize(target_db=self._target_dB)
-            # 预处理，提取特征
-            feature = self._audio_featurizer.featurize(waveform=audio_segment.samples,
-                                                       sample_rate=audio_segment.sample_rate)
-        # 特征增强
-        if self.mode == 'train':
-            if self.spec_augment is not None:
-                feature = self.spec_augment(feature)
-            if self.spec_sub_augment is not None:
-                feature = self.spec_sub_augment(feature)
-        feature = torch.tensor(feature, dtype=torch.float32)
-        # 有些任务值需要音频特征
-        if self._tokenizer is None:
-            return feature
-        # 把文本标签转成token
-        text_ids = self._tokenizer.text2ids(transcript)
-        text_ids = torch.tensor(text_ids, dtype=torch.int32)
-        return feature, text_ids
+                if self.spec_augment is not None:
+                    feature = self.spec_augment(feature)
+                if self.spec_sub_augment is not None:
+                    feature = self.spec_sub_augment(feature)
+            feature = torch.tensor(feature, dtype=torch.float32)
+            # 有些任务值需要音频特征
+            if self._tokenizer is None:
+                return feature
+            # 把文本标签转成token
+            text_ids = self._tokenizer.text2ids(transcript)
+            text_ids = torch.tensor(text_ids, dtype=torch.int32)
+            return feature, text_ids
+        except Exception as e:
+            logger.error(f"{data_list} 读取失败，错误信息：{e}")
+            return self.__getitem__(np.random.randint(0, len(self)))
 
     def __len__(self):
         return len(self.data_list)
@@ -175,6 +182,10 @@ class MASRDataset(Dataset):
             self.speed_augment = SpeedPerturbAugmentor(**aug_conf.speed)
         if aug_conf.volume is not None:
             self.volume_augment = VolumePerturbAugmentor(**aug_conf.volume)
+        if aug_conf.shift is not None:
+            self.shift_augment = ShiftPerturbAugmentor(**aug_conf.shift)
+        if aug_conf.resample is not None:
+            self.resample_augment = ResampleAugmentor(**aug_conf.resample)
         if aug_conf.noise is not None:
             self.noise_augment = NoisePerturbAugmentor(**aug_conf.noise)
         if aug_conf.reverb is not None:
@@ -190,6 +201,10 @@ class MASRDataset(Dataset):
             audio_segment = self.speed_augment(audio_segment)
         if self.volume_augment is not None:
             audio_segment = self.volume_augment(audio_segment)
+        if self.shift_augment is not None:
+            audio_segment = self.shift_augment(audio_segment)
+        if self.resample_augment is not None:
+            audio_segment = self.resample_augment(audio_segment)
         if self.noise_augment is not None:
             audio_segment = self.noise_augment(audio_segment)
         if self.reverb_augment is not None:
