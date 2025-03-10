@@ -124,7 +124,7 @@ class MASRDataset(Dataset):
             text_ids = torch.tensor(text_ids, dtype=torch.int32)
             return feature, text_ids
         except Exception as e:
-            logger.error(f"{data_list} 读取失败，错误信息：{e}")
+            logger.exception(f"{data_list} 读取失败，错误信息：{e}")
             return self.__getitem__(np.random.randint(0, len(self)))
 
     def __len__(self):
