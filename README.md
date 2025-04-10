@@ -89,20 +89,19 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 4. 其他数据集的预训练模型列表，错误率类型，如果是中文就是字错率（CER），英文则是词错率（WER），中英混合为混合错误率（MER）：
 
-|   使用模型    | 是否为流式 | 预处理方式 |       数据集       | 语言  |          解码方式          |  测试数据   |   下载地址   |
-|:---------:|:-----:|:-----:|:---------------:|:---:|:----------------------:|:-------:|:--------:|
-| Conformer | True  | fbank |      粤语数据集      | 粤语  |   ctc_greedy_search    | 0.05596 | 加入知识星球获取 |
-| Conformer | True  | fbank |      粤语数据集      | 粤语  | ctc_prefix_beam_search | 0.05595 | 加入知识星球获取 |
-| Conformer | True  | fbank |      粤语数据集      | 粤语  |  attention_rescoring   | 0.04846 | 加入知识星球获取 |
-| Conformer | True  | fbank |      粤语数据集      | 粤语  |    ctc_beam_search     | 0.05280 | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |   ctc_greedy_search    | 0.09582 | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 | ctc_prefix_beam_search | 0.09523 | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |  attention_rescoring   | 0.08470 | 加入知识星球获取 |
-| Conformer | True  | fbank |     中英混合数据集     | 中英文 |    ctc_beam_search     |    /    | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（16000+小时） | 中英文 |   ctc_greedy_search    |         | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（16000+小时） | 中英文 | ctc_prefix_beam_search |         | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（16000+小时） | 中英文 |  attention_rescoring   |         | 加入知识星球获取 |
-| Conformer | True  | fbank | 更大数据集（16000+小时） | 中英文 |    ctc_beam_search     |         | 加入知识星球获取 |
+|   使用模型    | 是否为流式 | 预处理方式 |       数据集       | 语言  |          解码方式          |                                                        测试数据                                                         |   下载地址   |
+|:---------:|:-----:|:-----:|:---------------:|:---:|:----------------------:|:-------------------------------------------------------------------------------------------------------------------:|:--------:|
+| Conformer | True  | fbank |      粤语数据集      | 粤语  |   ctc_greedy_search    |                                                       0.05596                                                       | 加入知识星球获取 |
+| Conformer | True  | fbank |      粤语数据集      | 粤语  | ctc_prefix_beam_search |                                                       0.05595                                                       | 加入知识星球获取 |
+| Conformer | True  | fbank |      粤语数据集      | 粤语  |  attention_rescoring   |                                                       0.04846                                                       | 加入知识星球获取 |
+| Conformer | True  | fbank |      粤语数据集      | 粤语  |    ctc_beam_search     |                                                       0.05280                                                       | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |   ctc_greedy_search    |                                                       0.09582                                                       | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 | ctc_prefix_beam_search |                                                       0.09523                                                       | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |  attention_rescoring   |                                                       0.08470                                                       | 加入知识星球获取 |
+| Conformer | True  | fbank |     中英混合数据集     | 中英文 |    ctc_beam_search     |                                                          /                                                          | 加入知识星球获取 |
+| Conformer | True  | fbank | 更大数据集（16000+小时） | 中英文 |   ctc_greedy_search    |              test_net: 0.17378<br>test_meeting: 0.20505<br>Librispeech-Test: 0.20888<br>中英混合: 0.14189               | 加入知识星球获取 |
+| Conformer | True  | fbank | 更大数据集（16000+小时） | 中英文 | ctc_prefix_beam_search |              test_net: 0.17311<br>test_meeting: 0.20408<br>Librispeech-Test: 0.20508<br>中英混合: 0.14009               | 加入知识星球获取 |
+| Conformer | True  | fbank | 更大数据集（16000+小时） | 中英文 |  attention_rescoring   |              test_net: 0.15607<br>test_meeting: 0.19188<br>Librispeech-Test: 0.17477<br>中英混合: 0.12389               | 加入知识星球获取 |
 
 
 **说明：** 
@@ -110,6 +109,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 2. 分别给出了使用三个解码器的错误率，其中`ctc_prefix_beam_search`、`attention_rescoring`的解码搜索大小为10。
 3. 训练时使用了噪声增强和混响增强，以及其他增强方法，具体请看配置参数`configs/augmentation.yml`。
 4. 这里只提供了流式模型，但全部模型都支持流式和非流式的，在配置文件中`streaming`参数设置。
+5. `更大数据集`准确率比其他的低最主要的是应为训练的epoch太少，但是足以作为其他微调任务的预训练模型。
 
 >有问题欢迎提 [issue](https://github.com/yeyupiaoling/MASR/issues) 交流
 
