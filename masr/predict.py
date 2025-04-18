@@ -325,12 +325,24 @@ class MASRPredictor:
         audio_segment = self._load_audio(audio_data=audio_data, sample_rate=sample_rate)
         results = []
         for result in sd_results:
-            speaker = result['speaker']
-            start = int(result['start'] * audio_segment.sample_rate)
-            end = int(result['end'] * audio_segment.sample_rate)
-            audio_ndarray = audio_segment.samples[start: end]
-            text = self._infer(audio_data=audio_ndarray, use_punc=use_punc, is_itn=is_itn,
-                               sample_rate=audio_segment.sample_rate)
+            speaker = int(result['speaker'])
+            start_time = result['start']
+            end_time = result['end']
+            # 如果音频时长大于30秒，需要循环分段识别
+            if end_time - start_time > 30:
+                text = ""
+                for i in range(int((end_time - start_time) / 30) + 1):
+                    start = int((start_time + i * 30) * audio_segment.sample_rate)
+                    end = int((start_time + (i + 1) * 30) * audio_segment.sample_rate)
+                    audio_ndarray = audio_segment.samples[start: end]
+                    text += self._infer(audio_data=audio_ndarray, use_punc=use_punc, is_itn=is_itn,
+                                        sample_rate=audio_segment.sample_rate)
+            else:
+                start = int(start_time * audio_segment.sample_rate)
+                end = int(end_time * audio_segment.sample_rate)
+                audio_ndarray = audio_segment.samples[start: end]
+                text = self._infer(audio_data=audio_ndarray, use_punc=use_punc, is_itn=is_itn,
+                                   sample_rate=audio_segment.sample_rate)
             result = {'speaker': speaker, 'text': text, 'start': result['start'], 'end': result['end']}
             logger.info(f'说话人识别结果：{result}')
             results.append(result)
@@ -342,7 +354,7 @@ class MASRPredictor:
         results = [sd_results[0]]
         for i in range(1, len(sd_results)):
             sd_result = sd_results[i]
-            if results[-1]['speaker'] == sd_result['speaker'] and results[-1]['end'] - sd_result['start'] < 30:
+            if results[-1]['speaker'] == sd_result['speaker'] and sd_result['end'] - results[-1]['start'] < 20:
                 results[-1]['end'] = sd_result['end']
             else:
                 results.append(sd_result)
