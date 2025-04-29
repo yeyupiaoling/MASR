@@ -4,6 +4,7 @@ import platform
 import shutil
 import sys
 import time
+import uuid
 from contextlib import nullcontext
 from datetime import timedelta
 
@@ -245,7 +246,7 @@ class MASRTrainer(object):
                                 save_dir_num = f'{int(time.time())}'
                                 os.makedirs(os.path.join(str(save_dir1), save_dir_num), exist_ok=True)
                             save_path = os.path.join(str(save_dir1), save_dir_num,
-                                                     f'{int(time.time() * 1000)}.npy').replace('\\', '/')
+                                                     f'{str(uuid.uuid4())}.npy').replace('\\', '/')
                         else:
                             all_feature = np.concatenate((all_feature, feature), axis=0)
                         new_data_list = {"audio_filepath": save_path,
