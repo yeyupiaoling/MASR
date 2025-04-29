@@ -96,7 +96,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     data = data[:-3]
                 # 开始预测
                 result = predictor.predict_stream(audio_data=data, use_punc=args.use_pun, is_itn=args.is_itn,
-                                                  is_end=is_end)
+                                                  is_final=is_end)
                 if result is not None:
                     score, text = result['score'], result['text']
                 send_data = {"code": 0, "result": text}
@@ -114,7 +114,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 except:
                     break
         # 重置流式识别
-        predictor.reset_stream()
+        predictor.reset_predictor()
         predictor.running = False
         # 保存录音
         save_dir = os.path.join(args.save_path, datetime.now().strftime('%Y-%m-%d'))
