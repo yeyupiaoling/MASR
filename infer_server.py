@@ -83,7 +83,7 @@ async def websocket_endpoint(websocket: WebSocket):
     logger.info(f'有WebSocket连接建立')
     if not predictor.running:
         frames = []
-        score, text = 0, ""
+        text = ""
         while True:
             try:
                 data = await websocket.receive_bytes()
@@ -98,7 +98,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 result = predictor.predict_stream(audio_data=data, use_punc=args.use_pun, is_itn=args.is_itn,
                                                   is_final=is_end)
                 if result is not None:
-                    score, text = result['score'], result['text']
+                    text = result['text']
                 send_data = {"code": 0, "result": text}
                 logger.info(f'向客户端发生消息：{send_data}')
                 await websocket.send_json(send_data)

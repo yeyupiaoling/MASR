@@ -249,8 +249,7 @@ class MASRPredictor:
                                sample_rate=audio_segment.sample_rate)
             result = {'text': text,
                       'sentences': [{'text': text, 'start': 0, 'end': audio_segment.duration}]}
-            return result
-        elif allow_use_vad and audio_segment.duration > 30:
+        else:
             last_audio_ndarray = None
             # 获取语音活动区域
             speech_timestamps = audio_segment.vad()
@@ -280,7 +279,7 @@ class MASRPredictor:
                 else:
                     logger.warning('标点符号模型没有初始化！')
             result = {'text': texts, 'sentences': sentences}
-            return result
+        return result
 
     def predict_sd_asr(self,
                        audio_data,
