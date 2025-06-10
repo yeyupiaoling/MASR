@@ -26,7 +26,12 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 # 在线试用
 
-[在线试用地址](https://tools.yeyupiaoling.cn/speech/masr)
+**网页版：**[在线试用地址](https://tools.yeyupiaoling.cn/speech/masr)
+
+<div align="center">
+  <img src="https://tools.yeyupiaoling.cn/static/wechat-qr/masr.jpg" alt="微信小程序" width="200"><br/>
+  微信小程序
+</div>
 
 
 ## 项目特点
