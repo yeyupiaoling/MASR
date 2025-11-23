@@ -78,7 +78,7 @@ def tune():
             best_alpha = alpha
             best_beta = beta
             best_result = error_result
-        eta_sec = start_time * (len(params_grid) - i - 1) / 1000
+        eta_sec = (time.time() - start_time) * (len(params_grid) - i - 1)
         eta_str = str(timedelta(seconds=int(eta_sec)))
         logger.info(
             f'[{i + 1}/{len(params_grid)}] 当alpha为：{alpha}, beta为：{beta}，{args.metrics_type}：{error_result:.5f}, '
