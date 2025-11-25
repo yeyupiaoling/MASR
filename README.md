@@ -111,9 +111,9 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 | Conformer |       更大数据集（16000+小时）        | 中英文  |   ctc_greedy_search    | test_net: 0.17378<br>test_meeting: 0.20505<br>Librispeech-Test: 0.20888<br>中英混合: 0.14189 | 加入知识星球获取 |
 | Conformer |       更大数据集（16000+小时）        | 中英文  | ctc_prefix_beam_search | test_net: 0.17311<br>test_meeting: 0.20408<br>Librispeech-Test: 0.20508<br>中英混合: 0.14009 | 加入知识星球获取 |
 | Conformer |       更大数据集（16000+小时）        | 中英文  |  attention_rescoring   | test_net: 0.15607<br>test_meeting: 0.19188<br>Librispeech-Test: 0.17477<br>中英混合: 0.12389 | 加入知识星球获取 |
-| Conformer | CommonVoice-Uyghur + THUYG20 | 维吾尔语 |   ctc_greedy_search    |                                         0.04922                                          | 加入知识星球获取 |
-| Conformer | CommonVoice-Uyghur + THUYG20 | 维吾尔语 | ctc_prefix_beam_search |                                         0.04793                                          | 加入知识星球获取 |
-| Conformer | CommonVoice-Uyghur + THUG20  | 维吾尔语 |  attention_rescoring   |                                         0.03302                                          | 加入知识星球获取 |
+| Conformer | CommonVoice-Uyghur + THUYG20 | 维吾尔语 |   ctc_greedy_search    |                                         0.04179                                          | 加入知识星球获取 |
+| Conformer | CommonVoice-Uyghur + THUYG20 | 维吾尔语 | ctc_prefix_beam_search |                                         0.04078                                          | 加入知识星球获取 |
+| Conformer | CommonVoice-Uyghur + THUG20  | 维吾尔语 |  attention_rescoring   |                                         0.02759                                          | 加入知识星球获取 |
 
 **说明：** 
 1. 这里字错率或者词错率是使用`eval.py`。
