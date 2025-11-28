@@ -100,10 +100,10 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 
 |   使用模型    |             数据集              |  语言  |          解码方式          |                                           测试数据                                           |   下载地址   |
 |:---------:|:----------------------------:|:----:|:----------------------:|:----------------------------------------------------------------------------------------:|:--------:|
-| Conformer |            粤语数据集             |  粤语  |   ctc_greedy_search    |                                         0.05596                                          | 加入知识星球获取 |
-| Conformer |            粤语数据集             |  粤语  | ctc_prefix_beam_search |                                         0.05595                                          | 加入知识星球获取 |
-| Conformer |            粤语数据集             |  粤语  |  attention_rescoring   |                                         0.04846                                          | 加入知识星球获取 |
-| Conformer |            粤语数据集             |  粤语  |    ctc_beam_search     |                                         0.05280                                          | 加入知识星球获取 |
+| Conformer |          粤语(含港式粤语)           |  粤语  |   ctc_greedy_search    |                                         0.04241                                          | 加入知识星球获取 |
+| Conformer |          粤语(含港式粤语)           |  粤语  | ctc_prefix_beam_search |                                         0.04234                                          | 加入知识星球获取 |
+| Conformer |          粤语(含港式粤语)           |  粤语  |  attention_rescoring   |                                         0.02969                                          | 加入知识星球获取 |
+| Conformer |          粤语(含港式粤语)           |  粤语  |    ctc_beam_search     |                                         0.04461                                          | 加入知识星球获取 |
 | Conformer |           中英混合数据集            | 中英文  |   ctc_greedy_search    |                                         0.09582                                          | 加入知识星球获取 |
 | Conformer |           中英混合数据集            | 中英文  | ctc_prefix_beam_search |                                         0.09523                                          | 加入知识星球获取 |
 | Conformer |           中英混合数据集            | 中英文  |  attention_rescoring   |                                         0.08470                                          | 加入知识星球获取 |
