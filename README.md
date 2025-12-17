@@ -12,8 +12,8 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 **欢迎大家扫码入知识星球或者QQ群讨论，知识星球里面提供项目的模型文件和博主其他相关项目的模型文件，也包括其他一些资源。**
 
 <div align="center">
-  <img src="https://yeyupiaoling.cn/zsxq.png" alt="知识星球" width="400">
-  <img src="https://yeyupiaoling.cn/qq.png" alt="QQ群" width="400">
+  <img src="https://yeyupiaoling.cn/zsxq.jpg" alt="知识星球" width="400">
+  <img src="https://yeyupiaoling.cn/qq.jpg" alt="QQ群" width="400">
 </div>
 
 
