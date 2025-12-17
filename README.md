@@ -158,7 +158,7 @@ MASR是一款基于Pytorch实现的自动语音识别框架，MASR全称是神�
 <br/>
 <div align="center">
 <p>打赏一块钱支持一下作者</p>
-<img src="https://yeyupiaoling.cn/reward.png" alt="打赏作者" width="400">
+<img src="https://yeyupiaoling.cn/reward.jpg" alt="打赏作者" width="400">
 </div>
 
 
