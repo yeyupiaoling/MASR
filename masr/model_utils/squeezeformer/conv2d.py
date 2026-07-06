@@ -1,5 +1,6 @@
+from typing import Optional, Union
 import torch.nn.functional as F
-from torch.nn.modules.conv import _ConvNd, _size_2_t, Union, _pair, Tensor, Optional
+from torch.nn.modules.conv import _ConvNd, _size_2_t, _pair, Tensor
 
 
 class Conv2dValid(_ConvNd):
